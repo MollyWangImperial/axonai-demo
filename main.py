@@ -40,6 +40,7 @@ from utilities.utilsOpenSim import runScaleTool, getScaleTimeRange, runIKTool, g
 from typing import Optional
 from gait_results import run_gait_analysis
 from generate_report import generate_clinical_report
+from generate_report_html import generate_interactive_gait_report
 
 def run_opencap(sessionName="Trial_Session", 
          sessionName_scaled = 'Trial_Session_Scaling',
@@ -718,6 +719,9 @@ def run_pipeline(session_path: str, output_dir: Optional[str] = None):
     generate_clinical_report(
     json_file="gait_output.json",
     output_pdf="report.pdf"
+    )
+    generate_interactive_gait_report(
+        json_file="gait_output.json",
     )
 
 
