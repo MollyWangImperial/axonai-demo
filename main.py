@@ -42,6 +42,19 @@ from gait_results import run_gait_analysis
 from generate_report import generate_clinical_report
 from generate_report_html import generate_interactive_gait_report
 
+from fastapi import FastAPI, UploadFile, File, Form, HTTPException
+from pathlib import Path
+import shutil
+import traceback
+import json
+from pydantic import BaseModel
+
+class GaitResultsRequest(BaseModel):
+    session_name: str
+    trial_name: str
+    trial_id: str
+    session_name_scaled: str | None = None
+    
 def run_opencap(sessionName="Trial_Session", 
          sessionName_scaled = 'Trial_Session_Scaling',
          trialName = "33", 
@@ -727,6 +740,116 @@ def run_pipeline(session_path: str, output_dir: Optional[str] = None):
 
     return {"message": "pipeline ran", "session_path": session_path, "output_dir": output_dir, "gait_analysis":results}
 
+app = FastAPI()
+
+def save_upload_file(upload_file: UploadFile, destination: Path) -> None:
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    with destination.open("wb") as buffer:
+        shutil.copyfileobj(upload_file.file, buffer)
+
+@app.post("/api/run-opencap")
+async def api_run_opencap(
+    left_video: UploadFile = File(...),
+    right_video: UploadFile = File(...),
+    session_name: str = Form(...),
+    trial_name: str = Form(...),
+    trial_id: str = Form(...),
+):
+    try:
+        base_dir = Path(__file__).resolve().parent
+
+        # This is the folder your current run_opencap() searches for videos in.
+        video_root = base_dir / "OpenCapData_experiment" / "Videos"
+
+        left_ext = Path(left_video.filename).suffix or ".mp4"
+        right_ext = Path(right_video.filename).suffix or ".mp4"
+
+        left_dest = (
+            video_root
+            / "Cam0"
+            / "InputMedia"
+            / trial_name
+            / f"{trial_id}{left_ext}"
+        )
+        right_dest = (
+            video_root
+            / "Cam1"
+            / "InputMedia"
+            / trial_name
+            / f"{trial_id}{right_ext}"
+        )
+
+        # Save uploaded files to the exact paths OpenCap expects
+        save_upload_file(left_video, left_dest)
+        save_upload_file(right_video, right_dest)
+
+        # Call your existing pipeline
+        pre_aug_dir, returned_trial_name = run_opencap(
+            sessionName=session_name,
+            trialName=trial_name,
+            trial_id=trial_id,
+            cameras_to_use=["all_available"],
+            scaleModel=False,
+        )
+
+        return {
+            "status": "success",
+            "message": "OpenCap processing completed.",
+            "session_name": session_name,
+            "trial_name": returned_trial_name,
+            "trial_id": trial_id,
+            "left_video_path": str(left_dest),
+            "right_video_path": str(right_dest),
+            "pre_aug_dir": str(pre_aug_dir),
+        }
+
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"run_opencap failed: {str(e)}")
+
+@app.post("/api/generate-gait-results")
+async def api_generate_gait_results(payload: GaitResultsRequest):
+    try:
+        session_name = payload.session_name
+        trial_name = payload.trial_name
+        session_name_scaled = payload.session_name_scaled or session_name
+
+        # Run gait analysis
+        gait_analysis_result = run_gait_analysis(
+            trial_name=trial_name,
+            sessionName=session_name,
+            sessionName_scaled=session_name_scaled,
+        )
+
+        # Build final output JSON structure
+        gait_output = {
+            "message": "pipeline ran",
+            "session_name": session_name,
+            "trial_name": trial_name,
+            "gait_analysis": gait_analysis_result,
+        }
+
+        # Save to repo root gait_output.json
+        base_dir = Path(__file__).resolve().parent
+        output_path = base_dir / "gait_output.json"
+        output_path.write_text(
+            json.dumps(gait_output, indent=2),
+            encoding="utf-8",
+        )
+
+        return {
+            "status": "success",
+            "message": "Gait results generated successfully.",
+            "session_name": session_name,
+            "trial_name": trial_name,
+            "gait_output_path": str(output_path),
+            "gait_output": gait_output,
+        }
+
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"generate gait results failed: {str(e)}")
+    
 if __name__ == "__main__":
     # keep your CLI behavior if you want
     import argparse

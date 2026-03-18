@@ -1,12 +1,25 @@
+import os
+import sys
 from pathlib import Path
 import reflex as rx
+import json
+import uuid
+import httpx
 
+# Add parent directory to Python path
+CURRENT_DIR = Path(__file__).resolve().parent
+PROJECT_ROOT = CURRENT_DIR.parent.parent   # go up to axonai_vps folder
+
+sys.path.append(str(PROJECT_ROOT))
+
+from generate_report_html import build_gait_report_data
+import plotly.graph_objects as go
 
 UPLOAD_DIR = Path("uploaded_files")
 UPLOAD_DIR.mkdir(exist_ok=True)
 
-REPORTS_DIR = Path("generated_reports")
-REPORTS_DIR.mkdir(exist_ok=True)
+REPORTS_DIR = Path(".web/public/generated_reports")
+REPORTS_DIR.mkdir(parents=True, exist_ok=True)
 
 
 class State(rx.State):
@@ -37,6 +50,453 @@ class State(rx.State):
 
     report_status: str = ""
     status_message: str = ""
+
+    summary_labels: list[str] = []
+    summary_values: list[str] = []
+    metric_table_fig: go.Figure = go.Figure()
+    symmetry_fig: go.Figure = go.Figure()
+    section_titles: list[str] = []
+    section_guidelines: list[str] = []
+    section_figures: list[go.Figure] = []
+    
+    server_base_url: str = "http://187.77.179.76:8000"
+
+    processing_session_id: str = ""
+    processing_trial_name: str = "walking"
+    processing_trial_id: str = "walking"
+
+    opencap_ready: bool = False
+    opencap_status: str = ""
+    gait_json_local_path: str = ""
+    is_processing_opencap: bool = False
+    is_generating_report: bool = False
+
+    # -------------------------
+    # ADD THESE STATE FIELDS INSIDE class State(rx.State):
+    # -------------------------
+    
+
+    rehab_plan_ready: bool = False
+    rehab_plan_status: str = ""
+    rehab_plan_title: str = ""
+    rehab_plan_overview: str = ""
+    rehab_plan_disclaimer: str = ""
+
+    rehab_priority_focus_areas: list[dict[str, str]] = []
+    rehab_exercise_plan: list[dict[str, str]] = []
+    rehab_weekly_schedule: list[dict[str, list[str] | str]] = []
+    rehab_nutrition_suggestions: list[dict[str, str]] = []
+    rehab_lifestyle_recommendations: list[str] = []
+    rehab_follow_up_flags: list[str] = []
+
+    rehab_priority_titles: list[str] = []
+    rehab_priority_rationales: list[str] = []
+
+    rehab_exercise_names: list[str] = []
+    rehab_exercise_goals: list[str] = []
+    rehab_exercise_instruction_blocks: list[str] = []
+    rehab_exercise_sets: list[str] = []
+    rehab_exercise_reps: list[str] = []
+    rehab_exercise_frequencies: list[str] = []
+    rehab_exercise_progressions: list[str] = []
+    rehab_exercise_cautions: list[str] = []
+
+    rehab_schedule_day_labels: list[str] = []
+    rehab_schedule_activity_blocks: list[str] = []
+
+    rehab_nutrition_titles: list[str] = []
+    rehab_nutrition_recommendations: list[str] = []
+    rehab_nutrition_why: list[str] = []
+
+    @rx.var
+    def can_generate_rehab_plan(self) -> bool:
+        return self.report_ready
+
+    report_text: str = ""
+    report_ready: bool = False
+    report_chat_input: str = ""
+    chat_messages: list[dict[str, str]] = [
+        {
+            "role": "assistant",
+            "content": "Hi! Once your gait report is generated, you can ask me questions about symmetry, cadence, stance phase, swing phase, and clinical interpretation.",
+        }
+    ]
+    
+    async def maybe_start_opencap(self):
+        if not (self.patient_left_video_path and self.patient_right_video_path):
+            return
+
+        if self.opencap_ready or self.is_processing_opencap:
+            return
+
+        try:
+            self.is_processing_opencap = True
+            self.opencap_status = "Uploading videos to server and running OpenCap..."
+            self.report_status = self.opencap_status
+
+            if not self.processing_session_id:
+                uid = uuid.uuid4().hex[:10]
+                self.processing_session_id = f"session_{uid}"
+                self.processing_trial_name = f"trial_{uid}"
+                self.processing_trial_id = self.processing_trial_name
+
+            async with httpx.AsyncClient(timeout=3600.0) as client:
+                with open(self.patient_left_video_path, "rb") as f_left, open(self.patient_right_video_path, "rb") as f_right:
+                    response = await client.post(
+                        f"{self.server_base_url}/api/run-opencap",
+                        data={
+                            "session_name": self.processing_session_id,
+                            "trial_name": self.processing_trial_name,
+                            "trial_id": self.processing_trial_id,
+                        },
+                        files={
+                            "left_video": (
+                                os.path.basename(self.patient_left_video_path),
+                                f_left,
+                                "video/mp4",
+                            ),
+                            "right_video": (
+                                os.path.basename(self.patient_right_video_path),
+                                f_right,
+                                "video/mp4",
+                            ),
+                        },
+                    )
+
+            response.raise_for_status()
+            payload = response.json()
+
+            self.opencap_ready = True
+            self.opencap_status = "OpenCap processing completed successfully."
+            self.report_status = self.opencap_status
+
+        except Exception as e:
+            self.opencap_ready = False
+            self.opencap_status = f"OpenCap failed: {str(e)}"
+            self.report_status = self.opencap_status
+
+        finally:
+            self.is_processing_opencap = False
+
+    async def generate_rehab_plan(self):
+        """Generate a structured rehab plan from the existing gait report data."""
+        try:
+            if not self.report_ready:
+                self.rehab_plan_status = "Please generate the gait report first."
+                return
+
+            summary_metrics = {
+                label: value for label, value in zip(self.summary_labels, self.summary_values)
+            }
+
+            gait_metrics = {
+                "note": "Use the metric table figure / backend export if available."
+            }
+
+            symmetry_metrics = {
+                "note": "Use symmetry figure / backend export if available."
+            }
+
+            section_interpretations = [
+                {"title": title, "guideline": guideline}
+                for title, guideline in zip(self.section_titles, self.section_guidelines)
+            ]
+
+            prompt = f"""
+            You are a senior clinical rehabilitation planning assistant for a gait analysis platform.
+
+            Your task is to generate a personalized rehabilitation plan based on the patient's gait analysis metrics and gait report findings.
+
+            You must write in a professional, clinician-facing tone that is still easy for patients to understand.
+
+            Important constraints:
+            1. Do not diagnose.
+            2. Do not claim medical certainty.
+            3. Base your recommendations only on the provided gait findings and metrics.
+            4. If a metric suggests asymmetry, weakness, reduced range of motion, compensation, or instability, explain that cautiously.
+            5. The rehab plan should be practical, specific, and actionable.
+            6. Include exercise dosage and progression suggestions.
+            7. Include nutritional suggestions that support recovery, muscle function, bone/joint health, hydration, and overall mobility.
+            8. Avoid extreme or unsafe recommendations.
+            9. Include a short disclaimer that the plan should be reviewed by a licensed clinician or physiotherapist before implementation.
+            10. Output valid JSON only. Do not include markdown fences.
+
+            Patient context and gait data:
+            - Summary metrics: {summary_metrics}
+            - Gait metrics table: {gait_metrics}
+            - Left-right symmetry findings: {symmetry_metrics}
+            - Section-level interpretations: {section_interpretations}
+
+            Return JSON in exactly this schema:
+            {{
+            "title": "Personalized Rehabilitation Plan",
+            "overview": "2-4 sentence summary of the main rehab priorities based on the gait findings.",
+            "priority_focus_areas": [
+                {{
+                "title": "Focus area name",
+                "rationale": "Why this is important based on the gait findings."
+                }}
+            ],
+            "exercise_plan": [
+                {{
+                "exercise_name": "string",
+                "goal": "string",
+                "instructions": [
+                    "step 1",
+                    "step 2",
+                    "step 3"
+                ],
+                "dosage": {{
+                    "sets": "string",
+                    "reps": "string",
+                    "frequency": "string",
+                    "progression": "string"
+                }},
+                "caution": "string"
+                }}
+            ],
+            "weekly_schedule": [
+                {{
+                "day_label": "Day 1",
+                "activities": [
+                    "activity 1",
+                    "activity 2"
+                ]
+                }}
+            ],
+            "nutrition_suggestions": [
+                {{
+                "title": "string",
+                "recommendation": "string",
+                "why_it_matters": "string"
+                }}
+            ],
+            "lifestyle_recommendations": [
+                "string",
+                "string"
+            ],
+            "follow_up_flags": [
+                "string",
+                "string"
+            ],
+            "disclaimer": "string"
+            }}
+            """.strip()
+
+            # Replace this block with your real OpenAI call.
+            # Example expectation: response_text is a JSON string.
+            response_text = """
+            {
+            "title": "Personalized Rehabilitation Plan",
+            "overview": "The gait findings suggest that rehabilitation should prioritize symmetry, lower-limb control, and walking efficiency. A gradual exercise program focused on mobility, strength, balance, and motor control may help improve gait quality. Nutritional support should emphasize hydration, protein intake, and micronutrients relevant to neuromuscular function. This plan should be reviewed by a licensed clinician before implementation.",
+            "priority_focus_areas": [
+                {
+                "title": "Left-right symmetry",
+                "rationale": "The gait findings suggest side-to-side asymmetry that may reflect uneven loading or reduced motor control."
+                },
+                {
+                "title": "Hip and knee control",
+                "rationale": "Reduced control across the lower limb may contribute to inefficient gait mechanics."
+                }
+            ],
+            "exercise_plan": [
+                {
+                "exercise_name": "Sit-to-stand",
+                "goal": "Improve lower-limb strength and movement symmetry.",
+                "instructions": [
+                    "Sit on a stable chair with feet hip-width apart.",
+                    "Stand up while keeping weight evenly distributed.",
+                    "Lower slowly with control."
+                ],
+                "dosage": {
+                    "sets": "2-3",
+                    "reps": "8-12",
+                    "frequency": "3-4 times per week",
+                    "progression": "Increase repetitions first, then add tempo control or light resistance."
+                },
+                "caution": "Stop if pain, dizziness, or major instability occurs."
+                }
+            ],
+            "weekly_schedule": [
+                {
+                "day_label": "Day 1",
+                "activities": [
+                    "Mobility warm-up",
+                    "Strength exercises",
+                    "Short balance block"
+                ]
+                }
+            ],
+            "nutrition_suggestions": [
+                {
+                "title": "Adequate protein intake",
+                "recommendation": "Include a protein source with meals to support muscle recovery.",
+                "why_it_matters": "Muscle adaptation is important for strength and gait retraining."
+                }
+            ],
+            "lifestyle_recommendations": [
+                "Aim for regular walking practice within a comfortable tolerance.",
+                "Prioritize sleep and hydration to support recovery."
+            ],
+            "follow_up_flags": [
+                "Persistent worsening asymmetry",
+                "Pain, repeated tripping, or marked instability"
+            ],
+            "disclaimer": "This plan is educational and should be reviewed by a licensed clinician or physiotherapist before implementation."
+            }
+            """.strip()
+
+            import json
+            parsed = json.loads(response_text)
+
+            self.rehab_plan_title = parsed.get("title", "Personalized Rehabilitation Plan")
+            self.rehab_plan_overview = parsed.get("overview", "")
+            self.rehab_plan_disclaimer = parsed.get("disclaimer", "")
+
+            priority_items = parsed.get("priority_focus_areas", [])
+            self.rehab_priority_titles = [item.get("title", "") for item in priority_items]
+            self.rehab_priority_rationales = [item.get("rationale", "") for item in priority_items]
+
+            exercise_items = parsed.get("exercise_plan", [])
+            self.rehab_exercise_names = [item.get("exercise_name", "") for item in exercise_items]
+            self.rehab_exercise_goals = [item.get("goal", "") for item in exercise_items]
+            self.rehab_exercise_instruction_blocks = [
+                "\n".join([f"• {step}" for step in item.get("instructions", [])])
+                for item in exercise_items
+            ]
+            self.rehab_exercise_sets = [item.get("dosage", {}).get("sets", "") for item in exercise_items]
+            self.rehab_exercise_reps = [item.get("dosage", {}).get("reps", "") for item in exercise_items]
+            self.rehab_exercise_frequencies = [item.get("dosage", {}).get("frequency", "") for item in exercise_items]
+            self.rehab_exercise_progressions = [item.get("dosage", {}).get("progression", "") for item in exercise_items]
+            self.rehab_exercise_cautions = [item.get("caution", "") for item in exercise_items]
+
+            weekly_items = parsed.get("weekly_schedule", [])
+            self.rehab_schedule_day_labels = [item.get("day_label", "") for item in weekly_items]
+            self.rehab_schedule_activity_blocks = [
+                "\n".join([f"• {activity}" for activity in item.get("activities", [])])
+                for item in weekly_items
+            ]
+
+            nutrition_items = parsed.get("nutrition_suggestions", [])
+            self.rehab_nutrition_titles = [item.get("title", "") for item in nutrition_items]
+            self.rehab_nutrition_recommendations = [item.get("recommendation", "") for item in nutrition_items]
+            self.rehab_nutrition_why = [item.get("why_it_matters", "") for item in nutrition_items]
+
+            self.rehab_lifestyle_recommendations = parsed.get("lifestyle_recommendations", [])
+            self.rehab_follow_up_flags = parsed.get("follow_up_flags", [])
+
+            self.rehab_plan_ready = True
+            self.rehab_plan_status = "Rehab plan generated successfully."
+            return rx.redirect("/rehab-plan")
+
+        except Exception as e:
+            self.rehab_plan_status = f"Failed to generate rehab plan: {str(e)}"
+            self.rehab_plan_ready = False
+
+    def set_report_chat_input(self, value: str):
+        self.report_chat_input = value
+
+    async def open_report_workspace(self):
+        try:
+            if not self.opencap_ready:
+                self.report_status = "Please wait until OpenCap processing finishes first."
+                return
+
+            self.is_generating_report = True
+            self.report_status = "Generating gait results on server..."
+
+            async with httpx.AsyncClient(timeout=1800.0) as client:
+                response = await client.post(
+                    f"{self.server_base_url}/api/generate-gait-results",
+                    json={
+                        "session_name": self.processing_session_id,
+                        "trial_name": self.processing_trial_name,
+                        "trial_id": self.processing_trial_id
+                    },
+                )
+                
+            # this saves the gait_output from the API locally and convert into display-ready figures and tables
+            response.raise_for_status()
+            payload = response.json()
+
+            gait_output = payload["gait_output"]
+
+            local_json_path = UPLOAD_DIR / f"{self.processing_session_id}_gait_output.json"
+            local_json_path.write_text(json.dumps(gait_output), encoding="utf-8")
+            self.gait_json_local_path = str(local_json_path)
+
+            report = build_gait_report_data(str(local_json_path))
+
+            self.summary_labels = list(report["summary_metrics"].keys())
+            self.summary_values = [str(v) for v in report["summary_metrics"].values()]
+            self.metric_table_fig = report["metric_table_fig"]
+            self.symmetry_fig = report["symmetry_fig"]
+            self.section_titles = [s["title"] for s in report["sections"]]
+            self.section_guidelines = [s["guideline"] for s in report["sections"]]
+            self.section_figures = [s["figure"] for s in report["sections"]]
+
+            self.report_ready = True
+            self.report_status = "AI gait report generated successfully."
+            self.chat_messages = [
+                {
+                    "role": "assistant",
+                    "content": "Your gait report is ready. Ask me anything about the findings on the left.",
+                }
+            ]
+            self.report_chat_input = ""
+            return rx.redirect("/report-review")
+
+        except Exception as e:
+            self.report_status = f"Failed to generate gait report: {str(e)}"
+            return
+
+        finally:
+            self.is_generating_report = False
+            
+    def ask_report_question(self):
+        """Handle one chat turn about the report."""
+        question = self.report_chat_input.strip()
+        if not question:
+            return
+
+        self.chat_messages.append({"role": "user", "content": question})
+
+        q = question.lower()
+        report_exists = bool(self.report_text.strip())
+
+        if not report_exists:
+            answer = "I do not see a generated report yet. Please generate the AI gait report first."
+        elif "summary" in q or "summarize" in q:
+            answer = (
+                "This report suggests a broadly stable gait pattern with a possible mild left-right asymmetry "
+                "during the stance-to-swing transition. The current version is a placeholder, so the metric fields "
+                "are not yet numerically populated."
+            )
+        elif "asymmetry" in q or "symmetry" in q:
+            answer = (
+                "The report flags a possible mild asymmetry between the left and right sides. In a full pipeline, "
+                "this would usually be interpreted using stance time, swing time, step length, joint angles, "
+                "and side-to-side timing differences."
+            )
+        elif "clinician" in q or "clinical" in q:
+            answer = (
+                "A clinician would typically focus on whether the asymmetry is consistent, whether there is reduced "
+                "joint excursion, whether foot clearance is limited, and whether compensatory motion appears at the hip or pelvis."
+            )
+        elif "cadence" in q or "speed" in q or "step length" in q or "stride length" in q:
+            answer = (
+                "Those metrics are listed in the report structure, but the placeholder version does not yet compute them. "
+                "Once your real gait-analysis backend is connected, I can explain each metric and help interpret the results."
+            )
+        else:
+            answer = (
+                "Based on the current report, the main takeaway is that the gait pattern looks generally stable, "
+                "with a possible mild asymmetry that deserves closer review. If you want, ask about clinical meaning, "
+                "rehabilitation implications, or a patient-friendly summary."
+            )
+
+        self.chat_messages.append({"role": "assistant", "content": answer})
+        self.report_chat_input = ""
 
     @rx.var
     def can_configure(self) -> bool:
@@ -90,6 +550,8 @@ class State(rx.State):
         self.patient_left_video_path = str(save_path)
         self.report_status = f"Uploaded patient LEFT walking video: {file.filename}"
 
+        await self.maybe_start_opencap()
+        
     async def handle_patient_right_upload(self, files: list[rx.UploadFile]):
         if not files:
             return
@@ -102,11 +564,15 @@ class State(rx.State):
         self.patient_right_video_path = str(save_path)
         self.report_status = f"Uploaded patient RIGHT walking video: {file.filename}"
 
+        await self.maybe_start_opencap()
     # -------------------------
     # Field setters
     # -------------------------
-    def set_cols(self, value):
-        self.cols = int(value)
+    def set_cols(self, value: str):
+        try:
+            self.cols = int(value)
+        except ValueError:
+            pass
 
     def set_rows(self, value):
         self.rows = int(value)
@@ -178,6 +644,350 @@ class State(rx.State):
         )
 
 
+# -------------------------
+# ADD THESE UI HELPER FUNCTIONS
+# -------------------------
+
+def summary_metric_card(label, value) -> rx.Component:
+    return rx.box(
+        rx.text(
+            label,
+            color="rgba(255,255,255,0.62)",
+            font_size="0.82rem",
+            font_weight="500",
+        ),
+        rx.text(
+            value,
+            color="white",
+            font_size="1.4rem",
+            font_weight="800",
+            line_height="1.1",
+        ),
+        padding="1rem 1.05rem",
+        border_radius="18px",
+        background="linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0.04))",
+        border="1px solid rgba(255,255,255,0.10)",
+        box_shadow="0 12px 30px rgba(0,0,0,0.18)",
+        width="100%",
+    )
+
+
+def clinical_guideline_box(text_value) -> rx.Component:
+    return rx.box(
+        rx.text(
+            "Clinical interpretation",
+            color="white",
+            font_weight="700",
+            font_size="0.95rem",
+            margin_bottom="0.65rem",
+        ),
+        rx.text(
+            text_value,
+            color="rgba(255,255,255,0.76)",
+            font_size="0.88rem",
+            line_height="1.55",
+            white_space="pre-wrap",
+        ),
+        padding="1rem 1.05rem",
+        border_radius="18px",
+        background="rgba(255,255,255,0.05)",
+        border="1px solid rgba(255,255,255,0.09)",
+        width="100%",
+    )
+
+
+def report_section_card(title, fig, guideline) -> rx.Component:
+    return rx.el.details(
+        rx.el.summary(
+            rx.hstack(
+                rx.text(
+                    title,
+                    color="white",
+                    font_weight="800",
+                    font_size="1.02rem",
+                ),
+                rx.spacer(),
+                rx.text(
+                    "Open",
+                    color="rgba(255,255,255,0.55)",
+                    font_size="0.82rem",
+                ),
+                width="100%",
+                align="center",
+            ),
+            style={
+                "listStyle": "none",
+                "cursor": "pointer",
+                "padding": "1rem 1.1rem",
+                "userSelect": "none",
+            },
+        ),
+
+        rx.box(
+            rx.vstack(
+                rx.box(
+                    rx.plotly(
+                        data=fig,
+                        width="100%",
+                        height="100%",
+                    ),
+                    width="100%",
+                    min_height="24rem",
+                    border_radius="18px",
+                    overflow="hidden",
+                    background="white",
+                ),
+                clinical_guideline_box(guideline),
+                spacing="4",
+                align="stretch",
+                width="100%",
+            ),
+            padding="0 1.1rem 1.1rem 1.1rem",
+        ),
+
+        style={
+            "width": "100%",
+            "borderRadius": "22px",
+            "background": "linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.035))",
+            "border": "1px solid rgba(255,255,255,0.09)",
+            "overflow": "hidden",
+        },
+        open=False,
+    )
+    
+def render_chat_message(message):
+    is_user = message["role"] == "user"
+    return rx.hstack(
+        rx.cond(is_user, rx.spacer(), rx.fragment()),
+        rx.box(
+            rx.text(
+                message["content"],
+                color="white",
+                font_size="0.95rem",
+                line_height="1.5",
+                white_space="pre_wrap",
+            ),
+            max_width="85%",
+            padding="0.9rem 1rem",
+            border_radius="18px",
+            background=rx.cond(
+                is_user,
+                "linear-gradient(90deg, rgba(59,130,246,0.95), rgba(99,102,241,0.95))",
+                "rgba(255,255,255,0.08)",
+            ),
+            border=rx.cond(
+                is_user,
+                "1px solid rgba(255,255,255,0.10)",
+                "1px solid rgba(255,255,255,0.12)",
+            ),
+            box_shadow="0 10px 30px rgba(0,0,0,0.16)",
+        ),
+        rx.cond(is_user, rx.fragment(), rx.spacer()),
+        width="100%",
+        align="start",
+    )
+
+def report_chat_panel() -> rx.Component:
+    return rx.box(
+        rx.vstack(
+            rx.vstack(
+                rx.text(
+                    "Report Chat",
+                    color="white",
+                    font_weight="700",
+                    font_size="1.15rem",
+                ),
+                rx.text(
+                    "Ask questions about the gait report.",
+                    color="rgba(255,255,255,0.62)",
+                    font_size="0.9rem",
+                ),
+                spacing="1",
+                align="start",
+                width="100%",
+            ),
+
+            rx.box(
+                rx.vstack(
+                    rx.foreach(State.chat_messages, render_chat_message),
+                    spacing="3",
+                    width="100%",
+                    align="stretch",
+                ),
+                width="100%",
+                flex="1",
+                min_height="0",
+                overflow_y="auto",
+                padding="0.25rem",
+            ),
+
+            rx.box(
+                rx.hstack(
+                    rx.input(
+                        value=State.report_chat_input,
+                        on_change=State.set_report_chat_input,
+                        placeholder="Ask about the report...",
+                        width="100%",
+                        size="3",
+                        border_radius="14px",
+                        background="rgba(255,255,255,0.08)",
+                        color="white",
+                        border="1px solid rgba(255,255,255,0.14)",
+                    ),
+                    rx.button(
+                        "Send",
+                        on_click=State.ask_report_question,
+                        border_radius="14px",
+                        background="linear-gradient(90deg, rgba(37,99,235,1), rgba(99,102,241,1))",
+                        color="white",
+                        font_weight="700",
+                        _hover={"opacity": "0.95"},
+                    ),
+                    width="100%",
+                    align="center",
+                ),
+                width="100%",
+                padding_top="0.4rem",
+                border_top="1px solid rgba(255,255,255,0.08)",
+            ),
+
+            spacing="4",
+            width="100%",
+            height="100%",
+            align="stretch",
+        ),
+        width=["100%", "100%", "42%"],
+        height="78vh",
+        padding="1.2rem",
+        border_radius="28px",
+        background="linear-gradient(180deg, rgba(10,14,26,0.86), rgba(7,10,18,0.94))",
+        border="1px solid rgba(255,255,255,0.10)",
+        backdrop_filter="blur(18px)",
+        box_shadow="0 24px 70px rgba(0,0,0,0.28)",
+    )
+
+def gait_report_viewer_panel() -> rx.Component:
+    return rx.box(
+        rx.vstack(
+            rx.vstack(
+                rx.text(
+                    "Gait Report",
+                    color="white",
+                    font_weight="700",
+                    font_size="1.15rem",
+                ),
+                rx.text(
+                    "Interactive clinician-facing review dashboard.",
+                    color="rgba(255,255,255,0.62)",
+                    font_size="0.9rem",
+                ),
+                spacing="1",
+                align="start",
+                width="100%",
+            ),
+
+            rx.cond(
+                State.report_ready,
+                rx.box(
+                    rx.vstack(
+                        rx.grid(
+                            rx.foreach(
+                                    State.summary_labels,
+                                    lambda label, i: summary_metric_card(
+                                        label,
+                                        State.summary_values[i],
+                                    ),
+                        ),
+                            columns="3",
+                            spacing="4",
+                            width="100%",
+                        ),
+                        rx.box(
+                            rx.text(
+                                "Gait Metrics",
+                                color="white",
+                                font_weight="700",
+                                margin_bottom="0.75rem",
+                            ),
+                            rx.box(
+                                rx.plotly(data=State.metric_table_fig, width="100%", height="100%"),
+                                width="100%",
+                                min_height="22rem",
+                                border_radius="18px",
+                                overflow="hidden",
+                                background="white",
+                            ),
+                            width="100%",
+                        ),
+
+                        rx.box(
+                            rx.text(
+                                "Left-Right Symmetry",
+                                color="white",
+                                font_weight="700",
+                                margin_bottom="0.75rem",
+                            ),
+                            rx.box(
+                                rx.plotly(data=State.symmetry_fig, width="100%", height="100%"),
+                                width="100%",
+                                min_height="22rem",
+                                border_radius="18px",
+                                overflow="hidden",
+                                background="white",
+                            ),
+                            width="100%",
+                        ),
+
+                        rx.foreach(
+                            rx.Var.range(State.section_titles.length()),
+                            lambda i: report_section_card(
+                                State.section_titles[i],
+                                State.section_figures[i],
+                                State.section_guidelines[i],
+                            ),
+                        ),
+
+                        spacing="5",
+                        width="100%",
+                        align="stretch",
+                    ),
+                    width="100%",
+                    flex="1",
+                    min_height="0",
+                    overflow_y="auto",
+                    padding_right="0.2rem",
+                ),
+                rx.box(
+                    rx.text(
+                        "No report generated yet.",
+                        color="rgba(255,255,255,0.78)",
+                    ),
+                    width="100%",
+                    flex="1",
+                    display="flex",
+                    align_items="center",
+                    justify_content="center",
+                    border_radius="20px",
+                    background="rgba(255,255,255,0.05)",
+                    border="1px solid rgba(255,255,255,0.08)",
+                ),
+            ),
+
+            spacing="4",
+            width="100%",
+            height="100%",
+            align="stretch",
+        ),
+        width=["100%", "100%", "58%"],
+        height="78vh",
+        padding="1.2rem",
+        border_radius="28px",
+        background="linear-gradient(180deg, rgba(10,14,26,0.86), rgba(7,10,18,0.94))",
+        border="1px solid rgba(255,255,255,0.10)",
+        backdrop_filter="blur(18px)",
+        box_shadow="0 24px 70px rgba(0,0,0,0.28)",
+    )
+
 def animated_background_wave() -> rx.Component:
     return rx.box(
         rx.box(
@@ -220,9 +1030,115 @@ def animated_background_wave() -> rx.Component:
         pointer_events="none",
     )
 
+def floating_report_button() -> rx.Component:
+    return rx.link(
+        rx.box(
+            rx.hstack(
+                rx.box(
+                    "🎥",
+                    width="3rem",
+                    height="3rem",
+                    border_radius="9999px",
+                    display="flex",
+                    align_items="center",
+                    justify_content="center",
+                    background="linear-gradient(135deg, rgba(96,165,250,0.28), rgba(129,140,248,0.18))",
+                    border="1px solid rgba(255,255,255,0.18)",
+                    font_size="1.35rem",
+                ),
+                rx.vstack(
+                    rx.text(
+                        "AI Gait Report",
+                        color="white",
+                        font_weight="700",
+                        font_size="1rem",
+                        line_height="1.1",
+                    ),
+                    rx.text(
+                        "Upload two sagittal-view videos",
+                        color="rgba(255,255,255,0.72)",
+                        font_size="0.84rem",
+                        line_height="1.2",
+                    ),
+                    spacing="1",
+                    align="start",
+                ),
+                rx.text(
+                    "→",
+                    color="rgba(255,255,255,0.82)",
+                    font_size="1.4rem",
+                    font_weight="800",
+                    line_height="1",
+                ),
+                spacing="3",
+                align="center",
+            ),
+            position="fixed",
+            right="28px",
+            bottom="28px",
+            z_index="20",
+            padding="0.9rem 1.05rem",
+            border_radius="9999px",
+            background="rgba(10, 14, 28, 0.72)",
+            border="1px solid rgba(255,255,255,0.16)",
+            backdrop_filter="blur(14px)",
+            box_shadow="0 18px 60px rgba(0,0,0,0.35)",
+            transition="all 0.25s ease",
+            _hover={
+                "transform": "translateY(-4px) scale(1.01)",
+                "background": "rgba(18, 24, 44, 0.84)",
+                "box_shadow": "0 22px 70px rgba(37, 99, 235, 0.22)",
+            },
+        ),
+        href="/upload-report",
+    )
+
+def navbar() -> rx.Component:
+    return rx.hstack(
+        rx.spacer(),
+        rx.link(
+            rx.button(
+                rx.hstack(
+                    rx.text("About Us"),
+                    rx.text(
+                        "→",
+                        color="white",
+                        opacity="0.55",
+                        font_size="1.3rem",   # makes arrow larger
+                        font_weight="700",    # makes arrow thicker
+                        line_height="1",
+                        transition="all 0.2s ease",
+                    ),
+                    spacing="2",
+                    align="center",
+                ),
+                size="3",
+                color="white",
+                background="rgba(255,255,255,0.06)",
+                border="1px solid rgba(255,255,255,0.3)",
+                backdrop_filter="blur(6px)",
+                border_radius="9999px",
+                padding_x="1.2rem",
+                padding_y="0.6rem",
+                transition="all 0.2s ease",
+                _hover={
+                    "background": "rgba(255,255,255,0.15)",
+                    "padding_right": "1.5rem",
+                },
+            ),
+            href="/about",
+        ),
+
+        position="absolute",
+        top="20px",
+        right="30px",
+        z_index="5",
+    )
 
 def landing_page() -> rx.Component:
     return rx.box(
+        navbar(),   # 👈 ADD THIS LINE
+        floating_report_button(),
         rx.el.style(
             """
             @keyframes waveDrift1 {
@@ -527,6 +1443,131 @@ def upload_panel(title: str, upload_id: str, button_text: str, filename_var, han
         width="100%",
     )
 
+def cinematic_upload_box(
+    title: str,
+    subtitle: str,
+    upload_id: str,
+    filename_var,
+    handler,
+    accent_color: str,
+    icon: str,
+) -> rx.Component:
+    return rx.box(
+        rx.vstack(
+            rx.hstack(
+                rx.box(
+                    icon,
+                    width="3.2rem",
+                    height="3.2rem",
+                    border_radius="18px",
+                    display="flex",
+                    align_items="center",
+                    justify_content="center",
+                    font_size="1.5rem",
+                    background=f"linear-gradient(135deg, {accent_color}, rgba(255,255,255,0.08))",
+                    border="1px solid rgba(255,255,255,0.16)",
+                    box_shadow="0 10px 30px rgba(0,0,0,0.18)",
+                ),
+                rx.vstack(
+                    rx.text(
+                        title,
+                        color="white",
+                        font_weight="700",
+                        font_size="1.2rem",
+                    ),
+                    rx.text(
+                        subtitle,
+                        color="rgba(255,255,255,0.66)",
+                        font_size="0.92rem",
+                    ),
+                    spacing="1",
+                    align="start",
+                ),
+                width="100%",
+                align="center",
+                spacing="3",
+            ),
+            rx.upload(
+                rx.vstack(
+                    rx.text(
+                        "Drag & drop video here",
+                        color="white",
+                        font_weight="700",
+                        font_size="1.05rem",
+                    ),
+                    rx.text(
+                        "or click to browse files",
+                        color="rgba(255,255,255,0.62)",
+                        font_size="0.9rem",
+                    ),
+                    rx.text(
+                        "Accepted: .mp4, .mov, .avi, .mkv",
+                        color="rgba(255,255,255,0.46)",
+                        font_size="0.8rem",
+                    ),
+                    spacing="2",
+                    align="center",
+                ),
+                id=upload_id,
+                multiple=False,
+                accept={"video/*": [".mov", ".mp4", ".avi", ".mkv"]},
+                width="100%",
+                padding="2.4rem 1.2rem",
+                border_radius="24px",
+                border="1.5px dashed rgba(255,255,255,0.18)",
+                background="linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02))",
+            ),
+            rx.cond(
+                filename_var != "",
+                rx.box(
+                    rx.text(
+                        f"Selected: ",
+                        as_="span",
+                        color="rgba(255,255,255,0.7)",
+                    ),
+                    rx.code(
+                        filename_var,
+                        color="white",
+                        background="rgba(255,255,255,0.08)",
+                        padding="0.15rem 0.45rem",
+                        border_radius="8px",
+                    ),
+                    width="100%",
+                ),
+                rx.text(
+                    "No video uploaded yet.",
+                    color="rgba(255,255,255,0.5)",
+                    width="100%",
+                ),
+            ),
+            rx.button(
+                "Upload video",
+                on_click=handler(rx.upload_files(upload_id=upload_id)),
+                width="100%",
+                size="4",
+                border_radius="16px",
+                background=f"linear-gradient(90deg, {accent_color}, rgba(99,102,241,0.92))",
+                color="white",
+                font_weight="700",
+                box_shadow="0 14px 34px rgba(59,130,246,0.22)",
+                _hover={
+                    "opacity": "0.94",
+                    "transform": "translateY(-1px)",
+                },
+            ),
+            spacing="5",
+            align="start",
+            width="100%",
+        ),
+        width=["100%", "100%", "47%"],
+        min_height="26rem",
+        padding="1.35rem",
+        border_radius="28px",
+        background="linear-gradient(180deg, rgba(10,14,26,0.82), rgba(7,10,18,0.92))",
+        border="1px solid rgba(255,255,255,0.1)",
+        backdrop_filter="blur(18px)",
+        box_shadow="0 24px 70px rgba(0,0,0,0.28)",
+    )
 
 def configure_page() -> rx.Component:
     return rx.box(
@@ -672,7 +1713,7 @@ def report_page() -> rx.Component:
             ),
             rx.button(
                 "Generate report",
-                on_click=State.generate_empty_pdf_and_download,
+                on_click=State.open_report_workspace,
                 disabled=~State.can_generate_report,
                 size="4",
                 border_radius="9999px",
@@ -695,7 +1736,564 @@ def report_page() -> rx.Component:
             linear-gradient(180deg, #f8fbff 0%, #f3f6fb 100%)
         """,
     )
+def upload_report_page() -> rx.Component:
+    return rx.box(
+        rx.el.style(
+            """
+            @keyframes uploadGlowA {
+                0% { transform: translate(0px, 0px) scale(1); opacity: 0.30; }
+                50% { transform: translate(18px, -10px) scale(1.08); opacity: 0.48; }
+                100% { transform: translate(0px, 0px) scale(1); opacity: 0.30; }
+            }
 
+            @keyframes uploadGlowB {
+                0% { transform: translate(0px, 0px) scale(1); opacity: 0.22; }
+                50% { transform: translate(-16px, 12px) scale(1.06); opacity: 0.40; }
+                100% { transform: translate(0px, 0px) scale(1); opacity: 0.22; }
+            }
+
+            @keyframes gridMove {
+                0% { transform: translateY(0px); }
+                50% { transform: translateY(8px); }
+                100% { transform: translateY(0px); }
+            }
+            """
+        ),
+
+        # background
+        rx.box(
+            position="absolute",
+            inset="0",
+            background="""
+                radial-gradient(circle at 18% 22%, rgba(96,165,250,0.14) 0%, rgba(96,165,250,0.00) 26%),
+                radial-gradient(circle at 82% 30%, rgba(129,140,248,0.15) 0%, rgba(129,140,248,0.00) 26%),
+                radial-gradient(circle at 50% 82%, rgba(45,212,191,0.10) 0%, rgba(45,212,191,0.00) 28%),
+                linear-gradient(180deg, #040814 0%, #070d1d 50%, #050914 100%)
+            """,
+            z_index="0",
+        ),
+
+        rx.box(
+            position="absolute",
+            inset="0",
+            background="""
+                linear-gradient(rgba(255,255,255,0.035) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255,255,255,0.035) 1px, transparent 1px)
+            """,
+            background_size="44px 44px",
+            mask_image="linear-gradient(180deg, rgba(0,0,0,0.65), transparent 95%)",
+            opacity="0.25",
+            animation="gridMove 8s ease-in-out infinite",
+            z_index="1",
+            pointer_events="none",
+        ),
+
+        rx.box(
+            position="absolute",
+            top="12%",
+            left="8%",
+            width="24rem",
+            height="24rem",
+            border_radius="9999px",
+            background="radial-gradient(circle, rgba(96,165,250,0.26) 0%, rgba(96,165,250,0.00) 72%)",
+            filter="blur(70px)",
+            animation="uploadGlowA 10s ease-in-out infinite",
+            z_index="1",
+            pointer_events="none",
+        ),
+        rx.box(
+            position="absolute",
+            right="10%",
+            bottom="10%",
+            width="28rem",
+            height="28rem",
+            border_radius="9999px",
+            background="radial-gradient(circle, rgba(129,140,248,0.22) 0%, rgba(129,140,248,0.00) 72%)",
+            filter="blur(76px)",
+            animation="uploadGlowB 12s ease-in-out infinite",
+            z_index="1",
+            pointer_events="none",
+        ),
+
+        rx.vstack(
+            rx.hstack(
+                rx.link(
+                    rx.text("← Back Home", color="rgba(255,255,255,0.84)", font_weight="600"),
+                    href="/",
+                ),
+                rx.spacer(),
+                width="100%",
+            ),
+
+            rx.vstack(
+                rx.heading(
+                    "Upload sagittal-view videos from both cameras",
+                    color="white",
+                    size="9",
+                    text_align="center",
+                    max_width="1100px",
+                    letter_spacing="-0.03em",
+                    line_height="1.02",
+                ),
+                rx.text(
+                    "Place the left-camera video on the left and the right-camera video on the right. "
+                    "Then generate your AI gait report below.",
+                    color="rgba(255,255,255,0.72)",
+                    font_size="1.05rem",
+                    text_align="center",
+                    max_width="840px",
+                    line_height="1.6",
+                ),
+                spacing="4",
+                align="center",
+                width="100%",
+            ),
+
+            rx.hstack(
+                cinematic_upload_box(
+                    "Left Camera",
+                    "Upload the sagittal view captured from the left side.",
+                    "patient_left_upload_new",
+                    State.patient_left_video_name,
+                    State.handle_patient_left_upload,
+                    "rgba(59,130,246,0.95)",
+                    "⬅️",
+                ),
+                cinematic_upload_box(
+                    "Right Camera",
+                    "Upload the sagittal view captured from the right side.",
+                    "patient_right_upload_new",
+                    State.patient_right_video_name,
+                    State.handle_patient_right_upload,
+                    "rgba(99,102,241,0.95)",
+                    "➡️",
+                ),
+                width="100%",
+                spacing="6",
+                align="stretch",
+                justify="center",
+                flex_wrap="wrap",
+            ),
+
+            rx.vstack(
+                rx.button(
+                    "Get AI report",
+                    on_click=State.open_report_workspace,
+                    disabled=~State.opencap_ready,
+                    size="4",
+                    border_radius="9999px",
+                    padding_x="2.2rem",
+                    padding_y="1.6rem",
+                    background="linear-gradient(90deg, rgba(37,99,235,1), rgba(99,102,241,1), rgba(45,212,191,0.92))",
+                    color="white",
+                    font_weight="800",
+                    font_size="1.05rem",
+                    box_shadow="0 18px 50px rgba(59,130,246,0.28)",
+                    _hover={
+                        "transform": "translateY(-2px) scale(1.01)",
+                        "opacity": "0.96",
+                    },
+                ),
+                rx.cond(
+                    State.opencap_ready,
+                    rx.text(
+                        "Videos processed successfully. Click below to generate the AI report.",
+                        color="rgba(255,255,255,0.72)",
+                        font_size="0.9rem",
+                    ),
+                    rx.text(
+                        "After both videos are uploaded, the server will run OpenCap automatically.",
+                        color="rgba(255,255,255,0.52)",
+                        font_size="0.9rem",
+                    ),
+                ),
+                spacing="3",
+                align="center",
+                padding_top="0.5rem",
+            ),
+
+            rx.cond(
+                State.report_status != "",
+                rx.box(
+                    rx.text(
+                        State.report_status,
+                        color="white",
+                        font_weight="500",
+                    ),
+                    width="100%",
+                    max_width="800px",
+                    background="rgba(255,255,255,0.08)",
+                    border="1px solid rgba(255,255,255,0.12)",
+                    border_radius="20px",
+                    padding="1rem 1.1rem",
+                    backdrop_filter="blur(10px)",
+                ),
+            ),
+
+            spacing="8",
+            align="center",
+            width="100%",
+            max_width="1320px",
+            margin="0 auto",
+            padding="2rem 1.5rem 3rem 1.5rem",
+            position="relative",
+            z_index="2",
+        ),
+
+        min_height="100vh",
+        width="100%",
+        position="relative",
+        overflow="hidden",
+    )
+# -------------------------
+# ADD THIS NEW PAGE FUNCTION
+# -------------------------
+def rehab_section_card(title: str, body: rx.Component) -> rx.Component:
+    return rx.box(
+        rx.vstack(
+            rx.text(
+                title,
+                color="white",
+                font_weight="800",
+                font_size="1.08rem",
+            ),
+            body,
+            spacing="3",
+            align="start",
+            width="100%",
+        ),
+        width="100%",
+        padding="1.2rem",
+        border_radius="24px",
+        background="linear-gradient(180deg, rgba(10,14,26,0.86), rgba(7,10,18,0.94))",
+        border="1px solid rgba(255,255,255,0.10)",
+        backdrop_filter="blur(18px)",
+        box_shadow="0 24px 70px rgba(0,0,0,0.28)",
+    )
+
+
+def exercise_card_by_index(i) -> rx.Component:
+    return rx.box(
+        rx.vstack(
+            rx.text(State.rehab_exercise_names[i], color="white", font_weight="800", font_size="1rem"),
+            rx.text(State.rehab_exercise_goals[i], color="rgba(255,255,255,0.76)", font_size="0.92rem"),
+            rx.text("Instructions", color="white", font_weight="700", margin_top="0.4rem"),
+            rx.text(
+                State.rehab_exercise_instruction_blocks[i],
+                color="rgba(255,255,255,0.72)",
+                font_size="0.9rem",
+                white_space="pre-wrap",
+            ),
+            rx.text("Dosage", color="white", font_weight="700", margin_top="0.4rem"),
+            rx.text(f"Sets: ", as_="span"),
+            rx.text(State.rehab_exercise_sets[i], color="rgba(255,255,255,0.72)", font_size="0.9rem"),
+            rx.text(f"Reps: {State.rehab_exercise_reps[i]}", color="rgba(255,255,255,0.72)", font_size="0.9rem"),
+            rx.text(f"Frequency: {State.rehab_exercise_frequencies[i]}", color="rgba(255,255,255,0.72)", font_size="0.9rem"),
+            rx.text(f"Progression: {State.rehab_exercise_progressions[i]}", color="rgba(255,255,255,0.72)", font_size="0.9rem"),
+            rx.text(f"Caution: {State.rehab_exercise_cautions[i]}", color="rgba(255,255,255,0.62)", font_size="0.88rem"),
+            spacing="2",
+            align="start",
+            width="100%",
+        ),
+        width="100%",
+        padding="1rem",
+        border_radius="20px",
+        background="rgba(255,255,255,0.05)",
+        border="1px solid rgba(255,255,255,0.08)",
+    )
+    
+def nutrition_card_by_index(i) -> rx.Component:
+    return rx.box(
+        rx.vstack(
+            rx.text(State.rehab_nutrition_titles[i], color="white", font_weight="800", font_size="1rem"),
+            rx.text(State.rehab_nutrition_recommendations[i], color="rgba(255,255,255,0.76)", font_size="0.92rem"),
+            rx.text(State.rehab_nutrition_why[i], color="rgba(255,255,255,0.62)", font_size="0.88rem"),
+            spacing="2",
+            align="start",
+            width="100%",
+        ),
+        width="100%",
+        padding="1rem",
+        border_radius="20px",
+        background="rgba(255,255,255,0.05)",
+        border="1px solid rgba(255,255,255,0.08)",
+    )
+
+def report_review_page() -> rx.Component:
+    return rx.box(
+            
+        rx.box(
+            position="absolute",
+            inset="0",
+            background="""
+                radial-gradient(circle at 18% 22%, rgba(96,165,250,0.14) 0%, rgba(96,165,250,0.00) 26%),
+                radial-gradient(circle at 82% 30%, rgba(129,140,248,0.15) 0%, rgba(129,140,248,0.00) 26%),
+                radial-gradient(circle at 50% 82%, rgba(45,212,191,0.10) 0%, rgba(45,212,191,0.00) 28%),
+                linear-gradient(180deg, #040814 0%, #070d1d 50%, #050914 100%)
+            """,
+            z_index="0",
+        ),
+
+        rx.vstack(
+            rx.hstack(
+                rx.link(
+                    rx.text(
+                        "← Back to upload",
+                        color="rgba(255,255,255,0.84)",
+                        font_weight="600",
+                    ),
+                    href="/upload-report",
+                ),
+                rx.spacer(),
+                rx.button(
+                    "Get Rehab Plan",
+                    on_click=State.generate_rehab_plan,
+                    disabled=~State.can_generate_rehab_plan,
+                    size="3",
+                    border_radius="9999px",
+                    padding_x="1.2rem",
+                    background="linear-gradient(90deg, rgba(16,185,129,1), rgba(59,130,246,1))",
+                    color="white",
+                    font_weight="800",
+                    box_shadow="0 14px 34px rgba(16,185,129,0.22)",
+                    _hover={
+                        "opacity": "0.96",
+                        "transform": "translateY(-1px)",
+                    },
+                ),
+                width="100%",
+                align="center",
+            ),
+
+            rx.vstack(
+                rx.heading(
+                    "AI Gait Report Review",
+                    color="white",
+                    size="8",
+                    text_align="center",
+                    letter_spacing="-0.03em",
+                ),
+                rx.text(
+                    "Review the generated report on the right and ask questions on the left.",
+                    color="rgba(255,255,255,0.72)",
+                    font_size="1rem",
+                    text_align="center",
+                    max_width="820px",
+                ),
+                spacing="3",
+                align="center",
+                width="100%",
+            ),
+
+            rx.hstack(
+                report_chat_panel(),
+                gait_report_viewer_panel(),
+                width="100%",
+                spacing="6",
+                align="stretch",
+                justify="center",
+            ),
+
+            width="100%",
+            max_width="1450px",
+            margin="0 auto",
+            padding="2rem 1.5rem 2.5rem 1.5rem",
+            spacing="6",
+            align="center",
+            position="relative",
+            z_index="2",
+        ),
+
+        min_height="100vh",
+        width="100%",
+        position="relative",
+        overflow="hidden",
+    )
+    
+def rehab_plan_page() -> rx.Component:
+    return rx.box(
+        rx.box(
+            position="absolute",
+            inset="0",
+            background="""
+                radial-gradient(circle at 18% 22%, rgba(96,165,250,0.14) 0%, rgba(96,165,250,0.00) 26%),
+                radial-gradient(circle at 82% 30%, rgba(129,140,248,0.15) 0%, rgba(129,140,248,0.00) 26%),
+                radial-gradient(circle at 50% 82%, rgba(45,212,191,0.10) 0%, rgba(45,212,191,0.00) 28%),
+                linear-gradient(180deg, #040814 0%, #070d1d 50%, #050914 100%)
+            """,
+            z_index="0",
+        ),
+
+        rx.vstack(
+            rx.hstack(
+                rx.link(
+                    rx.text("← Back to report review", color="rgba(255,255,255,0.84)", font_weight="600"),
+                    href="/report-review",
+                ),
+                rx.spacer(),
+                width="100%",
+            ),
+
+            rx.vstack(
+                rx.heading(
+                    State.rehab_plan_title,
+                    color="white",
+                    size="8",
+                    text_align="center",
+                    letter_spacing="-0.03em",
+                ),
+                rx.text(
+                    State.rehab_plan_overview,
+                    color="rgba(255,255,255,0.76)",
+                    font_size="1rem",
+                    text_align="center",
+                    max_width="920px",
+                    line_height="1.7",
+                ),
+                spacing="3",
+                align="center",
+                width="100%",
+            ),
+            rehab_section_card(
+                "Priority Focus Areas",
+                rx.vstack(
+                    rx.foreach(
+                        rx.Var.range(State.rehab_priority_titles.length()),
+                        lambda i: rx.box(
+                            rx.text(State.rehab_priority_titles[i], color="white", font_weight="800"),
+                            rx.text(
+                                State.rehab_priority_rationales[i],
+                                color="rgba(255,255,255,0.72)",
+                                font_size="0.92rem",
+                            ),
+                            width="100%",
+                            padding="0.9rem",
+                            border_radius="18px",
+                            background="rgba(255,255,255,0.05)",
+                            border="1px solid rgba(255,255,255,0.08)",
+                        ),
+                    ),
+                    spacing="3",
+                    width="100%",
+                    align="stretch",
+                ),
+            ),
+
+            rehab_section_card(
+                "Exercise Plan",
+                rx.vstack(
+                    rx.foreach(
+                        rx.Var.range(State.rehab_exercise_names.length()),
+                        exercise_card_by_index,
+                    ),
+                    spacing="4",
+                    width="100%",
+                    align="stretch",
+                ),
+            ),
+
+            rehab_section_card(
+                "Weekly Schedule",
+                rx.vstack(
+                    rx.foreach(
+                        rx.Var.range(State.rehab_schedule_day_labels.length()),
+                        lambda i: rx.box(
+                            rx.text(State.rehab_schedule_day_labels[i], color="white", font_weight="800"),
+                            rx.text(
+                                State.rehab_schedule_activity_blocks[i],
+                                color="rgba(255,255,255,0.72)",
+                                font_size="0.92rem",
+                                white_space="pre-wrap",
+                            ),
+                            width="100%",
+                            padding="1rem",
+                            border_radius="20px",
+                            background="rgba(255,255,255,0.05)",
+                            border="1px solid rgba(255,255,255,0.08)",
+                        ),
+                    ),
+                    spacing="3",
+                    width="100%",
+                    align="stretch",
+                ),
+            ),
+
+            rehab_section_card(
+                "Nutritional Suggestions",
+                rx.vstack(
+                    rx.foreach(
+                        rx.Var.range(State.rehab_nutrition_titles.length()),
+                        nutrition_card_by_index,
+                    ),
+                    spacing="4",
+                    width="100%",
+                    align="stretch",
+                ),
+                ),
+
+            rehab_section_card(
+                "Lifestyle Recommendations",
+                rx.vstack(
+                    rx.foreach(
+                        State.rehab_lifestyle_recommendations,
+                        lambda item: rx.text(
+                            f"• {item}",
+                            color="rgba(255,255,255,0.72)",
+                            font_size="0.92rem",
+                        ),
+                    ),
+                    spacing="2",
+                    width="100%",
+                    align="start",
+                ),
+            ),
+
+            rehab_section_card(
+                "Follow-up Flags",
+                rx.vstack(
+                    rx.foreach(
+                        State.rehab_follow_up_flags,
+                        lambda item: rx.text(
+                            f"• {item}",
+                            color="rgba(255,255,255,0.72)",
+                            font_size="0.92rem",
+                        ),
+                    ),
+                    spacing="2",
+                    width="100%",
+                    align="start",
+                ),
+            ),
+
+            rx.box(
+                rx.text(
+                    State.rehab_plan_disclaimer,
+                    color="rgba(255,255,255,0.62)",
+                    font_size="0.88rem",
+                    line_height="1.6",
+                ),
+                width="100%",
+                padding="1rem 1.1rem",
+                border_radius="18px",
+                background="rgba(245,158,11,0.08)",
+                border="1px solid rgba(245,158,11,0.18)",
+            ),
+
+            width="100%",
+            max_width="1180px",
+            margin="0 auto",
+            padding="2rem 1.5rem 3rem 1.5rem",
+            spacing="5",
+            align="stretch",
+            position="relative",
+            z_index="2",
+        ),
+
+        min_height="100vh",
+        width="100%",
+        position="relative",
+        overflow="hidden",
+    )
 
 app = rx.App(
     theme=rx.theme(
@@ -709,3 +2307,6 @@ app = rx.App(
 app.add_page(landing_page, route="/", title="AxonAI")
 app.add_page(configure_page, route="/configure", title="Configure Camera")
 app.add_page(report_page, route="/report", title="Generate Report")
+app.add_page(upload_report_page, route="/upload-report", title="AI Gait Report Upload")
+app.add_page(report_review_page, route="/report-review", title="Report Review")
+app.add_page(rehab_plan_page, route="/rehab-plan", title="Rehab Plan")
