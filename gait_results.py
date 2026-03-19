@@ -25,7 +25,7 @@ from utilities.gait_analysis import gait_analysis
 from utilities.utilsGaitAnalysis import import_metadata
 
 
-def run_gait_analysis(trial_name:str, sessionName="Trial_Session", sessionName_scaled="Trial_Session",):
+def run_gait_analysis(trial_name:str, sessionName="Trial_Session", sessionName_scaled="Trial_Session"):
 
     # if not trial_name.endswith("_LTSM"):
     #     trial_name = trial_name +"_LSTM"

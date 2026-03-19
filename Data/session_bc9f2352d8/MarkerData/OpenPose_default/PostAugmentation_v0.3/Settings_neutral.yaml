@@ -1,0 +1,10 @@
+augmenter_model: v0.3
+camerasToUse:
+- all
+filterFrequency: default
+imageUpsampleFactor: 4
+openSimModel: LaiUhlrich2022
+poseDetector: OpenPose
+resolutionPoseDetection: default
+scalingSetup: upright_standing_pose
+verticalOffset: -0.3427655792236328

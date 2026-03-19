@@ -1855,9 +1855,9 @@ def computeAverageIntrinsics_local(
     session_path: str,
     calibration_videos,
     CheckerBoardParams,
-    nImages: int = 25,
-    phoneModel: str | None = None,
-    copy_videos_into_session: bool = True,
+    nImages,
+    phoneModel,
+    copy_videos_into_session,
 ):
     """
     Offline version of computeAverageIntrinsics().

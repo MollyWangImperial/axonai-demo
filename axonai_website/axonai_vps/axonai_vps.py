@@ -5,6 +5,15 @@ import reflex as rx
 import json
 import uuid
 import httpx
+            
+import asyncio
+from openai import OpenAI
+
+# client = OpenAI()  # reads OPENAI_API_KEY from environment
+# response = client.responses.create(
+#     model="gpt-5.4",
+#     input="say hi",
+# )
 
 # Add parent directory to Python path
 CURRENT_DIR = Path(__file__).resolve().parent
@@ -59,7 +68,7 @@ class State(rx.State):
     section_guidelines: list[str] = []
     section_figures: list[go.Figure] = []
     
-    server_base_url: str = "http://187.77.179.76:8000"
+    server_base_url: str = "http://127.0.0.1:8000"
 
     processing_session_id: str = ""
     processing_trial_name: str = "walking"
@@ -121,6 +130,18 @@ class State(rx.State):
             "content": "Hi! Once your gait report is generated, you can ask me questions about symmetry, cadence, stance phase, swing phase, and clinical interpretation.",
         }
     ]
+    async def start_rehab_plan_generation(self):
+        if not self.report_ready:
+            self.rehab_plan_status = "Please generate the gait report first."
+            yield
+            return
+
+        self.rehab_plan_ready = False
+        self.rehab_plan_status = "Generating rehab plan..."
+        yield
+
+        # 🚀 Immediately go to waiting page
+        yield rx.redirect("/rehab-wait")
     
     async def maybe_start_opencap(self):
         if not (self.patient_left_video_path and self.patient_right_video_path):
@@ -133,6 +154,7 @@ class State(rx.State):
             self.is_processing_opencap = True
             self.opencap_status = "Uploading videos to server and running OpenCap..."
             self.report_status = self.opencap_status
+            yield
 
             if not self.processing_session_id:
                 uid = uuid.uuid4().hex[:10]
@@ -163,27 +185,47 @@ class State(rx.State):
                         },
                     )
 
-            response.raise_for_status()
+            if response.status_code >= 400:
+                try:
+                    error_payload = response.json()
+                    error_detail = error_payload.get("detail", response.text)
+                except Exception:
+                    error_detail = response.text
+                raise Exception(f"{response.status_code}: {error_detail}")
+
             payload = response.json()
 
             self.opencap_ready = True
+            self.is_processing_opencap = False
             self.opencap_status = "OpenCap processing completed successfully."
             self.report_status = self.opencap_status
+            yield
 
         except Exception as e:
             self.opencap_ready = False
             self.opencap_status = f"OpenCap failed: {str(e)}"
             self.report_status = self.opencap_status
+            yield
 
         finally:
             self.is_processing_opencap = False
+            yield
 
     async def generate_rehab_plan(self):
         """Generate a structured rehab plan from the existing gait report data."""
         try:
             if not self.report_ready:
                 self.rehab_plan_status = "Please generate the gait report first."
+                yield
                 return
+
+            if self.rehab_plan_ready:
+                yield rx.redirect("/rehab-plan")
+                return
+
+            self.rehab_plan_ready = False
+            self.rehab_plan_status = "Generating rehab plan..."
+            yield
 
             summary_metrics = {
                 label: value for label, value in zip(self.summary_labels, self.summary_values)
@@ -203,150 +245,99 @@ class State(rx.State):
             ]
 
             prompt = f"""
-            You are a senior clinical rehabilitation planning assistant for a gait analysis platform.
+    You are a senior clinical rehabilitation planning assistant for a gait analysis platform.
 
-            Your task is to generate a personalized rehabilitation plan based on the patient's gait analysis metrics and gait report findings.
+    Your task is to generate a personalized rehabilitation plan based on the patient's gait analysis metrics and gait report findings.
 
-            You must write in a professional, clinician-facing tone that is still easy for patients to understand.
+    You must write in a professional, clinician-facing tone that is still easy for patients to understand.
 
-            Important constraints:
-            1. Do not diagnose.
-            2. Do not claim medical certainty.
-            3. Base your recommendations only on the provided gait findings and metrics.
-            4. If a metric suggests asymmetry, weakness, reduced range of motion, compensation, or instability, explain that cautiously.
-            5. The rehab plan should be practical, specific, and actionable.
-            6. Include exercise dosage and progression suggestions.
-            7. Include nutritional suggestions that support recovery, muscle function, bone/joint health, hydration, and overall mobility.
-            8. Avoid extreme or unsafe recommendations.
-            9. Include a short disclaimer that the plan should be reviewed by a licensed clinician or physiotherapist before implementation.
-            10. Output valid JSON only. Do not include markdown fences.
+    Important constraints:
+    1. Do not diagnose.
+    2. Do not claim medical certainty.
+    3. Base your recommendations only on the provided gait findings and metrics.
+    4. If a metric suggests asymmetry, weakness, reduced range of motion, compensation, or instability, explain that cautiously.
+    5. The rehab plan should be practical, specific, and actionable.
+    6. Include exercise dosage and progression suggestions.
+    7. Include nutritional suggestions that support recovery, muscle function, bone/joint health, hydration, and overall mobility.
+    8. Avoid extreme or unsafe recommendations.
+    9. Include a short disclaimer that the plan should be reviewed by a licensed clinician or physiotherapist before implementation.
+    10. Output valid JSON only. Do not include markdown fences.
 
-            Patient context and gait data:
-            - Summary metrics: {summary_metrics}
-            - Gait metrics table: {gait_metrics}
-            - Left-right symmetry findings: {symmetry_metrics}
-            - Section-level interpretations: {section_interpretations}
+    Patient context and gait data:
+    - Summary metrics: {summary_metrics}
+    - Gait metrics table: {gait_metrics}
+    - Left-right symmetry findings: {symmetry_metrics}
+    - Section-level interpretations: {section_interpretations}
 
-            Return JSON in exactly this schema:
-            {{
-            "title": "Personalized Rehabilitation Plan",
-            "overview": "2-4 sentence summary of the main rehab priorities based on the gait findings.",
-            "priority_focus_areas": [
-                {{
-                "title": "Focus area name",
-                "rationale": "Why this is important based on the gait findings."
-                }}
-            ],
-            "exercise_plan": [
-                {{
-                "exercise_name": "string",
-                "goal": "string",
-                "instructions": [
-                    "step 1",
-                    "step 2",
-                    "step 3"
-                ],
-                "dosage": {{
-                    "sets": "string",
-                    "reps": "string",
-                    "frequency": "string",
-                    "progression": "string"
-                }},
-                "caution": "string"
-                }}
-            ],
-            "weekly_schedule": [
-                {{
-                "day_label": "Day 1",
-                "activities": [
-                    "activity 1",
-                    "activity 2"
-                ]
-                }}
-            ],
-            "nutrition_suggestions": [
-                {{
-                "title": "string",
-                "recommendation": "string",
-                "why_it_matters": "string"
-                }}
-            ],
-            "lifestyle_recommendations": [
-                "string",
-                "string"
-            ],
-            "follow_up_flags": [
-                "string",
-                "string"
-            ],
-            "disclaimer": "string"
-            }}
-            """.strip()
+    Return JSON in exactly this schema:
+    {{
+    "title": "Personalized Rehabilitation Plan",
+    "overview": "2-4 sentence summary of the main rehab priorities based on the gait findings.",
+    "priority_focus_areas": [
+        {{
+        "title": "Focus area name",
+        "rationale": "Why this is important based on the gait findings."
+        }}
+    ],
+    "exercise_plan": [
+        {{
+        "exercise_name": "string",
+        "goal": "string",
+        "instructions": [
+            "step 1",
+            "step 2",
+            "step 3"
+        ],
+        "dosage": {{
+            "sets": "string",
+            "reps": "string",
+            "frequency": "string",
+            "progression": "string"
+        }},
+        "caution": "string"
+        }}
+    ],
+    "weekly_schedule": [
+        {{
+        "day_label": "Day 1",
+        "activities": [
+            "activity 1",
+            "activity 2"
+        ]
+        }}
+    ],
+    "nutrition_suggestions": [
+        {{
+        "title": "string",
+        "recommendation": "string",
+        "why_it_matters": "string"
+        }}
+    ],
+    "lifestyle_recommendations": [
+        "string",
+        "string"
+    ],
+    "follow_up_flags": [
+        "string",
+        "string"
+    ],
+    "disclaimer": "string"
+    }}
+    """.strip()
 
-            # Replace this block with your real OpenAI call.
-            # Example expectation: response_text is a JSON string.
-            response_text = """
-            {
-            "title": "Personalized Rehabilitation Plan",
-            "overview": "The gait findings suggest that rehabilitation should prioritize symmetry, lower-limb control, and walking efficiency. A gradual exercise program focused on mobility, strength, balance, and motor control may help improve gait quality. Nutritional support should emphasize hydration, protein intake, and micronutrients relevant to neuromuscular function. This plan should be reviewed by a licensed clinician before implementation.",
-            "priority_focus_areas": [
-                {
-                "title": "Left-right symmetry",
-                "rationale": "The gait findings suggest side-to-side asymmetry that may reflect uneven loading or reduced motor control."
-                },
-                {
-                "title": "Hip and knee control",
-                "rationale": "Reduced control across the lower limb may contribute to inefficient gait mechanics."
-                }
-            ],
-            "exercise_plan": [
-                {
-                "exercise_name": "Sit-to-stand",
-                "goal": "Improve lower-limb strength and movement symmetry.",
-                "instructions": [
-                    "Sit on a stable chair with feet hip-width apart.",
-                    "Stand up while keeping weight evenly distributed.",
-                    "Lower slowly with control."
-                ],
-                "dosage": {
-                    "sets": "2-3",
-                    "reps": "8-12",
-                    "frequency": "3-4 times per week",
-                    "progression": "Increase repetitions first, then add tempo control or light resistance."
-                },
-                "caution": "Stop if pain, dizziness, or major instability occurs."
-                }
-            ],
-            "weekly_schedule": [
-                {
-                "day_label": "Day 1",
-                "activities": [
-                    "Mobility warm-up",
-                    "Strength exercises",
-                    "Short balance block"
-                ]
-                }
-            ],
-            "nutrition_suggestions": [
-                {
-                "title": "Adequate protein intake",
-                "recommendation": "Include a protein source with meals to support muscle recovery.",
-                "why_it_matters": "Muscle adaptation is important for strength and gait retraining."
-                }
-            ],
-            "lifestyle_recommendations": [
-                "Aim for regular walking practice within a comfortable tolerance.",
-                "Prioritize sleep and hydration to support recovery."
-            ],
-            "follow_up_flags": [
-                "Persistent worsening asymmetry",
-                "Pain, repeated tripping, or marked instability"
-            ],
-            "disclaimer": "This plan is educational and should be reviewed by a licensed clinician or physiotherapist before implementation."
-            }
-            """.strip()
-
+            import asyncio
             import json
+            from openai import OpenAI
+
+            def call_openai():
+                client = OpenAI()  # reads OPENAI_API_KEY from environment
+                response = client.responses.create(
+                    model="gpt-5.4",
+                    input=prompt,
+                )
+                return response.output_text
+
+            response_text = await asyncio.to_thread(call_openai)
             parsed = json.loads(response_text)
 
             self.rehab_plan_title = parsed.get("title", "Personalized Rehabilitation Plan")
@@ -387,12 +378,14 @@ class State(rx.State):
 
             self.rehab_plan_ready = True
             self.rehab_plan_status = "Rehab plan generated successfully."
-            return rx.redirect("/rehab-plan")
+            yield
+            yield rx.redirect("/rehab-plan")
 
         except Exception as e:
             self.rehab_plan_status = f"Failed to generate rehab plan: {str(e)}"
             self.rehab_plan_ready = False
-
+            yield
+            
     def set_report_chat_input(self, value: str):
         self.report_chat_input = value
 
@@ -411,7 +404,8 @@ class State(rx.State):
                     json={
                         "session_name": self.processing_session_id,
                         "trial_name": self.processing_trial_name,
-                        "trial_id": self.processing_trial_id
+                        "trial_id": self.processing_trial_id,
+                        'session_name_scaled': f"{self.processing_session_id}_scaled"
                     },
                 )
                 
@@ -444,11 +438,11 @@ class State(rx.State):
                 }
             ]
             self.report_chat_input = ""
-            return rx.redirect("/report-review")
+            yield rx.redirect("/report-review")
 
         except Exception as e:
             self.report_status = f"Failed to generate gait report: {str(e)}"
-            return
+            yield
 
         finally:
             self.is_generating_report = False
@@ -550,7 +544,8 @@ class State(rx.State):
         self.patient_left_video_path = str(save_path)
         self.report_status = f"Uploaded patient LEFT walking video: {file.filename}"
 
-        await self.maybe_start_opencap()
+        # async for _ in self.maybe_start_opencap():
+        #     yield
         
     async def handle_patient_right_upload(self, files: list[rx.UploadFile]):
         if not files:
@@ -564,7 +559,30 @@ class State(rx.State):
         self.patient_right_video_path = str(save_path)
         self.report_status = f"Uploaded patient RIGHT walking video: {file.filename}"
 
-        await self.maybe_start_opencap()
+        # async for _ in self.maybe_start_opencap():
+        #     yield
+    
+    async def start_report_pipeline(self):
+        if not (self.patient_left_video_path and self.patient_right_video_path):
+            self.report_status = "Please upload both left and right videos first."
+            yield
+            return
+
+        if self.is_processing_opencap or self.is_generating_report:
+            return
+
+        self.opencap_ready = False
+        yield
+
+        async for _ in self.maybe_start_opencap():
+            yield
+
+        if not self.opencap_ready:
+            return
+
+        async for event in self.open_report_workspace():
+            yield event
+
     # -------------------------
     # Field setters
     # -------------------------
@@ -1487,6 +1505,7 @@ def cinematic_upload_box(
                 align="center",
                 spacing="3",
             ),
+
             rx.upload(
                 rx.vstack(
                     rx.text(
@@ -1496,7 +1515,7 @@ def cinematic_upload_box(
                         font_size="1.05rem",
                     ),
                     rx.text(
-                        "or click to browse files",
+                        "or click the button below",
                         color="rgba(255,255,255,0.62)",
                         font_size="0.9rem",
                     ),
@@ -1505,23 +1524,40 @@ def cinematic_upload_box(
                         color="rgba(255,255,255,0.46)",
                         font_size="0.8rem",
                     ),
-                    spacing="2",
+                    rx.button(
+                        "Upload video",
+                        width="100%",
+                        size="4",
+                        border_radius="16px",
+                        background=f"linear-gradient(90deg, {accent_color}, rgba(99,102,241,0.92))",
+                        color="white",
+                        font_weight="700",
+                        box_shadow="0 14px 34px rgba(59,130,246,0.22)",
+                        _hover={
+                            "opacity": "0.94",
+                            "transform": "translateY(-1px)",
+                        },
+                    ),
+                    spacing="3",
                     align="center",
+                    width="100%",
                 ),
                 id=upload_id,
                 multiple=False,
                 accept={"video/*": [".mov", ".mp4", ".avi", ".mkv"]},
+                on_drop=handler(rx.upload_files(upload_id=upload_id)),
                 width="100%",
                 padding="2.4rem 1.2rem",
                 border_radius="24px",
                 border="1.5px dashed rgba(255,255,255,0.18)",
                 background="linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02))",
             ),
+
             rx.cond(
                 filename_var != "",
                 rx.box(
                     rx.text(
-                        f"Selected: ",
+                        "Selected: ",
                         as_="span",
                         color="rgba(255,255,255,0.7)",
                     ),
@@ -1540,21 +1576,7 @@ def cinematic_upload_box(
                     width="100%",
                 ),
             ),
-            rx.button(
-                "Upload video",
-                on_click=handler(rx.upload_files(upload_id=upload_id)),
-                width="100%",
-                size="4",
-                border_radius="16px",
-                background=f"linear-gradient(90deg, {accent_color}, rgba(99,102,241,0.92))",
-                color="white",
-                font_weight="700",
-                box_shadow="0 14px 34px rgba(59,130,246,0.22)",
-                _hover={
-                    "opacity": "0.94",
-                    "transform": "translateY(-1px)",
-                },
-            ),
+
             spacing="5",
             align="start",
             width="100%",
@@ -1878,8 +1900,8 @@ def upload_report_page() -> rx.Component:
             rx.vstack(
                 rx.button(
                     "Get AI report",
-                    on_click=State.open_report_workspace,
-                    disabled=~State.opencap_ready,
+                    on_click=State.start_report_pipeline,
+                    disabled=~State.can_generate_report,
                     size="4",
                     border_radius="9999px",
                     padding_x="2.2rem",
@@ -1894,24 +1916,29 @@ def upload_report_page() -> rx.Component:
                         "opacity": "0.96",
                     },
                 ),
-                rx.cond(
-                    State.opencap_ready,
-                    rx.text(
-                        "Videos processed successfully. Click below to generate the AI report.",
-                        color="rgba(255,255,255,0.72)",
-                        font_size="0.9rem",
-                    ),
-                    rx.text(
-                        "After both videos are uploaded, the server will run OpenCap automatically.",
-                        color="rgba(255,255,255,0.52)",
-                        font_size="0.9rem",
-                    ),
+                    # 🔍 DEBUG LINE (ADD THIS)
+                rx.text(
+                    f"opencap_ready: {State.opencap_ready}, is_processing_opencap: {State.is_processing_opencap}",
+                    color="yellow",
+                    font_size="0.9rem",
                 ),
+                rx.cond(
+                        State.can_generate_report,
+                        rx.text(
+                            "Both videos are selected. Click below to start OpenCap and generate the AI report.",
+                            color="rgba(255,255,255,0.72)",
+                            font_size="0.9rem",
+                        ),
+                        rx.text(
+                            "Upload both videos first, then click Get AI report.",
+                            color="rgba(255,255,255,0.52)",
+                            font_size="0.9rem",
+                        ),
+                    ),
                 spacing="3",
                 align="center",
                 padding_top="0.5rem",
             ),
-
             rx.cond(
                 State.report_status != "",
                 rx.box(
@@ -2047,7 +2074,7 @@ def report_review_page() -> rx.Component:
                 rx.spacer(),
                 rx.button(
                     "Get Rehab Plan",
-                    on_click=State.generate_rehab_plan,
+                    on_click=State.start_rehab_plan_generation,
                     disabled=~State.can_generate_rehab_plan,
                     size="3",
                     border_radius="9999px",
@@ -2109,6 +2136,27 @@ def report_review_page() -> rx.Component:
         position="relative",
         overflow="hidden",
     )
+    
+def rehab_wait_page() -> rx.Component:
+    return rx.center(
+        rx.vstack(
+            rx.spinner(size="3"),
+            rx.text(
+                "Generating your personalized rehab plan...",
+                color="white",
+                font_size="1.2rem",
+            ),
+            rx.text(
+                State.rehab_plan_status,
+                color="rgba(255,255,255,0.7)",
+            ),
+            spacing="4",
+            align="center",
+        ),
+        height="100vh",
+        background="#040814",
+    )
+    
     
 def rehab_plan_page() -> rx.Component:
     return rx.box(
@@ -2310,3 +2358,9 @@ app.add_page(report_page, route="/report", title="Generate Report")
 app.add_page(upload_report_page, route="/upload-report", title="AI Gait Report Upload")
 app.add_page(report_review_page, route="/report-review", title="Report Review")
 app.add_page(rehab_plan_page, route="/rehab-plan", title="Rehab Plan")
+app.add_page(
+    rehab_wait_page,
+    route="/rehab-wait",
+    title="Generating Rehab Plan",
+    on_load=State.generate_rehab_plan,
+)

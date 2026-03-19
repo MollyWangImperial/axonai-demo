@@ -40,7 +40,7 @@ from utilities.utilsOpenSim import runScaleTool, getScaleTimeRange, runIKTool, g
 from typing import Optional
 from gait_results import run_gait_analysis
 from generate_report import generate_clinical_report
-from generate_report_html import generate_interactive_gait_report
+# from generate_report_html import generate_interactive_gait_report
 
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 from pathlib import Path
@@ -53,7 +53,7 @@ class GaitResultsRequest(BaseModel):
     session_name: str
     trial_name: str
     trial_id: str
-    session_name_scaled: str | None = None
+    session_name_scaled: str
     
 def run_opencap(sessionName="Trial_Session", 
          sessionName_scaled = 'Trial_Session_Scaling',
@@ -733,9 +733,9 @@ def run_pipeline(session_path: str, output_dir: Optional[str] = None):
     json_file="gait_output.json",
     output_pdf="report.pdf"
     )
-    generate_interactive_gait_report(
-        json_file="gait_output.json",
-    )
+    # generate_interactive_gait_report(
+    #     json_file="gait_output.json",
+    # )
 
 
     return {"message": "pipeline ran", "session_path": session_path, "output_dir": output_dir, "gait_analysis":results}
@@ -755,6 +755,7 @@ async def api_run_opencap(
     trial_name: str = Form(...),
     trial_id: str = Form(...),
 ):
+    print("Receiece API request for running opencap...")
     try:
         base_dir = Path(__file__).resolve().parent
 
@@ -784,8 +785,18 @@ async def api_run_opencap(
         save_upload_file(right_video, right_dest)
 
         # Call your existing pipeline
+        scaled_session_name = f"{session_name}_scaled"
+        run_opencap(
+            sessionName=session_name,
+            sessionName_scaled = scaled_session_name,
+            trialName="neutral",
+            trial_id="neutral",
+            scaleModel=True
+        )
+
         pre_aug_dir, returned_trial_name = run_opencap(
             sessionName=session_name,
+            sessionName_scaled = scaled_session_name,
             trialName=trial_name,
             trial_id=trial_id,
             cameras_to_use=["all_available"],
@@ -811,9 +822,9 @@ async def api_run_opencap(
 async def api_generate_gait_results(payload: GaitResultsRequest):
     try:
         session_name = payload.session_name
+        session_name_scaled = payload.session_name_scaled or f"{session_name}_scaled"
         trial_name = payload.trial_name
-        session_name_scaled = payload.session_name_scaled or session_name
-
+        
         # Run gait analysis
         gait_analysis_result = run_gait_analysis(
             trial_name=trial_name,
