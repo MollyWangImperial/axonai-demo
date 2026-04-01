@@ -1,14 +1,12 @@
 /*
- * Navbar — Sticky navigation with blur backdrop on scroll
+ * NavbarEn — English sticky navigation with language switcher
  * Design: Bioluminescent Dark Science
- * - Deep navy background with blur on scroll
- * - Teal accent for logo and CTA
  */
 import { useEffect, useState } from "react";
 import AxonAILogo from "@/components/AxonAILogo";
 import { useLocation } from "wouter";
 
-export default function Navbar() {
+export default function NavbarEn() {
   const [scrolled, setScrolled] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [, setLocation] = useLocation();
@@ -29,9 +27,7 @@ export default function Navbar() {
     <nav
       className="fixed top-0 left-0 right-0 z-50 transition-all duration-300"
       style={{
-        background: scrolled
-          ? "oklch(0.07 0.02 250 / 90%)"
-          : "transparent",
+        background: scrolled ? "oklch(0.07 0.02 250 / 90%)" : "transparent",
         backdropFilter: scrolled ? "blur(20px)" : "none",
         WebkitBackdropFilter: scrolled ? "blur(20px)" : "none",
         borderBottom: scrolled ? "1px solid oklch(0.22 0.02 250 / 40%)" : "none",
@@ -47,33 +43,28 @@ export default function Navbar() {
           {/* Desktop Nav */}
           <div className="hidden md:flex items-center gap-8">
             {[
-              { label: "产品功能", id: "solution" },
-              { label: "产品演示", id: "demo" },
-              { label: "关于团队", id: "credibility" },
+              { label: "Features", id: "solution-en" },
+              { label: "Demo", id: "demo-en" },
+              { label: "Team", id: "team-en" },
             ].map((item) => (
               <button
                 key={item.id}
                 onClick={() => scrollTo(item.id)}
                 className="text-sm font-medium transition-colors duration-200"
-                style={{
-                  fontFamily: "'DM Sans', sans-serif",
-                  color: "oklch(0.7 0.015 250)",
-                }}
+                style={{ fontFamily: "'DM Sans', sans-serif", color: "oklch(0.7 0.015 250)" }}
                 onMouseEnter={(e) => (e.currentTarget.style.color = "#00D4AA")}
-                onMouseLeave={(e) =>
-                  (e.currentTarget.style.color = "oklch(0.7 0.015 250)")
-                }
+                onMouseLeave={(e) => (e.currentTarget.style.color = "oklch(0.7 0.015 250)")}
               >
                 {item.label}
               </button>
             ))}
           </div>
 
-          {/* CTA */}
+          {/* CTA + Language switcher */}
           <div className="hidden md:flex items-center gap-3">
             {/* Language toggle */}
             <button
-              onClick={() => setLocation("/en")}
+              onClick={() => setLocation("/")}
               className="text-xs font-medium px-3 py-1.5 rounded-lg transition-all duration-200"
               style={{
                 background: "oklch(0.13 0.02 250)",
@@ -89,19 +80,19 @@ export default function Navbar() {
                 e.currentTarget.style.borderColor = "oklch(0.22 0.02 250 / 50%)";
               }}
             >
-              EN
+              中文
             </button>
             <button
-              onClick={() => scrollTo("cta")}
+              onClick={() => scrollTo("cta-en")}
               className="text-sm font-medium px-4 py-2 rounded-lg transition-all duration-200 btn-outline-teal"
             >
-              预约演示
+              Book Demo
             </button>
             <button
-              onClick={() => scrollTo("cta")}
+              onClick={() => scrollTo("cta-en")}
               className="text-sm font-semibold px-4 py-2 rounded-lg btn-primary-teal"
             >
-              立即开始
+              Get Started
             </button>
           </div>
 
@@ -128,9 +119,9 @@ export default function Navbar() {
             style={{ borderColor: "oklch(0.22 0.02 250 / 40%)" }}
           >
             {[
-              { label: "产品功能", id: "solution" },
-              { label: "产品演示", id: "demo" },
-              { label: "关于团队", id: "credibility" },
+              { label: "Features", id: "solution-en" },
+              { label: "Demo", id: "demo-en" },
+              { label: "Team", id: "team-en" },
             ].map((item) => (
               <button
                 key={item.id}
@@ -143,10 +134,21 @@ export default function Navbar() {
             ))}
             <div className="px-4 pt-3 flex flex-col gap-2">
               <button
-                onClick={() => scrollTo("cta")}
+                onClick={() => setLocation("/")}
+                className="w-full text-sm font-medium py-2.5 rounded-lg"
+                style={{
+                  background: "oklch(0.13 0.02 250)",
+                  border: "1px solid oklch(0.22 0.02 250 / 50%)",
+                  color: "oklch(0.6 0.015 250)",
+                }}
+              >
+                切换中文
+              </button>
+              <button
+                onClick={() => scrollTo("cta-en")}
                 className="w-full text-sm font-semibold py-2.5 rounded-lg btn-primary-teal"
               >
-                立即开始评估
+                Get Started
               </button>
             </div>
           </div>
