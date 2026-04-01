@@ -9,31 +9,31 @@ import FadeIn from "@/components/FadeIn";
 
 const teamMembers = [
   {
-    name: "Dr. Wei Zhang",
+    name: "Fatima Al-ani",
     role: "Co-founder & CEO",
     bg: "Imperial College London",
-    bgShort: "ICL",
+    bgShort: "IMPERIAL",
     expertise: "Neurorehabilitation · Computer Vision",
     color: "#00D4AA",
-    initials: "WZ",
+    initials: "FA",
   },
   {
-    name: "Dr. Yun Liu",
+    name: "Dr. Molly Wang",
     role: "Co-founder & CTO",
     bg: "Google DeepMind",
     bgShort: "DeepMind",
     expertise: "Deep Learning · Pose Estimation",
     color: "#8B5CF6",
-    initials: "YL",
+    initials: "MW",
   },
   {
-    name: "Dr. Sarah Chen",
+    name: "Jevon Charles",
     role: "Chief Medical Officer",
-    bg: "Boston University",
-    bgShort: "BU",
-    expertise: "Stroke Rehabilitation · Clinical Research",
+    bg: "Google DeepMind",
+    bgShort: "DeepMind",
+    expertise: "Software Engineering",
     color: "#00A8FF",
-    initials: "SC",
+    initials: "JC",
   },
   {
     name: "Dr. Hao Wang",
@@ -47,8 +47,8 @@ const teamMembers = [
 ];
 
 const partners = [
-  { name: "King's College Hospital NHS Foundation Trust", type: "Clinical Partner", status: "Active" },
-  { name: "Imperial College Healthcare NHS Trust", type: "Pilot Validation", status: "Active" },
+  { name: "King's College Hospital NHS Foundation Trust", type: "Clinical Partner", status: "In Discussion" },
+  { name: "Imperial College Healthcare NHS Trust", type: "Pilot Validation", status: "In Discussion" },
   { name: "University College London Hospitals", type: "Data Partnership", status: "In Discussion" },
   { name: "Oxford University Hospitals NHS Trust", type: "Research Collaboration", status: "In Discussion" },
 ];
