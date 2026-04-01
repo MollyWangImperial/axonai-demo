@@ -35,15 +35,7 @@ const teamMembers = [
     color: "#00A8FF",
     initials: "JC",
   },
-  {
-    name: "Dr. Hao Wang",
-    role: "Head of Algorithms",
-    bg: "Tsinghua University · MIT",
-    bgShort: "THU/MIT",
-    expertise: "Medical Image Analysis · AI",
-    color: "#F59E0B",
-    initials: "HW",
-  },
+
 ];
 
 const partners = [
@@ -116,7 +108,7 @@ export default function CredibilitySection() {
 
 
         {/* Team cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-20">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 mb-20">
           {teamMembers.map((member, i) => (
             <FadeIn key={i} delay={i * 100}>
               <div
