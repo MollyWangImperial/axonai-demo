@@ -5,6 +5,7 @@
  * - Teal accent for logo and CTA
  */
 import { useEffect, useState } from "react";
+import AxonAILogo from "@/components/AxonAILogo";
 
 export default function Navbar() {
   const [scrolled, setScrolled] = useState(false);
@@ -37,33 +38,8 @@ export default function Navbar() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
-          <div className="flex items-center gap-2.5">
-            <div
-              className="w-8 h-8 rounded-lg flex items-center justify-center"
-              style={{
-                background: "linear-gradient(135deg, #00D4AA 0%, #00A8FF 100%)",
-                boxShadow: "0 0 16px rgba(0, 212, 170, 0.4)",
-              }}
-            >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-                <path
-                  d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"
-                  fill="oklch(0.07 0.02 250)"
-                />
-              </svg>
-            </div>
-            <span
-              className="text-xl font-bold"
-              style={{
-                fontFamily: "'Sora', sans-serif",
-                background: "linear-gradient(135deg, #00D4AA 0%, #00A8FF 100%)",
-                WebkitBackgroundClip: "text",
-                WebkitTextFillColor: "transparent",
-                backgroundClip: "text",
-              }}
-            >
-              AxonAI
-            </span>
+          <div className="flex items-center">
+            <AxonAILogo height={38} />
           </div>
 
           {/* Desktop Nav */}
