@@ -113,40 +113,7 @@ export default function CredibilitySection() {
           </p>
         </FadeIn>
 
-        {/* Institution logos (text-based) */}
-        <FadeIn className="mb-16">
-          <div
-            className="flex flex-wrap items-center justify-center gap-6 py-6 px-8 rounded-2xl"
-            style={{
-              background: "oklch(0.10 0.018 250)",
-              border: "1px solid oklch(0.18 0.02 250 / 60%)",
-            }}
-          >
-            <span
-              className="text-xs uppercase tracking-widest mr-4"
-              style={{
-                color: "oklch(0.45 0.015 250)",
-                fontFamily: "'JetBrains Mono', monospace",
-              }}
-            >
-              TEAM BACKGROUNDS
-            </span>
-            {institutions.map((inst, i) => (
-              <span
-                key={i}
-                className="text-sm font-semibold px-3 py-1.5 rounded-lg"
-                style={{
-                  color: "oklch(0.75 0.015 250)",
-                  background: "oklch(0.14 0.018 250)",
-                  fontFamily: "'Sora', sans-serif",
-                  border: "1px solid oklch(0.22 0.02 250 / 50%)",
-                }}
-              >
-                {inst}
-              </span>
-            ))}
-          </div>
-        </FadeIn>
+
 
         {/* Team cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-20">
