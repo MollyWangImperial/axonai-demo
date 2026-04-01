@@ -70,7 +70,7 @@ export default function HeroSection() {
             transition: "opacity 0.7s ease 0.25s, transform 0.7s ease 0.25s",
           }}
         >
-          Every Step of Recovery,
+          Personalised Rehab,
           <br />
           <span
             style={{
@@ -80,7 +80,7 @@ export default function HeroSection() {
               backgroundClip: "text",
             }}
           >
-            Precisely Measured
+            From Clinic to Home
           </span>
         </h1>
 
