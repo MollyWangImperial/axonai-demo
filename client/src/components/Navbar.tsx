@@ -6,12 +6,10 @@
  */
 import { useEffect, useState } from "react";
 import AxonAILogo from "@/components/AxonAILogo";
-import { useLocation } from "wouter";
 
 export default function Navbar() {
   const [scrolled, setScrolled] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
-  const [, setLocation] = useLocation();
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 20);
@@ -47,9 +45,9 @@ export default function Navbar() {
           {/* Desktop Nav */}
           <div className="hidden md:flex items-center gap-8">
             {[
-              { label: "产品功能", id: "solution" },
-              { label: "产品演示", id: "demo" },
-              { label: "关于团队", id: "credibility" },
+              { label: "Features", id: "solution" },
+              { label: "Demo", id: "demo" },
+              { label: "Our Team", id: "credibility" },
             ].map((item) => (
               <button
                 key={item.id}
@@ -71,37 +69,17 @@ export default function Navbar() {
 
           {/* CTA */}
           <div className="hidden md:flex items-center gap-3">
-            {/* Language toggle */}
-            <button
-              onClick={() => setLocation("/en")}
-              className="text-xs font-medium px-3 py-1.5 rounded-lg transition-all duration-200"
-              style={{
-                background: "oklch(0.13 0.02 250)",
-                border: "1px solid oklch(0.22 0.02 250 / 50%)",
-                color: "oklch(0.6 0.015 250)",
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.color = "#00D4AA";
-                e.currentTarget.style.borderColor = "rgba(0, 212, 170, 0.4)";
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.color = "oklch(0.6 0.015 250)";
-                e.currentTarget.style.borderColor = "oklch(0.22 0.02 250 / 50%)";
-              }}
-            >
-              EN
-            </button>
             <button
               onClick={() => scrollTo("cta")}
               className="text-sm font-medium px-4 py-2 rounded-lg transition-all duration-200 btn-outline-teal"
             >
-              预约演示
+              Book a Demo
             </button>
             <button
               onClick={() => scrollTo("cta")}
               className="text-sm font-semibold px-4 py-2 rounded-lg btn-primary-teal"
             >
-              立即开始
+              Get Started
             </button>
           </div>
 
@@ -128,9 +106,9 @@ export default function Navbar() {
             style={{ borderColor: "oklch(0.22 0.02 250 / 40%)" }}
           >
             {[
-              { label: "产品功能", id: "solution" },
-              { label: "产品演示", id: "demo" },
-              { label: "关于团队", id: "credibility" },
+              { label: "Features", id: "solution" },
+              { label: "Demo", id: "demo" },
+              { label: "Our Team", id: "credibility" },
             ].map((item) => (
               <button
                 key={item.id}
@@ -146,8 +124,8 @@ export default function Navbar() {
                 onClick={() => scrollTo("cta")}
                 className="w-full text-sm font-semibold py-2.5 rounded-lg btn-primary-teal"
               >
-                立即开始评估
-              </button>
+              Get Started
+            </button>
             </div>
           </div>
         )}

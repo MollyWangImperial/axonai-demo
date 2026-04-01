@@ -1,11 +1,7 @@
 /*
  * HeroSection — Full-screen hero with neural network background
  * Design: Bioluminescent Dark Science
- * - Animated neural network canvas background
- * - Hero image overlay at low opacity
- * - Centered headline with gradient text
- * - Two CTA buttons
- * - Floating metric badges
+ * Audience: UK rehabilitation clinicians, hospital departments, healthcare managers
  */
 import NeuralNetworkBg from "@/components/NeuralNetworkBg";
 import { useEffect, useState } from "react";
@@ -13,9 +9,9 @@ import { useEffect, useState } from "react";
 const HERO_BG = "https://d2xsxph8kpxj0f.cloudfront.net/310519663504242183/5EY2vMaeRRMxP3UJhAHQDy/axonai-hero-bg-N7Z8ECEjTYY9uXpa8ZeLHK.webp";
 
 const metrics = [
-  { value: "92%", label: "评估准确率", color: "#00D4AA" },
-  { value: "3分钟", label: "生成完整报告", color: "#8B5CF6" },
-  { value: "40%", label: "治疗师效率提升", color: "#00A8FF" },
+  { value: "92%", label: "Assessment Accuracy", color: "#00D4AA" },
+  { value: "3 min", label: "Full Report Generated", color: "#8B5CF6" },
+  { value: "40%", label: "Therapist Efficiency Gain", color: "#00A8FF" },
 ];
 
 export default function HeroSection() {
@@ -39,10 +35,7 @@ export default function HeroSection() {
       {/* Hero background image at low opacity */}
       <div
         className="absolute inset-0 bg-cover bg-center"
-        style={{
-          backgroundImage: `url(${HERO_BG})`,
-          opacity: 0.12,
-        }}
+        style={{ backgroundImage: `url(${HERO_BG})`, opacity: 0.12 }}
       />
 
       {/* Radial gradient overlay */}
@@ -60,10 +53,7 @@ export default function HeroSection() {
       {/* Bottom fade */}
       <div
         className="absolute bottom-0 left-0 right-0 h-40 pointer-events-none"
-        style={{
-          background:
-            "linear-gradient(to bottom, transparent, oklch(0.07 0.02 250))",
-        }}
+        style={{ background: "linear-gradient(to bottom, transparent, oklch(0.07 0.02 250))" }}
       />
 
       {/* Content */}
@@ -80,7 +70,7 @@ export default function HeroSection() {
             transition: "opacity 0.7s ease 0.25s, transform 0.7s ease 0.25s",
           }}
         >
-          让每一步康复
+          Every Step of Recovery,
           <br />
           <span
             style={{
@@ -90,7 +80,7 @@ export default function HeroSection() {
               backgroundClip: "text",
             }}
           >
-            精准可量化
+            Precisely Measured
           </span>
         </h1>
 
@@ -105,8 +95,9 @@ export default function HeroSection() {
             transition: "opacity 0.7s ease 0.4s, transform 0.7s ease 0.4s",
           }}
         >
-          AxonAI 通过计算机视觉技术，对中风患者的步态与运动功能进行客观量化评估，
-          并自动生成个性化康复训练方案，帮助医院康复科提升治疗效率、改善患者预后。
+          AxonAI uses computer vision to deliver objective, quantified gait and motor
+          function assessments for stroke patients — automatically generating personalised
+          rehabilitation plans that improve clinical outcomes.
         </p>
 
         {/* CTA Buttons */}
@@ -123,46 +114,35 @@ export default function HeroSection() {
             className="px-8 py-4 rounded-xl text-base font-semibold btn-primary-teal"
             style={{ minWidth: "180px" }}
           >
-            立即开始评估
+            Start Your Assessment
           </button>
           <button
             onClick={() => scrollTo("demo")}
             className="px-8 py-4 rounded-xl text-base font-medium btn-outline-teal"
             style={{ minWidth: "160px" }}
           >
-            预约演示 →
+            Book a Demo →
           </button>
         </div>
 
         {/* Floating metric badges */}
         <div
           className="flex flex-wrap items-center justify-center gap-4"
-          style={{
-            opacity: visible ? 1 : 0,
-            transition: "opacity 0.7s ease 0.7s",
-          }}
+          style={{ opacity: visible ? 1 : 0, transition: "opacity 0.7s ease 0.7s" }}
         >
           {metrics.map((m, i) => (
             <div
               key={i}
               className="flex items-center gap-3 px-5 py-3 rounded-xl glass-card"
-              style={{
-                border: `1px solid ${m.color}30`,
-              }}
+              style={{ border: `1px solid ${m.color}30` }}
             >
               <span
                 className="text-2xl font-bold"
-                style={{
-                  fontFamily: "'Sora', sans-serif",
-                  color: m.color,
-                }}
+                style={{ fontFamily: "'Sora', sans-serif", color: m.color }}
               >
                 {m.value}
               </span>
-              <span
-                className="text-sm"
-                style={{ color: "oklch(0.6 0.015 250)" }}
-              >
+              <span className="text-sm" style={{ color: "oklch(0.6 0.015 250)" }}>
                 {m.label}
               </span>
             </div>
@@ -173,10 +153,7 @@ export default function HeroSection() {
       {/* Scroll indicator */}
       <div
         className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2"
-        style={{
-          opacity: visible ? 0.5 : 0,
-          transition: "opacity 1s ease 1.2s",
-        }}
+        style={{ opacity: visible ? 0.5 : 0, transition: "opacity 1s ease 1.2s" }}
       >
         <span
           className="text-xs"
@@ -190,10 +167,7 @@ export default function HeroSection() {
         </span>
         <div
           className="w-px h-8"
-          style={{
-            background:
-              "linear-gradient(to bottom, oklch(0.5 0.015 250), transparent)",
-          }}
+          style={{ background: "linear-gradient(to bottom, oklch(0.5 0.015 250), transparent)" }}
         />
       </div>
     </section>

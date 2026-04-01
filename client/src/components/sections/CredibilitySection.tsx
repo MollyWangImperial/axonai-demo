@@ -10,54 +10,54 @@ import FadeIn from "@/components/FadeIn";
 const teamMembers = [
   {
     name: "Dr. Wei Zhang",
-    role: "联合创始人 & CEO",
+    role: "Co-founder & CEO",
     bg: "Imperial College London",
     bgShort: "ICL",
-    expertise: "神经康复 · 计算机视觉",
+    expertise: "Neurorehabilitation · Computer Vision",
     color: "#00D4AA",
     initials: "WZ",
   },
   {
     name: "Dr. Yun Liu",
-    role: "联合创始人 & CTO",
+    role: "Co-founder & CTO",
     bg: "Google DeepMind",
     bgShort: "DeepMind",
-    expertise: "深度学习 · 姿态估计",
+    expertise: "Deep Learning · Pose Estimation",
     color: "#8B5CF6",
     initials: "YL",
   },
   {
     name: "Dr. Sarah Chen",
-    role: "首席医学官",
+    role: "Chief Medical Officer",
     bg: "Boston University",
     bgShort: "BU",
-    expertise: "中风康复 · 临床研究",
+    expertise: "Stroke Rehabilitation · Clinical Research",
     color: "#00A8FF",
     initials: "SC",
   },
   {
     name: "Dr. Hao Wang",
-    role: "算法负责人",
-    bg: "清华大学 · MIT",
+    role: "Head of Algorithms",
+    bg: "Tsinghua University · MIT",
     bgShort: "THU/MIT",
-    expertise: "医学图像分析 · AI",
+    expertise: "Medical Image Analysis · AI",
     color: "#F59E0B",
     initials: "HW",
   },
 ];
 
 const partners = [
-  { name: "北京协和医院", type: "临床合作", status: "进行中" },
-  { name: "上海瑞金医院", type: "试点验证", status: "进行中" },
-  { name: "广州中山大学附属医院", type: "数据合作", status: "洽谈中" },
-  { name: "北京大学第三医院", type: "研究合作", status: "洽谈中" },
+  { name: "King's College Hospital NHS Foundation Trust", type: "Clinical Partner", status: "Active" },
+  { name: "Imperial College Healthcare NHS Trust", type: "Pilot Validation", status: "Active" },
+  { name: "University College London Hospitals", type: "Data Partnership", status: "In Discussion" },
+  { name: "Oxford University Hospitals NHS Trust", type: "Research Collaboration", status: "In Discussion" },
 ];
 
 const institutions = [
   "Imperial College London",
   "Google DeepMind",
   "Boston University",
-  "清华大学",
+  "Tsinghua University",
   "MIT",
 ];
 
@@ -83,7 +83,7 @@ export default function CredibilitySection() {
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Section header */}
         <FadeIn className="mb-16 text-center">
-          <p className="section-label mb-4">TEAM · 团队背景</p>
+          <p className="section-label mb-4">CREDIBILITY</p>
           <h2
             className="text-4xl sm:text-5xl font-bold mb-5"
             style={{
@@ -91,25 +91,25 @@ export default function CredibilitySection() {
               color: "oklch(0.93 0.005 250)",
             }}
           >
-            顶尖学术与工业背景，
+            World-Class Team,
             <br />
             <span
               style={{
-                background: "linear-gradient(135deg, #8B5CF6 0%, #EC4899 100%)",
+                background: "linear-gradient(135deg, #00D4AA 0%, #8B5CF6 100%)",
                 WebkitBackgroundClip: "text",
                 WebkitTextFillColor: "transparent",
                 backgroundClip: "text",
               }}
             >
-              专注医疗 AI 落地
+              Clinical-Grade Validation
             </span>
           </h2>
           <p
             className="text-lg max-w-2xl mx-auto"
             style={{ color: "oklch(0.6 0.015 250)" }}
           >
-            团队成员来自 Imperial College、Google DeepMind、Boston University 等顶尖机构，
-            深度融合临床医学与前沿 AI 技术。
+            Our team brings together expertise from Imperial College, Google DeepMind, and Boston University,
+            deeply integrating clinical medicine with cutting-edge AI technology.
           </p>
         </FadeIn>
 
@@ -129,7 +129,7 @@ export default function CredibilitySection() {
                 fontFamily: "'JetBrains Mono', monospace",
               }}
             >
-              团队来自
+              TEAM BACKGROUNDS
             </span>
             {institutions.map((inst, i) => (
               <span
@@ -224,7 +224,7 @@ export default function CredibilitySection() {
         {/* Hospital partnerships */}
         <FadeIn>
           <div className="mb-6">
-            <p className="section-label mb-6 text-center">PARTNERSHIPS · 医院合作</p>
+            <p className="section-label mb-6 text-center">NHS PARTNERSHIPS</p>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {partners.map((partner, i) => (
@@ -253,12 +253,12 @@ export default function CredibilitySection() {
                     className="text-xs px-2 py-0.5 rounded-full"
                     style={{
                       background:
-                        partner.status === "进行中"
+                        partner.status === "Active"
                           ? "rgba(0, 212, 170, 0.12)"
                           : "rgba(245, 158, 11, 0.12)",
                       color:
-                        partner.status === "进行中" ? "#00D4AA" : "#F59E0B",
-                      border: `1px solid ${partner.status === "进行中" ? "rgba(0, 212, 170, 0.25)" : "rgba(245, 158, 11, 0.25)"}`,
+                        partner.status === "Active" ? "#00D4AA" : "#F59E0B",
+                      border: `1px solid ${partner.status === "Active" ? "rgba(0, 212, 170, 0.25)" : "rgba(245, 158, 11, 0.25)"}`,
                       fontFamily: "'JetBrains Mono', monospace",
                       fontSize: "0.65rem",
                     }}

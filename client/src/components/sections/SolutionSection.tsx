@@ -1,9 +1,7 @@
 /*
  * SolutionSection — AxonAI's three core capabilities
  * Design: Bioluminescent Dark Science
- * - Alternating left/right layout
- * - Teal accent for solution items
- * - Gait analysis image showcase
+ * Audience: UK rehabilitation clinicians and healthcare managers
  */
 import FadeIn from "@/components/FadeIn";
 
@@ -11,12 +9,12 @@ const GAIT_IMG = "https://d2xsxph8kpxj0f.cloudfront.net/310519663504242183/5EY2v
 const REHAB_IMG = "https://d2xsxph8kpxj0f.cloudfront.net/310519663504242183/5EY2vMaeRRMxP3UJhAHQDy/axonai-rehab-plan-ASedfW2WiEgqYf2WpPtCPV.webp";
 
 const features = [
-  { icon: "◈", label: "对称性分析", color: "#00D4AA" },
-  { icon: "◉", label: "稳定性指数", color: "#8B5CF6" },
-  { icon: "◎", label: "步态节律", color: "#00A8FF" },
-  { icon: "◆", label: "关节角度", color: "#F59E0B" },
-  { icon: "▣", label: "重心偏移", color: "#00D4AA" },
-  { icon: "◐", label: "步速分析", color: "#8B5CF6" },
+  { icon: "◈", label: "Symmetry Analysis", color: "#00D4AA" },
+  { icon: "◉", label: "Stability Index", color: "#8B5CF6" },
+  { icon: "◎", label: "Gait Rhythm", color: "#00A8FF" },
+  { icon: "◆", label: "Joint Angles", color: "#F59E0B" },
+  { icon: "▣", label: "Centre of Mass", color: "#00D4AA" },
+  { icon: "◐", label: "Cadence Analysis", color: "#8B5CF6" },
 ];
 
 export default function SolutionSection() {
@@ -29,27 +27,19 @@ export default function SolutionSection() {
           "linear-gradient(180deg, oklch(0.07 0.02 250) 0%, oklch(0.09 0.025 240) 50%, oklch(0.07 0.02 250) 100%)",
       }}
     >
-      {/* Radial glow */}
       <div
         className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[600px] pointer-events-none"
-        style={{
-          background:
-            "radial-gradient(ellipse, rgba(0, 212, 170, 0.05) 0%, transparent 70%)",
-        }}
+        style={{ background: "radial-gradient(ellipse, rgba(0, 212, 170, 0.05) 0%, transparent 70%)" }}
       />
 
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Section header */}
         <FadeIn className="mb-20 text-center">
-          <p className="section-label mb-4">SOLUTION · 解决方案</p>
+          <p className="section-label mb-4">SOLUTION</p>
           <h2
             className="text-4xl sm:text-5xl font-bold mb-5"
-            style={{
-              fontFamily: "'Sora', sans-serif",
-              color: "oklch(0.93 0.005 250)",
-            }}
+            style={{ fontFamily: "'Sora', sans-serif", color: "oklch(0.93 0.005 250)" }}
           >
-            从视频到洞察，
+            From Video to Insight —
             <span
               style={{
                 background: "linear-gradient(135deg, #00D4AA 0%, #00A8FF 100%)",
@@ -58,14 +48,12 @@ export default function SolutionSection() {
                 backgroundClip: "text",
               }}
             >
-              全流程 AI 赋能
+              {" "}End-to-End AI
             </span>
           </h2>
-          <p
-            className="text-lg max-w-2xl mx-auto"
-            style={{ color: "oklch(0.6 0.015 250)" }}
-          >
-            AxonAI 将计算机视觉与临床医学知识深度融合，构建从数据采集到方案生成的完整闭环。
+          <p className="text-lg max-w-2xl mx-auto" style={{ color: "oklch(0.6 0.015 250)" }}>
+            AxonAI deeply integrates computer vision with clinical knowledge to build a
+            complete closed-loop — from data capture to personalised plan generation.
           </p>
         </FadeIn>
 
@@ -73,20 +61,11 @@ export default function SolutionSection() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center mb-24">
           <FadeIn direction="left">
             <div className="relative rounded-2xl overflow-hidden" style={{ border: "1px solid rgba(0, 212, 170, 0.2)" }}>
-              <img
-                src={GAIT_IMG}
-                alt="AI步态分析"
-                className="w-full h-auto"
-                style={{ display: "block" }}
-              />
+              <img src={GAIT_IMG} alt="AI Gait Analysis" className="w-full h-auto" style={{ display: "block" }} />
               <div
                 className="absolute inset-0"
-                style={{
-                  background:
-                    "linear-gradient(to right, transparent 60%, oklch(0.07 0.02 250))",
-                }}
+                style={{ background: "linear-gradient(to right, transparent 60%, oklch(0.07 0.02 250))" }}
               />
-              {/* Overlay badge */}
               <div
                 className="absolute top-4 left-4 px-3 py-1.5 rounded-lg text-xs font-medium"
                 style={{
@@ -112,42 +91,29 @@ export default function SolutionSection() {
                   fontFamily: "'JetBrains Mono', monospace",
                 }}
               >
-                01 / 视频步态分析
+                01 / Video Gait Analysis
               </div>
               <h3
                 className="text-3xl font-bold mb-4"
-                style={{
-                  fontFamily: "'Sora', sans-serif",
-                  color: "oklch(0.93 0.005 250)",
-                }}
+                style={{ fontFamily: "'Sora', sans-serif", color: "oklch(0.93 0.005 250)" }}
               >
-                普通摄像头即可
-                <br />完成专业级评估
+                Clinical-Grade Assessment
+                <br />with a Standard Camera
               </h3>
-              <p
-                className="text-base leading-relaxed mb-8"
-                style={{ color: "oklch(0.62 0.015 250)" }}
-              >
-                无需穿戴传感器或专业设备，仅凭标准视频即可完成全身关节追踪与步态分析。
-                系统自动提取 17 个关键骨骼节点，实时计算步态参数。
+              <p className="text-base leading-relaxed mb-8" style={{ color: "oklch(0.62 0.015 250)" }}>
+                No wearable sensors or specialist equipment required. Using standard video,
+                AxonAI performs full-body joint tracking and gait analysis — automatically
+                extracting 17 key skeletal landmarks and computing gait parameters in real time.
               </p>
-
-              {/* Metrics grid */}
               <div className="grid grid-cols-3 gap-3">
                 {features.map((f, i) => (
                   <div
                     key={i}
                     className="flex flex-col items-center gap-1.5 p-3 rounded-xl text-center"
-                    style={{
-                      background: "oklch(0.11 0.018 250)",
-                      border: `1px solid ${f.color}25`,
-                    }}
+                    style={{ background: "oklch(0.11 0.018 250)", border: `1px solid ${f.color}25` }}
                   >
                     <span style={{ color: f.color, fontSize: "1.1rem" }}>{f.icon}</span>
-                    <span
-                      className="text-xs font-medium"
-                      style={{ color: "oklch(0.72 0.015 250)" }}
-                    >
+                    <span className="text-xs font-medium" style={{ color: "oklch(0.72 0.015 250)" }}>
                       {f.label}
                     </span>
                   </div>
@@ -157,7 +123,7 @@ export default function SolutionSection() {
           </FadeIn>
         </div>
 
-        {/* Feature 2: Personalized Rehab Plan */}
+        {/* Feature 2: Personalised Rehab Plan */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
           <FadeIn direction="left" delay={100}>
             <div>
@@ -170,56 +136,41 @@ export default function SolutionSection() {
                   fontFamily: "'JetBrains Mono', monospace",
                 }}
               >
-                02 / 个性化方案生成
+                02 / Personalised Plan Generation
               </div>
               <h3
                 className="text-3xl font-bold mb-4"
-                style={{
-                  fontFamily: "'Sora', sans-serif",
-                  color: "oklch(0.93 0.005 250)",
-                }}
+                style={{ fontFamily: "'Sora', sans-serif", color: "oklch(0.93 0.005 250)" }}
               >
-                AI 驱动，
-                <br />每位患者专属方案
+                AI-Driven,
+                <br />Tailored to Every Patient
               </h3>
-              <p
-                className="text-base leading-relaxed mb-8"
-                style={{ color: "oklch(0.62 0.015 250)" }}
-              >
-                基于评估结果与患者病史，系统自动生成包含训练类型、强度、频次的个性化康复计划，
-                并随患者进展动态调整，确保方案始终贴合实际需求。
+              <p className="text-base leading-relaxed mb-8" style={{ color: "oklch(0.62 0.015 250)" }}>
+                Based on assessment results and patient history, the system automatically
+                generates a personalised rehabilitation plan specifying exercise type,
+                intensity, and frequency — dynamically adjusting as the patient progresses.
               </p>
-
               <div className="space-y-3">
                 {[
-                  { label: "平衡训练方案", progress: 85, color: "#00D4AA" },
-                  { label: "步态矫正训练", progress: 72, color: "#8B5CF6" },
-                  { label: "肌力强化计划", progress: 60, color: "#00A8FF" },
+                  { label: "Balance Training Programme", progress: 85, color: "#00D4AA" },
+                  { label: "Gait Correction Exercises", progress: 72, color: "#8B5CF6" },
+                  { label: "Strength Building Plan", progress: 60, color: "#00A8FF" },
                 ].map((item, i) => (
                   <div key={i}>
                     <div className="flex justify-between items-center mb-1.5">
-                      <span
-                        className="text-sm font-medium"
-                        style={{ color: "oklch(0.78 0.015 250)" }}
-                      >
+                      <span className="text-sm font-medium" style={{ color: "oklch(0.78 0.015 250)" }}>
                         {item.label}
                       </span>
-                      <span
-                        className="text-xs font-mono"
-                        style={{ color: item.color }}
-                      >
+                      <span className="text-xs font-mono" style={{ color: item.color }}>
                         {item.progress}%
                       </span>
                     </div>
-                    <div
-                      className="h-1.5 rounded-full overflow-hidden"
-                      style={{ background: "oklch(0.18 0.02 250)" }}
-                    >
+                    <div className="h-1.5 rounded-full overflow-hidden" style={{ background: "oklch(0.18 0.02 250)" }}>
                       <div
                         className="h-full rounded-full"
                         style={{
                           width: `${item.progress}%`,
-                          background: `linear-gradient(90deg, ${item.color}, ${item.color}80)`,
+                          background: `linear-gradient(90deg, ${item.color}, ${item.color}99)`,
                         }}
                       />
                     </div>
@@ -231,18 +182,10 @@ export default function SolutionSection() {
 
           <FadeIn direction="right" delay={200}>
             <div className="relative rounded-2xl overflow-hidden" style={{ border: "1px solid rgba(139, 92, 246, 0.2)" }}>
-              <img
-                src={REHAB_IMG}
-                alt="个性化康复方案"
-                className="w-full h-auto"
-                style={{ display: "block" }}
-              />
+              <img src={REHAB_IMG} alt="Personalised Rehab Plan" className="w-full h-auto" style={{ display: "block" }} />
               <div
                 className="absolute inset-0"
-                style={{
-                  background:
-                    "linear-gradient(to left, transparent 60%, oklch(0.07 0.02 250))",
-                }}
+                style={{ background: "linear-gradient(to left, transparent 60%, oklch(0.07 0.02 250))" }}
               />
             </div>
           </FadeIn>

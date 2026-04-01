@@ -51,7 +51,7 @@ export default function CTASection() {
       <div className="relative max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <FadeIn className="text-center mb-14">
-          <p className="section-label mb-4">GET STARTED · 开始合作</p>
+          <p className="section-label mb-4">GET STARTED</p>
           <h2
             className="text-4xl sm:text-5xl font-bold mb-5"
             style={{
@@ -59,25 +59,26 @@ export default function CTASection() {
               color: "oklch(0.93 0.005 250)",
             }}
           >
-            申请试点合作，
+            Join the AxonAI
             <br />
             <span
               style={{
-                background: "linear-gradient(135deg, #00D4AA 0%, #00A8FF 100%)",
+                background: "linear-gradient(135deg, #00D4AA 0%, #8B5CF6 100%)",
                 WebkitBackgroundClip: "text",
                 WebkitTextFillColor: "transparent",
                 backgroundClip: "text",
               }}
             >
-              共同推动康复医疗升级
+              Pilot Programme
             </span>
           </h2>
           <p
             className="text-lg max-w-xl mx-auto"
             style={{ color: "oklch(0.6 0.015 250)" }}
           >
-            我们正在寻找有前瞻性的医院康复科与医疗机构，共同验证并完善 AxonAI 系统。
-            首批试点合作机构将享受免费使用权与优先定制服务。
+            We are currently partnering with a select group of NHS rehabilitation departments
+            for our clinical pilot. Apply now to get early access and shape the product
+            alongside our team.
           </p>
         </FadeIn>
 
@@ -87,27 +88,27 @@ export default function CTASection() {
             <div className="space-y-5">
               {[
                 {
-                  icon: "✦",
-                  title: "免费试点期",
-                  desc: "首批合作机构享受 6 个月免费使用权",
+                  icon: "◈",
+                  title: "Free Pilot Period",
+                  desc: "Full access to all features at no cost during the pilot phase.",
                   color: "#00D4AA",
                 },
                 {
-                  icon: "◈",
-                  title: "专属技术支持",
-                  desc: "核心团队驻场培训与 7×24 技术响应",
+                  icon: "◉",
+                  title: "Dedicated Implementation Support",
+                  desc: "Our clinical team provides on-site or remote onboarding and training.",
                   color: "#8B5CF6",
                 },
                 {
-                  icon: "◉",
-                  title: "联合研究发表",
-                  desc: "支持合作医院开展临床研究并联名发表",
+                  icon: "◎",
+                  title: "Co-development Opportunity",
+                  desc: "Pilot partners directly influence product roadmap and feature priorities.",
                   color: "#00A8FF",
                 },
                 {
                   icon: "◆",
-                  title: "定制化开发",
-                  desc: "根据科室需求定制评估指标与报告模板",
+                  title: "Research Collaboration",
+                  desc: "Joint publication opportunities with our academic research team.",
                   color: "#F59E0B",
                 },
               ].map((benefit, i) => (
@@ -170,16 +171,16 @@ export default function CTASection() {
                     className="text-xl font-bold mb-3"
                     style={{
                       fontFamily: "'Sora', sans-serif",
-                      color: "oklch(0.93 0.005 250)",
+                      color: "#00D4AA",
                     }}
                   >
-                    申请已提交！
+                    Application Received
                   </h3>
                   <p
                     className="text-sm"
                     style={{ color: "oklch(0.6 0.015 250)" }}
                   >
-                    我们的团队将在 24 小时内与您联系，安排产品演示与合作洽谈。
+                    Thank you for your interest. Our team will be in touch within 2 business days.
                   </p>
                 </div>
               ) : (
@@ -187,8 +188,8 @@ export default function CTASection() {
                   {/* Type selector */}
                   <div className="flex gap-3 mb-6">
                     {[
-                      { value: "pilot", label: "申请试点合作" },
-                      { value: "demo", label: "获取产品演示" },
+                      { value: "pilot", label: "Apply for Pilot" },
+                      { value: "demo", label: "Book a Demo" },
                     ].map((opt) => (
                       <button
                         key={opt.value}
@@ -224,7 +225,7 @@ export default function CTASection() {
                         className="block text-xs font-medium mb-1.5"
                         style={{ color: "oklch(0.6 0.015 250)" }}
                       >
-                        姓名 *
+                        Full Name *
                       </label>
                       <input
                         type="text"
@@ -233,7 +234,7 @@ export default function CTASection() {
                         onChange={(e) =>
                           setFormData((prev) => ({ ...prev, name: e.target.value }))
                         }
-                        placeholder="您的姓名"
+                        placeholder="Dr. Jane Smith"
                         className="w-full px-4 py-2.5 rounded-xl text-sm outline-none transition-all duration-200"
                         style={{
                           background: "oklch(0.13 0.018 250)",
@@ -253,7 +254,7 @@ export default function CTASection() {
                         className="block text-xs font-medium mb-1.5"
                         style={{ color: "oklch(0.6 0.015 250)" }}
                       >
-                        职位 *
+                        Role / Title *
                       </label>
                       <input
                         type="text"
@@ -262,7 +263,7 @@ export default function CTASection() {
                         onChange={(e) =>
                           setFormData((prev) => ({ ...prev, role: e.target.value }))
                         }
-                        placeholder="科主任 / 治疗师 / 管理者"
+                        placeholder="Head of Rehabilitation"
                         className="w-full px-4 py-2.5 rounded-xl text-sm outline-none transition-all duration-200"
                         style={{
                           background: "oklch(0.13 0.018 250)",
@@ -284,7 +285,7 @@ export default function CTASection() {
                       className="block text-xs font-medium mb-1.5"
                       style={{ color: "oklch(0.6 0.015 250)" }}
                     >
-                      医院 / 机构名称 *
+                      Hospital / NHS Trust *
                     </label>
                     <input
                       type="text"
@@ -293,7 +294,7 @@ export default function CTASection() {
                       onChange={(e) =>
                         setFormData((prev) => ({ ...prev, hospital: e.target.value }))
                       }
-                      placeholder="请输入您所在的医院或机构名称"
+                      placeholder="King's College Hospital NHS Trust"
                       className="w-full px-4 py-2.5 rounded-xl text-sm outline-none transition-all duration-200"
                       style={{
                         background: "oklch(0.13 0.018 250)",
@@ -315,7 +316,7 @@ export default function CTASection() {
                         className="block text-xs font-medium mb-1.5"
                         style={{ color: "oklch(0.6 0.015 250)" }}
                       >
-                        邮箱 *
+                        Work Email *
                       </label>
                       <input
                         type="email"
@@ -324,7 +325,7 @@ export default function CTASection() {
                         onChange={(e) =>
                           setFormData((prev) => ({ ...prev, email: e.target.value }))
                         }
-                        placeholder="your@hospital.com"
+                        placeholder="j.smith@nhs.net"
                         className="w-full px-4 py-2.5 rounded-xl text-sm outline-none transition-all duration-200"
                         style={{
                           background: "oklch(0.13 0.018 250)",
@@ -344,7 +345,7 @@ export default function CTASection() {
                         className="block text-xs font-medium mb-1.5"
                         style={{ color: "oklch(0.6 0.015 250)" }}
                       >
-                        联系电话
+                        Phone (optional)
                       </label>
                       <input
                         type="tel"
@@ -352,7 +353,7 @@ export default function CTASection() {
                         onChange={(e) =>
                           setFormData((prev) => ({ ...prev, phone: e.target.value }))
                         }
-                        placeholder="138 xxxx xxxx"
+                        placeholder="+44 20 1234 5678"
                         className="w-full px-4 py-2.5 rounded-xl text-sm outline-none transition-all duration-200"
                         style={{
                           background: "oklch(0.13 0.018 250)",
@@ -373,14 +374,14 @@ export default function CTASection() {
                     type="submit"
                     className="w-full py-3.5 rounded-xl text-base font-semibold btn-primary-teal mt-2"
                   >
-                    {formData.type === "pilot" ? "提交试点申请 →" : "预约产品演示 →"}
+                    {formData.type === "pilot" ? "Submit Application" : "Request Demo"}
                   </button>
 
                   <p
                     className="text-xs text-center"
                     style={{ color: "oklch(0.45 0.015 250)" }}
                   >
-                    提交即表示您同意我们的隐私政策。我们承诺不会将您的信息用于任何商业目的。
+                    Your information is kept strictly confidential and will not be shared with third parties.
                   </p>
                 </form>
               )}

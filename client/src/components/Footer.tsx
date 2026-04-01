@@ -24,8 +24,9 @@ export default function Footer() {
               className="text-sm leading-relaxed max-w-xs"
               style={{ color: "oklch(0.5 0.015 250)" }}
             >
-              基于计算机视觉的中风康复评估与个性化康复方案生成系统。
-              让每一步康复都精准可量化。
+              Computer vision-powered stroke rehabilitation assessment and
+              personalised rehabilitation plan generation. Every step of
+              recovery, precisely measured.
             </p>
             <p
               className="text-xs mt-4"
@@ -34,7 +35,7 @@ export default function Footer() {
                 fontFamily: "'JetBrains Mono', monospace",
               }}
             >
-              contact@axonai.cn
+              contact@axonai.com
             </p>
           </div>
 
@@ -47,10 +48,10 @@ export default function Footer() {
                 fontFamily: "'JetBrains Mono', monospace",
               }}
             >
-              产品
+              Product
             </h4>
             <ul className="space-y-2.5">
-              {["步态分析", "康复方案生成", "进展追踪", "数据报告"].map((item) => (
+              {["Gait Analysis", "Rehab Plan Generation", "Progress Tracking", "Clinical Reports"].map((item) => (
                 <li key={item}>
                   <a
                     href="#"
@@ -77,10 +78,10 @@ export default function Footer() {
                 fontFamily: "'JetBrains Mono', monospace",
               }}
             >
-              公司
+              Company
             </h4>
             <ul className="space-y-2.5">
-              {["关于我们", "团队介绍", "研究成果", "加入我们"].map((item) => (
+              {["About Us", "Our Team", "Research", "Careers"].map((item) => (
                 <li key={item}>
                   <a
                     href="#"
@@ -108,10 +109,10 @@ export default function Footer() {
             className="text-xs"
             style={{ color: "oklch(0.38 0.015 250)" }}
           >
-            © 2025 AxonAI Inc. 保留所有权利。
+            © 2025 AxonAI Inc. All rights reserved.
           </p>
           <div className="flex items-center gap-6">
-            {["隐私政策", "服务条款", "Cookie 设置"].map((item) => (
+            {["Privacy Policy", "Terms of Service", "Cookie Settings"].map((item) => (
               <a
                 key={item}
                 href="#"
