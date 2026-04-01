@@ -1,61 +1,57 @@
 /*
  * AxonAILogo — SVG logo matching the uploaded brand identity
- * Design: Concentric blue arc/wave lines (fingerprint-like) above "AXONAI" wordmark
- * Colors: Blue arcs (#1A6FFF to #4DA3FF gradient), white wordmark
+ * Design: Concentric blue arc/wave lines (fingerprint-like) + "AXONAI" wordmark
+ * Colors: Blue arcs (#1A6FFF to #4DA3FF), white wordmark
+ *
+ * ViewBox: 0 0 160 48 — wide enough for icon (48px) + "AXONAI" text (no clipping)
  */
 
 interface AxonAILogoProps {
-  /** Height of the full logo (icon + wordmark). Width scales proportionally. */
+  /** Height of the full logo. Width scales proportionally. */
   height?: number;
   /** Show only the icon mark without the wordmark */
   iconOnly?: boolean;
-  /** Color variant */
-  variant?: "default" | "light";
 }
 
-export default function AxonAILogo({
-  height = 40,
-  iconOnly = false,
-  variant = "default",
-}: AxonAILogoProps) {
-  const textColor = variant === "light" ? "#ffffff" : "#ffffff";
-
+export default function AxonAILogo({ height = 40, iconOnly = false }: AxonAILogoProps) {
   if (iconOnly) {
+    // Icon-only: 48×48 viewBox showing just the arcs
     return (
       <svg
         width={height}
         height={height}
-        viewBox="0 0 60 50"
+        viewBox="0 0 48 48"
         fill="none"
         xmlns="http://www.w3.org/2000/svg"
       >
-        <ArcLines />
+        <ArcLines cx={24} cy={44} />
       </svg>
     );
   }
 
-  // Full logo: icon on top, wordmark below — or side by side for navbar
+  // Full logo: arcs on left, "AXONAI" wordmark on right
+  // ViewBox: 160 wide × 48 tall
+  const aspectRatio = 160 / 48;
   return (
     <svg
-      width={(height / 50) * 130}
+      width={height * aspectRatio}
       height={height}
-      viewBox="0 0 130 50"
+      viewBox="0 0 160 48"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
     >
-      {/* Icon mark — concentric arcs, centered at x=28 */}
-      <g transform="translate(2, 0)">
-        <ArcLines />
-      </g>
-      {/* Wordmark — AXONAI */}
+      {/* Arc icon — centered at (24, 44) within the 48×48 left block */}
+      <ArcLines cx={24} cy={44} />
+
+      {/* Wordmark — "AXONAI" starting after the icon */}
       <text
-        x="62"
-        y="35"
-        fontFamily="'Sora', 'Arial', sans-serif"
+        x="54"
+        y="34"
+        fontFamily="'Sora', 'Arial Black', sans-serif"
         fontWeight="700"
-        fontSize="18"
-        letterSpacing="3"
-        fill={textColor}
+        fontSize="19"
+        letterSpacing="2.5"
+        fill="#ffffff"
       >
         AXONAI
       </text>
@@ -63,25 +59,19 @@ export default function AxonAILogo({
   );
 }
 
-/** The concentric arc icon — 7 arcs fanning upward like a fingerprint/signal */
-function ArcLines() {
-  // Center point at bottom of the arc group
-  const cx = 28;
-  const cy = 44;
-
-  // Each arc: radius, start angle, end angle (in degrees, measured from positive x-axis)
-  // The arcs fan upward — from about 210° to 330° (opening upward)
-  const startAngle = 210; // degrees
-  const endAngle = 330;   // degrees
+/** Concentric arc icon — 7 arcs fanning upward like a signal/fingerprint */
+function ArcLines({ cx, cy }: { cx: number; cy: number }) {
+  const startAngle = 210; // degrees — left foot of arcs
+  const endAngle = 330;   // degrees — right foot of arcs
 
   const arcs = [
-    { r: 8,  strokeWidth: 2.2 },
-    { r: 13, strokeWidth: 2.0 },
-    { r: 18, strokeWidth: 1.9 },
-    { r: 23, strokeWidth: 1.8 },
-    { r: 28, strokeWidth: 1.7 },
-    { r: 33, strokeWidth: 1.6 },
-    { r: 38, strokeWidth: 1.5 },
+    { r: 6,  strokeWidth: 2.0 },
+    { r: 10, strokeWidth: 1.9 },
+    { r: 14, strokeWidth: 1.8 },
+    { r: 18, strokeWidth: 1.7 },
+    { r: 22, strokeWidth: 1.6 },
+    { r: 26, strokeWidth: 1.5 },
+    { r: 30, strokeWidth: 1.4 },
   ];
 
   const toRad = (deg: number) => (deg * Math.PI) / 180;
@@ -94,15 +84,15 @@ function ArcLines() {
         const x2 = cx + arc.r * Math.cos(toRad(endAngle));
         const y2 = cy + arc.r * Math.sin(toRad(endAngle));
 
-        // large-arc-flag = 0 (minor arc, going upward through top)
-        const d = `M ${x1} ${y1} A ${arc.r} ${arc.r} 0 0 1 ${x2} ${y2}`;
+        // Arc sweeping upward (minor arc, sweep-flag=1 goes clockwise through top)
+        const d = `M ${x1.toFixed(2)} ${y1.toFixed(2)} A ${arc.r} ${arc.r} 0 0 1 ${x2.toFixed(2)} ${y2.toFixed(2)}`;
 
-        // Gradient from bright blue to lighter blue as arcs get larger
+        // Colour: inner arcs are deeper blue, outer arcs are lighter/brighter blue
         const t = i / (arcs.length - 1);
-        const r = Math.round(26 + t * 51);   // 26 → 77
-        const g = Math.round(111 + t * 92);  // 111 → 203 (but capped)
-        const b = Math.round(255);
-        const color = `rgb(${r}, ${Math.min(g, 200)}, ${b})`;
+        const rVal = Math.round(26 + t * 52);          // 26 → 78
+        const gVal = Math.round(111 + t * 89);         // 111 → 200
+        const bVal = 255;
+        const color = `rgb(${rVal}, ${Math.min(gVal, 200)}, ${bVal})`;
 
         return (
           <path
