@@ -68,30 +68,6 @@ export default function HeroSection() {
 
       {/* Content */}
       <div className="relative z-10 max-w-5xl mx-auto px-4 sm:px-6 text-center">
-        {/* Badge */}
-        <div
-          className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full mb-8 text-xs font-medium"
-          style={{
-            background: "rgba(0, 212, 170, 0.1)",
-            border: "1px solid rgba(0, 212, 170, 0.3)",
-            color: "#00D4AA",
-            fontFamily: "'JetBrains Mono', monospace",
-            letterSpacing: "0.08em",
-            opacity: visible ? 1 : 0,
-            transform: visible ? "none" : "translateY(16px)",
-            transition: "opacity 0.6s ease 0.1s, transform 0.6s ease 0.1s",
-          }}
-        >
-          <span
-            className="w-1.5 h-1.5 rounded-full"
-            style={{
-              background: "#00D4AA",
-              boxShadow: "0 0 6px #00D4AA",
-              animation: "pulse 2s ease-in-out infinite",
-            }}
-          />
-          AI MEDICAL · COMPUTER VISION · STROKE REHABILITATION
-        </div>
 
         {/* Main headline */}
         <h1
