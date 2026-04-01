@@ -29,28 +29,24 @@ export default function AxonAILogo({ height = 40, iconOnly = false }: AxonAILogo
     );
   }
 
-  // Full logo: arcs on left, "AXONAI" wordmark on right
-  // ViewBox: 160 wide × 48 tall
-  const aspectRatio = 160 / 48;
+  // Full logo: wordmark only — "AXONAI" text
+  const aspectRatio = 100 / 32;
   return (
     <svg
       width={height * aspectRatio}
       height={height}
-      viewBox="0 0 160 48"
+      viewBox="0 0 100 32"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
     >
-      {/* Arc icon — centered at (24, 44) within the 48×48 left block */}
-      <ArcLines cx={24} cy={44} />
-
-      {/* Wordmark — "AXONAI" starting after the icon */}
+      {/* Wordmark — AXONAI only */}
       <text
-        x="54"
-        y="34"
+        x="0"
+        y="24"
         fontFamily="'Sora', 'Arial Black', sans-serif"
         fontWeight="700"
-        fontSize="19"
-        letterSpacing="2.5"
+        fontSize="22"
+        letterSpacing="3"
         fill="#ffffff"
       >
         AXONAI
