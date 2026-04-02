@@ -18,22 +18,22 @@ const teamMembers = [
     initials: "FA",
   },
   {
-    name: "Molly Wang",
-    role: "Co-founder & COO",
-    bg: "Imperial College London",
-    bgShort: "Imperial",
-    expertise: "Deep Learning · Pose Estimation",
-    color: "#8B5CF6",
-    initials: "MW",
-  },
-  {
     name: "Jevon Charles",
     role: "Co-Founder & CTO",
     bg: "Google DeepMind",
     bgShort: "DeepMind",
     expertise: "Software Engineering",
-    color: "#00A8FF",
+    color: "#8B5CF6",
     initials: "JC",
+  },
+  {
+    name: "Molly Wang",
+    role: "Co-founder & COO",
+    bg: "Imperial College London",
+    bgShort: "Imperial",
+    expertise: "Clinical Operations · NHS Partnerships",
+    color: "#00A8FF",
+    initials: "MW",
   },
 
 ];
