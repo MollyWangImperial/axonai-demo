@@ -19,7 +19,7 @@ const teamMembers = [
   },
   {
     name: "Molly Wang",
-    role: "Co-founder & CTO",
+    role: "Co-founder & COO",
     bg: "Imperial College London",
     bgShort: "Imperial",
     expertise: "Deep Learning · Pose Estimation",
