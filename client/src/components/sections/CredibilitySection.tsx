@@ -28,7 +28,7 @@ const teamMembers = [
   },
   {
     name: "Jevon Charles",
-    role: "Chief Medical Officer",
+    role: "Co-Founder & CTO",
     bg: "Google DeepMind",
     bgShort: "DeepMind",
     expertise: "Software Engineering",
