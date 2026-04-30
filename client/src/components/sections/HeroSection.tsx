@@ -5,6 +5,7 @@
  */
 import NeuralNetworkBg from "@/components/NeuralNetworkBg";
 import { useEffect, useState } from "react";
+import { useLocation } from "wouter";
 
 const HERO_BG = "https://d2xsxph8kpxj0f.cloudfront.net/310519663504242183/5EY2vMaeRRMxP3UJhAHQDy/axonai-hero-bg-N7Z8ECEjTYY9uXpa8ZeLHK.webp";
 
@@ -16,6 +17,7 @@ const metrics = [
 
 export default function HeroSection() {
   const [visible, setVisible] = useState(false);
+  const [, navigate] = useLocation();
 
   useEffect(() => {
     const timer = setTimeout(() => setVisible(true), 100);
@@ -110,7 +112,7 @@ export default function HeroSection() {
           }}
         >
           <button
-            onClick={() => scrollTo("cta")}
+            onClick={() => navigate("/login")}
             className="px-8 py-4 rounded-xl text-base font-semibold btn-primary-teal"
             style={{ minWidth: "180px" }}
           >
