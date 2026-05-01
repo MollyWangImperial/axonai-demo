@@ -69,6 +69,30 @@ export default function Navbar() {
 
           {/* CTA */}
           <div className="hidden md:flex items-center gap-3">
+            {/* Language switcher */}
+            <a
+              href="https://3001-im2cj8v8gnuy8qqfv03h2-78425cab.us2.manus.computer"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full border transition-all duration-200"
+              style={{
+                color: "oklch(0.7 0.015 250)",
+                borderColor: "oklch(0.3 0.02 250 / 60%)",
+                fontFamily: "'DM Sans', sans-serif",
+                letterSpacing: "0.03em",
+              }}
+              onMouseEnter={(e) => {
+                (e.currentTarget as HTMLAnchorElement).style.color = "#00D4AA";
+                (e.currentTarget as HTMLAnchorElement).style.borderColor = "#00D4AA";
+              }}
+              onMouseLeave={(e) => {
+                (e.currentTarget as HTMLAnchorElement).style.color = "oklch(0.7 0.015 250)";
+                (e.currentTarget as HTMLAnchorElement).style.borderColor = "oklch(0.3 0.02 250 / 60%)";
+              }}
+            >
+              <span style={{ fontSize: "10px" }}>🌐</span>
+              中文
+            </a>
             <button
               onClick={() => scrollTo("cta")}
               className="text-sm font-medium px-4 py-2 rounded-lg transition-all duration-200 btn-outline-teal"
@@ -120,6 +144,15 @@ export default function Navbar() {
               </button>
             ))}
             <div className="px-4 pt-3 flex flex-col gap-2">
+              <a
+                href="https://3001-im2cj8v8gnuy8qqfv03h2-78425cab.us2.manus.computer"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full text-sm font-semibold py-2.5 rounded-lg text-center border transition-all duration-200"
+                style={{ color: "oklch(0.7 0.015 250)", borderColor: "oklch(0.3 0.02 250 / 60%)" }}
+              >
+                🌐 切换至中文版
+              </a>
               <button
                 onClick={() => scrollTo("cta")}
                 className="w-full text-sm font-semibold py-2.5 rounded-lg btn-primary-teal"
