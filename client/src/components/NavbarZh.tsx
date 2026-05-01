@@ -45,9 +45,9 @@ export default function Navbar() {
           {/* Desktop Nav */}
           <div className="hidden md:flex items-center gap-8">
             {[
-              { label: "Features", id: "solution" },
-              { label: "Demo", id: "demo" },
-              { label: "Our Team", id: "credibility" },
+              { label: "功能特性", id: "solution" },
+              { label: "产品演示", id: "demo" },
+              { label: "团队介绍", id: "credibility" },
             ].map((item) => (
               <button
                 key={item.id}
@@ -71,13 +71,15 @@ export default function Navbar() {
           <div className="hidden md:flex items-center gap-3">
             {/* Language switcher */}
             <a
-              href="/zh"
+              href="/"
+              
+              
               className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full border transition-all duration-200"
               style={{
                 color: "oklch(0.7 0.015 250)",
                 borderColor: "oklch(0.3 0.02 250 / 60%)",
                 fontFamily: "'DM Sans', sans-serif",
-                letterSpacing: "0.03em",
+                letterSpacing: "0.05em",
               }}
               onMouseEnter={(e) => {
                 (e.currentTarget as HTMLAnchorElement).style.color = "#00D4AA";
@@ -89,19 +91,19 @@ export default function Navbar() {
               }}
             >
               <span style={{ fontSize: "10px" }}>🌐</span>
-              中文
+              EN
             </a>
             <button
               onClick={() => scrollTo("cta")}
               className="text-sm font-medium px-4 py-2 rounded-lg transition-all duration-200 btn-outline-teal"
             >
-              Book a Demo
+              预约演示
             </button>
             <button
               onClick={() => scrollTo("cta")}
               className="text-sm font-semibold px-4 py-2 rounded-lg btn-primary-teal"
             >
-              Get Started
+              立即开始
             </button>
           </div>
 
@@ -128,9 +130,9 @@ export default function Navbar() {
             style={{ borderColor: "oklch(0.22 0.02 250 / 40%)" }}
           >
             {[
-              { label: "Features", id: "solution" },
-              { label: "Demo", id: "demo" },
-              { label: "Our Team", id: "credibility" },
+              { label: "功能特性", id: "solution" },
+              { label: "产品演示", id: "demo" },
+              { label: "团队介绍", id: "credibility" },
             ].map((item) => (
               <button
                 key={item.id}
@@ -143,17 +145,19 @@ export default function Navbar() {
             ))}
             <div className="px-4 pt-3 flex flex-col gap-2">
               <a
-                href="/zh"
+                href="/"
+                
+                
                 className="w-full text-sm font-semibold py-2.5 rounded-lg text-center border transition-all duration-200"
                 style={{ color: "oklch(0.7 0.015 250)", borderColor: "oklch(0.3 0.02 250 / 60%)" }}
               >
-                🌐 切换至中文版
+                🌐 Switch to English
               </a>
               <button
                 onClick={() => scrollTo("cta")}
                 className="w-full text-sm font-semibold py-2.5 rounded-lg btn-primary-teal"
               >
-              Get Started
+              立即开始
             </button>
             </div>
           </div>
