@@ -59,22 +59,22 @@ const symmetryData = [
   { joint: "膝关节", affected: 55, healthy: 60, deviation: -5, risk: "medium" },
   { joint: "踝关节", affected: 30, healthy: 50, deviation: -20, risk: "high" },
   { joint: "骨盆", affected: 8, healthy: 12, deviation: -4, risk: "low" },
-  { joint: "Trunk", affected: 6, healthy: 8, deviation: -2, risk: "low" },
+  { joint: "躯干", affected: 6, healthy: 8, deviation: -2, risk: "low" },
 ];
 
 const radarData = [
-  { metric: "Speed", score: 52, normal: 100 },
+  { metric: "速度", score: 52, normal: 100 },
   { metric: "步频", score: 70, normal: 100 },
-  { metric: "Symmetry", score: 71, normal: 100 },
-  { metric: "Stability", score: 64, normal: 100 },
-  { metric: "Stride", score: 68, normal: 100 },
-  { metric: "Balance", score: 58, normal: 100 },
+  { metric: "对称性", score: 71, normal: 100 },
+  { metric: "稳定性", score: 64, normal: 100 },
+  { metric: "步幅", score: 68, normal: 100 },
+  { metric: "平衡", score: 58, normal: 100 },
 ];
 
 const historicalData = [
-  { session: "Baseline", gaitScore: 42, speed: 0.48, symmetry: 61 },
-  { session: "Week 2", gaitScore: 51, speed: 0.55, symmetry: 65 },
-  { session: "Week 4", gaitScore: 58, speed: 0.65, symmetry: 71 },
+  { session: "基线", gaitScore: 42, speed: 0.48, symmetry: 61 },
+  { session: "第2周", gaitScore: 51, speed: 0.55, symmetry: 65 },
+  { session: "第4周", gaitScore: 58, speed: 0.65, symmetry: 71 },
 ];
 
 const gaitPhases = [
@@ -157,7 +157,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
   if (active && payload && payload.length) {
     return (
       <div className="bg-[#0a1628] border border-white/10 rounded-xl p-3 text-xs shadow-xl">
-        <p className="text-slate-400 mb-1.5 font-medium">{label}% gait cycle</p>
+        <p className="text-slate-400 mb-1.5 font-medium">{label}% 步态周期</p>
         {payload.map((p: any) => (
           <p key={p.name} style={{ color: p.color }} className="flex items-center gap-2">
             <span className="w-2 h-2 rounded-full inline-block" style={{ backgroundColor: p.color }} />
@@ -200,7 +200,7 @@ export default function ReportPage() {
             className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors text-sm"
           >
             <ArrowLeft size={16} />
-            Upload
+            上传
           </button>
           <div className="w-px h-4 bg-white/20" />
           <span className="text-white font-black tracking-widest text-lg">AXONAI</span>
@@ -212,7 +212,7 @@ export default function ReportPage() {
         <div className="flex items-center gap-3">
           <button className="flex items-center gap-2 text-xs text-slate-400 hover:text-white transition-colors px-3 py-1.5 rounded-lg hover:bg-white/5 border border-white/10">
             <Download size={13} />
-            Export PDF
+            导出 PDF
           </button>
           <div className="flex items-center gap-2 text-sm text-slate-300">
             <div className="w-7 h-7 rounded-full bg-[#00D4AA]/20 flex items-center justify-center">
@@ -238,7 +238,7 @@ export default function ReportPage() {
               </div>
             </div>
             <h1 className="text-2xl font-bold text-white">
-              Gait Analysis Report
+              步态分析报告
             </h1>
             <div className="flex items-center gap-4 mt-1 text-xs text-slate-400">
               <span className="flex items-center gap-1.5">
@@ -261,12 +261,12 @@ export default function ReportPage() {
             <div className="text-center bg-white/5 border border-white/10 rounded-xl px-5 py-3">
               <div className="text-3xl font-black text-white">{metrics.gaitScore}</div>
               <div className="text-xs text-slate-400">步态得分</div>
-              <div className="text-xs text-amber-400 mt-0.5">↑ +16 pts</div>
+                  <div className="text-xs text-amber-400 mt-0.5">↑ +16 分</div>
             </div>
             <div className="text-center bg-white/5 border border-white/10 rounded-xl px-5 py-3">
               <div className="text-3xl font-black" style={{ color: "#00D4AA" }}>{metrics.symmetryIndex}%</div>
               <div className="text-xs text-slate-400">对称性</div>
-              <div className="text-xs text-amber-400 mt-0.5">↑ +10 pts</div>
+                  <div className="text-xs text-amber-400 mt-0.5">↑ +10 分</div>
             </div>
           </div>
         </motion.div>
@@ -317,7 +317,7 @@ export default function ReportPage() {
               <motion.div custom={1} variants={cardVariants} initial="hidden" animate="visible">
                 <h2 className="text-sm font-semibold text-slate-300 mb-3 flex items-center gap-2">
                   <span className="w-5 h-5 rounded-full bg-[#8B5CF6]/20 text-[#8B5CF6] text-xs flex items-center justify-center font-bold">2</span>
-                  Bilateral Symmetry Matrix
+                  双侧对称性矩阵
                 </h2>
                 <div className="bg-white/5 border border-white/10 rounded-2xl p-5">
                   <p className="text-xs text-slate-400 mb-4">
@@ -357,7 +357,7 @@ export default function ReportPage() {
               <motion.div custom={2} variants={cardVariants} initial="hidden" animate="visible">
                 <h2 className="text-sm font-semibold text-slate-300 mb-3 flex items-center gap-2">
                   <span className="w-5 h-5 rounded-full bg-[#00A8FF]/20 text-[#00A8FF] text-xs flex items-center justify-center font-bold">3</span>
-                  Multi-Dimensional Performance Radar
+                  多维度表现雷达图
                 </h2>
                 <div className="bg-white/5 border border-white/10 rounded-2xl p-5">
                   <p className="text-xs text-slate-400 mb-3">
@@ -368,7 +368,7 @@ export default function ReportPage() {
                       <PolarGrid stroke="rgba(255,255,255,0.1)" />
                       <PolarAngleAxis dataKey="metric" tick={{ fill: "#94a3b8", fontSize: 11 }} />
                       <PolarRadiusAxis angle={90} domain={[0, 100]} tick={{ fill: "#475569", fontSize: 9 }} />
-                      <Radar name="正常" dataKey="normal" stroke="#ffffff20" fill="#ffffff08" />
+                      <Radar name="正常参考" dataKey="normal" stroke="#ffffff20" fill="#ffffff08" />
                       <Radar name="患者" dataKey="score" stroke="#00D4AA" fill="#00D4AA" fillOpacity={0.25} />
                       <Legend wrapperStyle={{ fontSize: 11, color: "#94a3b8" }} />
                     </RadarChart>
@@ -381,7 +381,7 @@ export default function ReportPage() {
             <motion.div custom={3} variants={cardVariants} initial="hidden" animate="visible">
               <h2 className="text-sm font-semibold text-slate-300 mb-3 flex items-center gap-2">
                 <span className="w-5 h-5 rounded-full bg-[#F59E0B]/20 text-[#F59E0B] text-xs flex items-center justify-center font-bold">4</span>
-                Rehabilitation Progress 趋势
+                康复进展趋势分析
               </h2>
               <div className="bg-white/5 border border-white/10 rounded-2xl p-5">
                 <p className="text-xs text-slate-400 mb-4">
@@ -405,7 +405,7 @@ export default function ReportPage() {
                     <Tooltip contentStyle={{ background: "#0a1628", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 12, fontSize: 12 }} />
                     <Legend wrapperStyle={{ fontSize: 11, color: "#94a3b8" }} />
                     <Area type="monotone" dataKey="gaitScore" name="步态得分" stroke="#00D4AA" fill="url(#gaitGrad)" strokeWidth={2} dot={{ fill: "#00D4AA", r: 4 }} />
-                    <Area type="monotone" dataKey="symmetry" name="对称性 %" stroke="#8B5CF6" fill="url(#symGrad)" strokeWidth={2} dot={{ fill: "#8B5CF6", r: 4 }} />
+                    <Area type="monotone" dataKey="symmetry" name="对称性%" stroke="#8B5CF6" fill="url(#symGrad)" strokeWidth={2} dot={{ fill: "#8B5CF6", r: 4 }} />
                   </AreaChart>
                 </ResponsiveContainer>
               </div>
@@ -437,13 +437,13 @@ export default function ReportPage() {
                     </div>
                     <div className="flex flex-wrap gap-2 pt-1">
                       <span className="px-2.5 py-1 rounded-full bg-red-500/15 text-red-400 text-xs font-medium flex items-center gap-1">
-                        <AlertTriangle size={10} /> 高 compensatory risk
+                        <AlertTriangle size={10} /> 高代偿风险
                       </span>
                       <span className="px-2.5 py-1 rounded-full bg-amber-500/15 text-amber-400 text-xs font-medium flex items-center gap-1">
-                        <AlertTriangle size={10} /> 踝关节 deficit
+                        <AlertTriangle size={10} /> 踝关节功能不足
                       </span>
                       <span className="px-2.5 py-1 rounded-full bg-emerald-500/15 text-emerald-400 text-xs font-medium flex items-center gap-1">
-                        <CheckCircle2 size={10} /> Improving trend
+                        <CheckCircle2 size={10} /> 持续改善趋势
                       </span>
                     </div>
                   </div>
@@ -486,7 +486,7 @@ export default function ReportPage() {
             <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
               <h2 className="text-sm font-semibold text-slate-300 mb-3 flex items-center gap-2">
                 <span className="w-5 h-5 rounded-full bg-[#8B5CF6]/20 text-[#8B5CF6] text-xs flex items-center justify-center font-bold">2</span>
-                Step Time Variability — Left vs Right
+                步时变异性 — 左侧 vs 右侧
               </h2>
               <div className="bg-white/5 border border-white/10 rounded-2xl p-5">
                 <p className="text-xs text-slate-400 mb-4">
@@ -515,7 +515,7 @@ export default function ReportPage() {
             <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}>
               <h2 className="text-sm font-semibold text-slate-300 mb-3 flex items-center gap-2">
                 <span className="w-5 h-5 rounded-full bg-[#00D4AA]/20 text-[#00D4AA] text-xs flex items-center justify-center font-bold">1</span>
-                Gait Phase Analysis — Bilateral Comparison
+                步态阶段分析 — 双侧对比
               </h2>
               <div className="bg-white/5 border border-white/10 rounded-2xl p-5">
                 <p className="text-xs text-slate-400 mb-4">
@@ -558,7 +558,7 @@ export default function ReportPage() {
             <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
               <h2 className="text-sm font-semibold text-slate-300 mb-3 flex items-center gap-2">
                 <span className="w-5 h-5 rounded-full bg-[#F59E0B]/20 text-[#F59E0B] text-xs flex items-center justify-center font-bold">2</span>
-                Balance & Stability Metrics
+                平衡与稳定性指标
               </h2>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 {[

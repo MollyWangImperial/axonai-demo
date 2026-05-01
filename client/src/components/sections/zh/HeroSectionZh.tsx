@@ -111,7 +111,7 @@ export default function HeroSection() {
           }}
         >
           <button
-            onClick={() => navigate("/login")}
+            onClick={() => navigate("/zh/login")}
             className="px-8 py-4 rounded-xl text-base font-semibold btn-primary-teal"
             style={{ minWidth: "180px" }}
           >

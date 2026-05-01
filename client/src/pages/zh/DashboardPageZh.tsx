@@ -66,7 +66,7 @@ const patients = [
     id: "p2",
     name: "Margaret Ellis",
     age: 72,
-    diagnosis: "Hip replacement recovery",
+    diagnosis: "迫肧关节置换术后康复",
     status: "active",
     compliance: 92,
     week: 5,
@@ -82,7 +82,7 @@ const patients = [
     id: "p3",
     name: "Robert Singh",
     age: 61,
-    diagnosis: "Knee OA gait retraining",
+    diagnosis: "膝关节骨性关节炎步态再训练",
     status: "pending",
     compliance: 65,
     week: 2,
@@ -98,7 +98,7 @@ const patients = [
     id: "p4",
     name: "Dorothy Osei",
     age: 55,
-    diagnosis: "Post-fracture rehabilitation",
+    diagnosis: "骨折后康复",
     status: "inactive",
     compliance: 40,
     week: 1,
@@ -132,42 +132,42 @@ const gaitScoreTrend = [
 const activityFeed = [
   {
     id: 1,
-    time: "Today 9:15am",
+    time: "今日 09:15",
     patient: "James Thornton",
-    action: "completed",
-    detail: "Sit-to-Stand × 3 sets, 10 reps",
+    action: "完成",
+    detail: "坐立转换训练 × 3组，每练 10 次",
     type: "success",
   },
   {
     id: 2,
-    time: "Yesterday",
+    time: "昨日",
     patient: "James Thornton",
-    action: "missed",
-    detail: "Balance Training (patient reported fatigue)",
+    action: "未完成",
+    detail: "平衡训练（患者反映疲劳）",
     type: "warning",
   },
   {
     id: 3,
-    time: "3 days ago",
+    time: "3 天前",
     patient: "James Thornton",
-    action: "assessment",
-    detail: "Gait Score improved +13 pts → 58/100",
+    action: "评估",
+    detail: "步态得分提升 +13 分 → 58/100",
     type: "info",
   },
   {
     id: 4,
-    time: "4 days ago",
+    time: "4 天前",
     patient: "Margaret Ellis",
-    action: "completed",
-    detail: "Full lower limb circuit — 40 min session",
+    action: "完成",
+    detail: "全下肢循环训练 — 40 分钟训练",
     type: "success",
   },
   {
     id: 5,
-    time: "5 days ago",
+    time: "5 天前",
     patient: "Robert Singh",
-    action: "missed",
-    detail: "Hip strengthening (no reason given)",
+    action: "未完成",
+    detail: "髀屈肌力量训练（未说明原因）",
     type: "warning",
   },
 ];
@@ -288,7 +288,7 @@ export default function DashboardPage() {
             onClick={() => { logout(); navigate("/zh"); }}
             className="text-xs text-slate-500 hover:text-white transition-colors"
           >
-            Sign out
+            退出登录
           </button>
         </div>
       </nav>
@@ -300,7 +300,7 @@ export default function DashboardPage() {
           <div className="p-4">
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">我的患者</h2>
-              <span className="text-xs text-slate-500">{patients.length} total</span>
+              <span className="text-xs text-slate-500">{patients.length} 位患者</span>
             </div>
             <div className="space-y-1.5">
               {patients.map((p) => (
@@ -324,7 +324,7 @@ export default function DashboardPage() {
                       <StatusDot status={p.status} />
                       <span className="text-sm text-white truncate font-medium">{p.name}</span>
                     </div>
-                    <span className="text-xs text-slate-500 capitalize">{p.status}</span>
+                    <span className="text-xs text-slate-500">{p.status === "active" ? "在诊" : p.status === "pending" ? "待处理" : "已停诊"}</span>
                   </div>
                   <ComplianceRing value={p.compliance} color={p.color} />
                 </button>
@@ -336,9 +336,9 @@ export default function DashboardPage() {
           <div className="p-4 border-t border-white/10 space-y-3">
             <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">核心影响</h3>
             {[
-              { label: "Therapist capacity", value: "提升3–5倍", icon: Users, color: "#00D4AA" },
-              { label: "Post-discharge follow-up", value: "<10% → >80%", icon: TrendingUp, color: "#8B5CF6" },
-              { label: "平均 compliance rate", value: "71%", icon: Activity, color: "#F59E0B" },
+              { label: "治疗师接诊能力", value: "提升 3–5 倍", icon: Users, color: "#00D4AA" },
+              { label: "出院后随访率", value: "<10% → >80%", icon: TrendingUp, color: "#8B5CF6" },
+              { label: "平均依从率", value: "71%", icon: Activity, color: "#F59E0B" },
             ].map((stat) => (
               <div key={stat.label} className="flex items-center gap-2">
                 <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0" style={{ backgroundColor: stat.color + "20" }}>
@@ -355,9 +355,9 @@ export default function DashboardPage() {
           {/* Navigation */}
           <div className="p-4 border-t border-white/10 space-y-1">
             {[
-              { label: "Back to Home", icon: Home, action: () => navigate("/zh") },
-              { label: "New 评估", icon: Zap, action: () => navigate("/zh/upload") },
-              { label: "Settings", icon: Settings, action: () => {} },
+              { label: "返回首页", icon: Home, action: () => navigate("/zh") },
+              { label: "新建评估", icon: Zap, action: () => navigate("/zh/upload") },
+              { label: "设置", icon: Settings, action: () => {} },
             ].map((item) => (
               <button
                 key={item.label}
@@ -392,7 +392,7 @@ export default function DashboardPage() {
                   <div>
                     <div className="flex items-center gap-2 mb-0.5">
                       <h2 className="text-lg font-bold text-white">{selectedPatient.name}</h2>
-                      <span className="text-sm text-slate-400">Age {selectedPatient.age}</span>
+                      <span className="text-sm text-slate-400">年龄 {selectedPatient.age}</span>
                       <span
                         className="text-xs px-2 py-0.5 rounded-full font-medium capitalize"
                         style={{
@@ -400,10 +400,10 @@ export default function DashboardPage() {
                           color: selectedPatient.status === "active" ? "#10b981" : selectedPatient.status === "pending" ? "#f59e0b" : "#64748b",
                         }}
                       >
-                        {selectedPatient.status}
+                        {selectedPatient.status === "active" ? "在诊" : selectedPatient.status === "pending" ? "待处理" : "已停诊"}
                       </span>
                     </div>
-                    <p className="text-sm text-slate-400">Diagnosis: {selectedPatient.diagnosis}</p>
+                    <p className="text-sm text-slate-400">诊断：{selectedPatient.diagnosis}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
@@ -419,7 +419,7 @@ export default function DashboardPage() {
                     className="flex items-center gap-2 text-xs px-3 py-2 rounded-lg border border-white/15 text-slate-300 hover:bg-white/5 transition-all"
                   >
                     <Settings size={12} />
-                    Adjust Plan
+                    调整方案
                   </button>
                   <button className="w-8 h-8 rounded-lg border border-white/10 flex items-center justify-center text-slate-400 hover:text-white hover:bg-white/5 transition-all">
                     <MoreHorizontal size={14} />
@@ -440,7 +440,7 @@ export default function DashboardPage() {
                       <input
                         value={messageText}
                         onChange={(e) => setMessageText(e.target.value)}
-                        placeholder={`Send a message to ${selectedPatient.name}…`}
+                        placeholder={`发消息给 ${selectedPatient.name}…`}
                         className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-[#00D4AA]/40 transition-all"
                       />
                       <button
@@ -448,7 +448,7 @@ export default function DashboardPage() {
                         className="flex items-center gap-2 bg-[#00D4AA] text-[#050d1a] font-semibold px-4 py-2.5 rounded-xl text-sm hover:opacity-90 transition-all"
                       >
                         <Send size={13} />
-                        Send
+                        发送
                       </button>
                     </div>
                   </motion.div>
@@ -458,11 +458,11 @@ export default function DashboardPage() {
               {/* Stats row */}
               <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mt-4">
                 {[
-                  { label: "Programme", value: `Week ${selectedPatient.week} of ${selectedPatient.totalWeeks}`, color: selectedPatient.color },
-                  { label: "Compliance", value: `${selectedPatient.compliance}%`, color: selectedPatient.compliance >= 80 ? "#10b981" : selectedPatient.compliance >= 60 ? "#f59e0b" : "#ef4444" },
-                  { label: "Sessions", value: `${selectedPatient.sessions} completed`, color: "#94a3b8" },
-                  { label: "平均 session", value: `${selectedPatient.avgSession} min`, color: "#94a3b8" },
-                  { label: "Pain score", value: `${selectedPatient.pain}/10`, color: selectedPatient.pain <= 3 ? "#10b981" : selectedPatient.pain <= 6 ? "#f59e0b" : "#ef4444" },
+                  { label: "训练进度", value: `第 ${selectedPatient.week} 周 / 共 ${selectedPatient.totalWeeks} 周`, color: selectedPatient.color },
+                  { label: "依从率", value: `${selectedPatient.compliance}%`, color: selectedPatient.compliance >= 80 ? "#10b981" : selectedPatient.compliance >= 60 ? "#f59e0b" : "#ef4444" },
+                  { label: "训练次数", value: `已完成 ${selectedPatient.sessions} 次`, color: "#94a3b8" },
+                  { label: "平均时长", value: `${selectedPatient.avgSession} 分钟`, color: "#94a3b8" },
+                  { label: "疼痛评分", value: `${selectedPatient.pain}/10`, color: selectedPatient.pain <= 3 ? "#10b981" : selectedPatient.pain <= 6 ? "#f59e0b" : "#ef4444" },
                 ].map((stat) => (
                   <div key={stat.label} className="bg-white/5 rounded-xl px-3 py-2.5 text-center">
                     <p className="text-xs text-slate-400 mb-0.5">{stat.label}</p>
@@ -474,7 +474,7 @@ export default function DashboardPage() {
               {/* Compliance bar */}
               <div className="mt-3">
                 <div className="flex items-center justify-between text-xs text-slate-400 mb-1.5">
-                  <span>Overall compliance</span>
+                  <span>整体依从率</span>
                   <span style={{ color: selectedPatient.color }}>{selectedPatient.compliance}%</span>
                 </div>
                 <div className="w-full bg-white/10 rounded-full h-2">
@@ -499,8 +499,8 @@ export default function DashboardPage() {
               transition={{ delay: 0.1 }}
               className="bg-white/5 border border-white/10 rounded-2xl p-5"
             >
-              <h3 className="text-sm font-semibold text-white mb-1">Exercise Completion Rate</h3>
-              <p className="text-xs text-slate-400 mb-4">Weekly exercise completion vs target (100%)</p>
+              <h3 className="text-sm font-semibold text-white mb-1">训练完成率</h3>
+              <p className="text-xs text-slate-400 mb-4">每周训练完成情况与目标（100%）对比</p>
               <ResponsiveContainer width="100%" height={200}>
                 <AreaChart data={exerciseProgress}>
                   <defs>
@@ -528,7 +528,7 @@ export default function DashboardPage() {
               className="bg-white/5 border border-white/10 rounded-2xl p-5"
             >
               <h3 className="text-sm font-semibold text-white mb-1">步态得分趋势</h3>
-              <p className="text-xs text-slate-400 mb-4">评估-by-assessment improvement tracking</p>
+              <p className="text-xs text-slate-400 mb-4">逐次评估改善跟踪分析</p>
               <ResponsiveContainer width="100%" height={200}>
                 <BarChart data={gaitScoreTrend} barSize={40}>
                   <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
@@ -537,7 +537,7 @@ export default function DashboardPage() {
                   <Tooltip contentStyle={{ background: "#0a1628", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 12, fontSize: 12 }} />
                   <Legend wrapperStyle={{ fontSize: 11, color: "#94a3b8" }} />
                   <ReferenceLine y={80} stroke="#00D4AA" strokeDasharray="4 4" label={{ value: "目标 80", position: "right", fill: "#00D4AA", fontSize: 10 }} />
-                  <Bar dataKey="score" name="Gait Score" fill="#00A8FF" fillOpacity={0.85} radius={[4, 4, 0, 0]} label={{ position: "top", fill: "#94a3b8", fontSize: 11 }} />
+                  <Bar dataKey="score" name="步态得分" fill="#00A8FF" fillOpacity={0.85} radius={[4, 4, 0, 0]} label={{ position: "top", fill: "#94a3b8", fontSize: 11 }} />
                 </BarChart>
               </ResponsiveContainer>
             </motion.div>
@@ -552,15 +552,15 @@ export default function DashboardPage() {
               transition={{ delay: 0.2 }}
               className="bg-white/5 border border-white/10 rounded-2xl p-5"
             >
-              <h3 className="text-sm font-semibold text-white mb-1">Patient Compliance Overview</h3>
-              <p className="text-xs text-slate-400 mb-4">Compliance rate across all active patients</p>
+              <h3 className="text-sm font-semibold text-white mb-1">患者依从概况</h3>
+              <p className="text-xs text-slate-400 mb-4">所有在诊患者依从率概览</p>
               <div className="space-y-3">
                 {complianceData.map((p) => (
                   <div key={p.name}>
                     <div className="flex items-center justify-between mb-1">
                       <span className="text-xs text-slate-300">{p.name}</span>
                       <div className="flex items-center gap-2">
-                        <span className="text-xs text-slate-500">{p.sessions} sessions</span>
+                        <span className="text-xs text-slate-500">{p.sessions} 次训练</span>
                         <span className="text-xs font-bold" style={{ color: p.color }}>{p.compliance}%</span>
                       </div>
                     </div>
@@ -586,7 +586,7 @@ export default function DashboardPage() {
               className="bg-white/5 border border-white/10 rounded-2xl p-5"
             >
               <h3 className="text-sm font-semibold text-white mb-1">近期活动记录</h3>
-              <p className="text-xs text-slate-400 mb-4">Latest patient actions across your caseload</p>
+              <p className="text-xs text-slate-400 mb-4">患者最新训练动态汇总</p>
               <div className="space-y-2.5">
                 {activityFeed.map((item) => (
                   <div key={item.id} className="flex items-start gap-3">
@@ -609,8 +609,8 @@ export default function DashboardPage() {
                         <span className="text-white font-medium">{item.patient}</span>
                         {" "}
                         <span className={
-                          item.action === "completed" ? "text-emerald-400" :
-                          item.action === "missed" ? "text-amber-400" : "text-[#00D4AA]"
+                          item.action === "完成" ? "text-emerald-400" :
+                          item.action === "未完成" ? "text-amber-400" : "text-[#00D4AA]"
                         }>
                           {item.action}:
                         </span>
@@ -639,15 +639,15 @@ export default function DashboardPage() {
                 <Zap size={18} className="text-[#00D4AA]" />
               </div>
               <div>
-                <p className="text-sm font-semibold text-white">Start a new patient assessment</p>
-                <p className="text-xs text-slate-400">Upload gait videos to generate a new report in under 3 minutes</p>
+                <p className="text-sm font-semibold text-white">开始新患者评估</p>
+                <p className="text-xs text-slate-400">上传步态视频，3 分钟内生成新评估报告</p>
               </div>
             </div>
             <button
               onClick={() => navigate("/zh/upload")}
               className="flex-shrink-0 flex items-center gap-2 bg-gradient-to-r from-[#00D4AA] to-[#00A8FF] text-[#050d1a] font-bold px-5 py-2.5 rounded-xl hover:opacity-90 transition-all text-sm"
             >
-              New 评估
+              新建评估
               <ChevronRight size={15} />
             </button>
           </motion.div>

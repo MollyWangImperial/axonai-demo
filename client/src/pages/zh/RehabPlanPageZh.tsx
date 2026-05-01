@@ -207,7 +207,7 @@ function Module({
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-xs text-slate-500">{open ? "Collapse" : "Expand"}</span>
+          <span className="text-xs text-slate-500">{open ? "收起" : "展开"}</span>
           <motion.div animate={{ rotate: open ? 180 : 0 }} transition={{ duration: 0.2 }}>
             <ChevronDown size={16} className="text-slate-400" />
           </motion.div>
@@ -251,7 +251,7 @@ export default function RehabPlanPage() {
             className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors text-sm"
           >
             <ArrowLeft size={16} />
-            Report
+            报告
           </button>
           <div className="w-px h-4 bg-white/20" />
           <span className="text-white font-black tracking-widest text-lg">AXONAI</span>
@@ -263,7 +263,7 @@ export default function RehabPlanPage() {
         <div className="flex items-center gap-3">
           <button className="flex items-center gap-2 text-xs text-slate-400 hover:text-white transition-colors px-3 py-1.5 rounded-lg hover:bg-white/5 border border-white/10">
             <Download size={13} />
-            Export Plan
+            导出方案
           </button>
           <div className="flex items-center gap-2 text-sm text-slate-300">
             <div className="w-7 h-7 rounded-full bg-[#00D4AA]/20 flex items-center justify-center">
@@ -286,7 +286,7 @@ export default function RehabPlanPage() {
             第 3 步 / 共 3 步 — 个性化康复方案
           </div>
           <h1 className="text-3xl font-bold text-white mb-2">
-            AI-Driven Personalised Rehabilitation Plan
+            AI 驱动的个性化康复方案
           </h1>
           <p className="text-slate-400 text-sm max-w-2xl">
             系统已通过深度学习算法分析运动学缺陷，自动生成完整的居家康复处方，包括重点训练区域、运动库和营养指导。
@@ -321,7 +321,7 @@ export default function RehabPlanPage() {
               <p className="text-xs text-slate-400 mb-0.5">方案周期</p>
               <p className="text-white font-semibold flex items-center gap-1.5">
                 <Clock size={13} className="text-[#8B5CF6]" />
-                8 weeks
+                8 周
               </p>
             </div>
           </div>
@@ -363,7 +363,7 @@ export default function RehabPlanPage() {
                       ))}
                     </div>
                     <div className="mt-2 text-xs text-slate-500">
-                      Frequency: <span className="text-slate-300">{area.frequency}</span>
+                      训练频率：<span className="text-slate-300">{area.frequency}</span>
                     </div>
                   </div>
                 ))}
@@ -393,7 +393,7 @@ export default function RehabPlanPage() {
                     </div>
                     <div className="p-4">
                       <p className="text-xs text-slate-400 mb-3">
-                        <span className="text-slate-300 font-medium">Goal: </span>{phase.goal}
+                        <span className="text-slate-300 font-medium">目标：</span>{phase.goal}
                       </p>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-3">
                         {phase.sessions.map((s) => (
@@ -410,11 +410,11 @@ export default function RehabPlanPage() {
                               className="text-xs px-1.5 py-0.5 rounded font-medium"
                               style={{
                                 backgroundColor:
-                                  s.intensity.includes("较高") ? "#ef444420" :
-                                  s.intensity.includes("Mod") ? "#f59e0b20" : "#10b98120",
+                                  s.intensity.includes("高") ? "#ef444420" :
+                                  s.intensity.includes("中") ? "#f59e0b20" : "#10b98120",
                                 color:
-                                  s.intensity.includes("较高") ? "#ef4444" :
-                                  s.intensity.includes("Mod") ? "#f59e0b" : "#10b981",
+                                  s.intensity.includes("高") ? "#ef4444" :
+                                  s.intensity.includes("中") ? "#f59e0b" : "#10b981",
                               }}
                             >
                               {s.intensity}
@@ -424,7 +424,7 @@ export default function RehabPlanPage() {
                       </div>
                       <div className="flex items-start gap-2 text-xs text-slate-400 bg-white/3 rounded-lg px-3 py-2">
                         <AlertCircle size={11} className="text-[#00D4AA] flex-shrink-0 mt-0.5" />
-                        <span><span className="text-[#00D4AA] font-medium">Home programme: </span>{phase.homeExercises}</span>
+                        <span><span className="text-[#00D4AA] font-medium">居家训练：</span>{phase.homeExercises}</span>
                       </div>
                     </div>
                   </div>
@@ -490,7 +490,7 @@ export default function RehabPlanPage() {
                       ))}
                     </div>
                     <div className="text-xs text-slate-500 bg-white/5 rounded-lg px-2.5 py-1.5">
-                      <span style={{ color: item.color }} className="font-medium">Timing: </span>
+                      <span style={{ color: item.color }} className="font-medium">服用时间：</span>
                       {item.timing}
                     </div>
                   </div>
@@ -528,7 +528,7 @@ export default function RehabPlanPage() {
             className="flex-shrink-0 flex items-center gap-2 bg-gradient-to-r from-[#8B5CF6] to-[#00A8FF] text-white font-bold px-6 py-3 rounded-xl hover:opacity-90 transition-all text-sm whitespace-nowrap"
           >
             <Users size={15} />
-            Therapist Dashboard
+            治疗师工作台
             <ChevronRight size={16} />
           </button>
         </motion.div>
