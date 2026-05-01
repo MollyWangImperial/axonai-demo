@@ -136,31 +136,14 @@ export default function LoginPage() {
             </button>
           </form>
 
-          {/* Divider */}
-          <div className="flex items-center gap-3 my-5">
-            <div className="flex-1 h-px bg-white/10" />
-            <span className="text-xs text-slate-500">or try demo</span>
-            <div className="flex-1 h-px bg-white/10" />
-          </div>
-
-          {/* Demo credentials */}
+          {/* Demo credentials — visually hidden, functionality preserved */}
           <button
             onClick={fillDemo}
-            className="w-full border border-[#00D4AA]/30 bg-[#00D4AA]/5 hover:bg-[#00D4AA]/10 rounded-xl px-4 py-3 text-left transition-all group"
+            aria-hidden="true"
+            tabIndex={-1}
+            className="sr-only"
           >
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-full bg-[#00D4AA]/20 flex items-center justify-center flex-shrink-0">
-                <Zap size={14} className="text-[#00D4AA]" />
-              </div>
-              <div>
-                <p className="text-xs font-semibold text-[#00D4AA] group-hover:text-[#00D4AA]">
-                  Use Demo Account
-                </p>
-                <p className="text-xs text-slate-400">
-                  sarah.mitchell@nhs.uk · demo123
-                </p>
-              </div>
-            </div>
+            Use Demo Account
           </button>
         </div>
 
