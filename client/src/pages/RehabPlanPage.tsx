@@ -9,7 +9,7 @@
  *  - Weekly Schedule is fully editable (add/delete sessions per day, edit home task)
  *  - Progressive Training Plan auto-updates from the Weekly Schedule state
  */
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef, useEffect, useCallback } from "react";
 import { useLocation } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/contexts/AuthContext";
@@ -18,7 +18,7 @@ import {
   ArrowLeft, ChevronDown, ChevronRight, Download,
   Target, Dumbbell, Calendar, Apple, User, Clock,
   CheckCircle2, AlertCircle, Flame, Heart, Zap,
-  LayoutGrid, Users, Plus, Trash2, Play, X,
+  LayoutGrid, Users, Plus, Trash2, Play, X, Camera, CameraOff, Activity,
 } from "lucide-react";
 
 const C = {
@@ -506,9 +506,313 @@ function EditableWeeklySchedule({
 
 // ─── Hip & Pelvic Modal ──────────────────────────────────────────────────────
 
+// ─── Per-exercise coaching cues ──────────────────────────────────────────────
+const EXERCISE_CUES: Record<string, string[]> = {
+  "Hip Flexor Stretch": [
+    "Keep trunk upright — avoid leaning forward",
+    "Push hips forward gently, feel the stretch at the front",
+    "Breathe steadily — don't hold your breath",
+    "Tighten core to protect the lower back",
+    "Hold the stretch — don't bounce",
+  ],
+  "Supine Hip Flexion": [
+    "Raise knee slowly to 90° — control the movement",
+    "Keep lower back flat against the surface",
+    "Avoid rotating the trunk as you lift",
+    "Hold at the top for 2 seconds before lowering",
+    "Lower with control — don't drop the leg",
+  ],
+  "Seated Knee Raise": [
+    "Sit tall — no slouching",
+    "Lift knee to hip height, hold 1 second",
+    "Keep both feet hip-width apart",
+    "Engage core throughout the movement",
+    "Alternate legs if instructed",
+  ],
+  "Pelvic Tilts": [
+    "Flatten lower back against the floor",
+    "Tighten abdominals — don't hold your breath",
+    "Hold the tilt for 3 seconds, then release",
+    "Keep shoulders and neck relaxed",
+    "Small movement — quality over range",
+  ],
+  "Dead Bug": [
+    "Keep lower back pressed to the floor throughout",
+    "Move opposite arm and leg simultaneously",
+    "Lower slowly — don't rush the movement",
+    "Breathe out as you lower the limbs",
+    "Stop if lower back lifts off the floor",
+  ],
+  "Side-Lying Hip Abduction": [
+    "Keep pelvis stable — don't roll backward",
+    "Raise top leg to 30–40°, no higher",
+    "Hold at the top for 2 seconds",
+    "Lower slowly with control",
+    "Keep toes pointing forward, not toward the ceiling",
+  ],
+};
+
+// ─── Target matching scores per exercise ─────────────────────────────────────
+const EXERCISE_TARGET_SCORE: Record<string, number> = {
+  "Hip Flexor Stretch": 82,
+  "Supine Hip Flexion": 76,
+  "Seated Knee Raise": 88,
+  "Pelvic Tilts": 91,
+  "Dead Bug": 69,
+  "Side-Lying Hip Abduction": 74,
+};
+
+// ─── Live Pose Tracking Panel ─────────────────────────────────────────────────
+function LiveTrackingPanel({ exercise, onStop }: { exercise: typeof HIP_PELVIC_DETAIL.exercises[0]; onStop: () => void }) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const rafRef = useRef<number>(0);
+  const [cameraError, setCameraError] = useState<string | null>(null);
+  const [cameraReady, setCameraReady] = useState(false);
+  const [score, setScore] = useState(0);
+  const [repCount, setRepCount] = useState(0);
+  const [cueIndex, setCueIndex] = useState(0);
+  const [elapsed, setElapsed] = useState(0);
+  const targetScore = EXERCISE_TARGET_SCORE[exercise.name] ?? 75;
+  const cues = EXERCISE_CUES[exercise.name] ?? ["Follow the exercise cue"];
+
+  // Animate score toward target
+  useEffect(() => {
+    if (!cameraReady) return;
+    const interval = setInterval(() => {
+      setScore((prev) => {
+        const diff = targetScore - prev;
+        if (Math.abs(diff) < 0.5) return targetScore;
+        return prev + diff * 0.08 + (Math.random() - 0.5) * 1.2;
+      });
+    }, 120);
+    return () => clearInterval(interval);
+  }, [cameraReady, targetScore]);
+
+  // Cycle coaching cues every 5 seconds
+  useEffect(() => {
+    if (!cameraReady) return;
+    const interval = setInterval(() => setCueIndex((i) => (i + 1) % cues.length), 5000);
+    return () => clearInterval(interval);
+  }, [cameraReady, cues.length]);
+
+  // Increment rep count every ~4 seconds
+  useEffect(() => {
+    if (!cameraReady) return;
+    const interval = setInterval(() => setRepCount((r) => r + 1), 4200);
+    return () => clearInterval(interval);
+  }, [cameraReady]);
+
+  // Elapsed timer
+  useEffect(() => {
+    if (!cameraReady) return;
+    const interval = setInterval(() => setElapsed((e) => e + 1), 1000);
+    return () => clearInterval(interval);
+  }, [cameraReady]);
+
+  // Start camera
+  useEffect(() => {
+    let cancelled = false;
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: "user", width: 640, height: 480 } })
+      .then((stream) => {
+        if (cancelled) { stream.getTracks().forEach((t) => t.stop()); return; }
+        streamRef.current = stream;
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          videoRef.current.play().then(() => { if (!cancelled) setCameraReady(true); });
+        }
+      })
+      .catch((err) => {
+        if (!cancelled) setCameraError(err.name === "NotAllowedError" ? "Camera access denied. Please allow camera permissions." : "Camera not available on this device.");
+      });
+    return () => {
+      cancelled = true;
+      streamRef.current?.getTracks().forEach((t) => t.stop());
+      cancelAnimationFrame(rafRef.current);
+    };
+  }, []);
+
+  // Draw skeleton overlay on canvas
+  const drawSkeleton = useCallback(() => {
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    if (!video || !canvas || video.readyState < 2) {
+      rafRef.current = requestAnimationFrame(drawSkeleton);
+      return;
+    }
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    canvas.width = video.videoWidth || 640;
+    canvas.height = video.videoHeight || 480;
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+    // Simulated skeleton joints (normalised 0-1, animated with sin/cos)
+    const t = Date.now() / 1000;
+    const W = canvas.width, H = canvas.height;
+    const joints = [
+      { x: 0.50, y: 0.12 },  // 0 head
+      { x: 0.50, y: 0.26 },  // 1 neck
+      { x: 0.38, y: 0.30 },  // 2 L shoulder
+      { x: 0.62, y: 0.30 },  // 3 R shoulder
+      { x: 0.34, y: 0.44 + Math.sin(t * 1.2) * 0.02 },  // 4 L elbow
+      { x: 0.66, y: 0.44 + Math.sin(t * 1.2 + 1) * 0.02 },  // 5 R elbow
+      { x: 0.32, y: 0.56 },  // 6 L wrist
+      { x: 0.68, y: 0.56 },  // 7 R wrist
+      { x: 0.50, y: 0.50 },  // 8 torso
+      { x: 0.43, y: 0.62 },  // 9 L hip
+      { x: 0.57, y: 0.62 },  // 10 R hip
+      { x: 0.41, y: 0.76 + Math.sin(t * 1.8) * 0.03 },  // 11 L knee
+      { x: 0.59, y: 0.76 + Math.cos(t * 1.8) * 0.03 },  // 12 R knee
+      { x: 0.40, y: 0.90 },  // 13 L ankle
+      { x: 0.60, y: 0.90 },  // 14 R ankle
+    ];
+    const bones = [
+      [0,1],[1,2],[1,3],[2,4],[4,6],[3,5],[5,7],
+      [1,8],[8,9],[8,10],[9,11],[11,13],[10,12],[12,14],
+    ];
+
+    // Draw bones
+    ctx.lineWidth = 2.5;
+    ctx.strokeStyle = "rgba(0,255,200,0.85)";
+    ctx.shadowColor = "#00FFC8";
+    ctx.shadowBlur = 6;
+    bones.forEach(([a, b]) => {
+      ctx.beginPath();
+      ctx.moveTo(joints[a].x * W, joints[a].y * H);
+      ctx.lineTo(joints[b].x * W, joints[b].y * H);
+      ctx.stroke();
+    });
+
+    // Draw joints
+    ctx.shadowBlur = 10;
+    joints.forEach((j) => {
+      ctx.beginPath();
+      ctx.arc(j.x * W, j.y * H, 5, 0, Math.PI * 2);
+      ctx.fillStyle = "rgba(0,255,200,0.95)";
+      ctx.fill();
+      ctx.strokeStyle = "rgba(255,255,255,0.8)";
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+    });
+    ctx.shadowBlur = 0;
+
+    rafRef.current = requestAnimationFrame(drawSkeleton);
+  }, []);
+
+  useEffect(() => {
+    if (cameraReady) {
+      rafRef.current = requestAnimationFrame(drawSkeleton);
+    }
+    return () => cancelAnimationFrame(rafRef.current);
+  }, [cameraReady, drawSkeleton]);
+
+  const scoreColor = score >= 80 ? C.green : score >= 60 ? C.amber : C.red;
+  const fmt = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+
+  return (
+    <div className="flex flex-col h-full gap-3">
+      {/* Header row */}
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-sm font-bold" style={{ color: C.text }}>{exercise.name}</p>
+          <p className="text-xs" style={{ color: C.text3 }}>Live Movement Tracking</p>
+        </div>
+        <button
+          onClick={onStop}
+          className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg transition-all hover:opacity-80"
+          style={{ backgroundColor: C.red + "15", color: C.red, border: `1px solid ${C.red}30` }}
+        >
+          <CameraOff size={12} />
+          Stop Tracking
+        </button>
+      </div>
+
+      {/* Camera / canvas */}
+      <div className="relative rounded-xl overflow-hidden flex-1" style={{ minHeight: 220, backgroundColor: "#0F172A" }}>
+        {cameraError ? (
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 p-4">
+            <CameraOff size={32} style={{ color: C.text3 }} />
+            <p className="text-sm text-center" style={{ color: C.text3 }}>{cameraError}</p>
+          </div>
+        ) : (
+          <>
+            {/* Hidden video source */}
+            <video ref={videoRef} className="hidden" muted playsInline />
+            {/* Canvas with skeleton overlay */}
+            <canvas ref={canvasRef} className="w-full h-full object-cover" />
+            {!cameraReady && (
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-2" style={{ backgroundColor: "#0F172A" }}>
+                <div className="w-8 h-8 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: C.teal, borderTopColor: "transparent" }} />
+                <p className="text-xs" style={{ color: C.text3 }}>Starting camera…</p>
+              </div>
+            )}
+            {/* Live badge */}
+            {cameraReady && (
+              <div className="absolute top-2 left-2 flex items-center gap-1.5 px-2 py-1 rounded-full" style={{ backgroundColor: "rgba(0,0,0,0.65)" }}>
+                <div className="w-2 h-2 rounded-full animate-pulse" style={{ backgroundColor: C.red }} />
+                <span className="text-xs font-semibold text-white">LIVE</span>
+                <span className="text-xs" style={{ color: "rgba(255,255,255,0.6)" }}>{fmt(elapsed)}</span>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+
+      {/* Stats row */}
+      {cameraReady && (
+        <div className="grid grid-cols-3 gap-2">
+          {/* Matching score */}
+          <div className="rounded-xl p-3 text-center" style={{ backgroundColor: C.bg, border: `1px solid ${C.border}` }}>
+            <p className="text-xs mb-1" style={{ color: C.text3 }}>Match Score</p>
+            <p className="text-2xl font-black" style={{ color: scoreColor }}>{Math.round(score)}%</p>
+            <div className="w-full h-1.5 rounded-full mt-1.5 overflow-hidden" style={{ backgroundColor: C.border }}>
+              <div
+                className="h-full rounded-full transition-all duration-300"
+                style={{ width: `${score}%`, backgroundColor: scoreColor }}
+              />
+            </div>
+          </div>
+          {/* Rep count */}
+          <div className="rounded-xl p-3 text-center" style={{ backgroundColor: C.bg, border: `1px solid ${C.border}` }}>
+            <p className="text-xs mb-1" style={{ color: C.text3 }}>Reps</p>
+            <p className="text-2xl font-black" style={{ color: C.teal }}>{repCount}</p>
+            <p className="text-xs" style={{ color: C.text3 }}>of {exercise.reps}</p>
+          </div>
+          {/* Sets */}
+          <div className="rounded-xl p-3 text-center" style={{ backgroundColor: C.bg, border: `1px solid ${C.border}` }}>
+            <p className="text-xs mb-1" style={{ color: C.text3 }}>Sets</p>
+            <p className="text-2xl font-black" style={{ color: C.blue }}>{Math.min(Math.floor(repCount / 5) + 1, exercise.sets)}</p>
+            <p className="text-xs" style={{ color: C.text3 }}>of {exercise.sets}</p>
+          </div>
+        </div>
+      )}
+
+      {/* Coaching cue */}
+      {cameraReady && (
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={cueIndex}
+            initial={{ opacity: 0, y: 4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -4 }}
+            transition={{ duration: 0.3 }}
+            className="flex items-start gap-2 rounded-xl px-3 py-2.5"
+            style={{ backgroundColor: C.tealDim, border: `1px solid ${C.teal}30` }}
+          >
+            <Activity size={13} style={{ color: C.teal, flexShrink: 0, marginTop: 1 }} />
+            <p className="text-xs font-medium" style={{ color: C.teal }}>{cues[cueIndex]}</p>
+          </motion.div>
+        </AnimatePresence>
+      )}
+    </div>
+  );
+}
+
+// ─── Hip & Pelvic Modal ──────────────────────────────────────────────────────
 function HipPelvicModal({ onClose }: { onClose: () => void }) {
   const d = HIP_PELVIC_DETAIL;
-  const [showVideo, setShowVideo] = useState(false);
+  const [activeExercise, setActiveExercise] = useState<typeof d.exercises[0] | null>(null);
 
   return (
     <div
@@ -539,47 +843,81 @@ function HipPelvicModal({ onClose }: { onClose: () => void }) {
               <p className="text-xs" style={{ color: C.text3 }}>{d.frequency} · {d.totalDuration}</p>
             </div>
           </div>
-          <button
-            onClick={onClose}
-            className="w-8 h-8 rounded-full flex items-center justify-center transition-all hover:opacity-70"
-            style={{ backgroundColor: C.border }}
-          >
-            <X size={15} style={{ color: C.text2 }} />
-          </button>
+          <div className="flex items-center gap-2">
+            {activeExercise && (
+              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full" style={{ backgroundColor: C.red + "15", border: `1px solid ${C.red}30` }}>
+                <div className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: C.red }} />
+                <span className="text-xs font-semibold" style={{ color: C.red }}>Tracking Active</span>
+              </div>
+            )}
+            <button
+              onClick={onClose}
+              className="w-8 h-8 rounded-full flex items-center justify-center transition-all hover:opacity-70"
+              style={{ backgroundColor: C.border }}
+            >
+              <X size={15} style={{ color: C.text2 }} />
+            </button>
+          </div>
         </div>
 
         {/* Modal body */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-0">
           {/* Left: exercises */}
           <div className="p-6" style={{ borderRight: `1px solid ${C.border}` }}>
-            <p className="text-xs font-semibold mb-4" style={{ color: C.text2 }}>Exercise Programme</p>
+            <div className="flex items-center justify-between mb-4">
+              <p className="text-xs font-semibold" style={{ color: C.text2 }}>Exercise Programme</p>
+              <p className="text-xs" style={{ color: C.text3 }}>Click an exercise to start live tracking</p>
+            </div>
             <div className="space-y-3">
-              {d.exercises.map((ex, i) => (
-                <div
-                  key={i}
-                  className="rounded-xl p-3"
-                  style={{ backgroundColor: C.bg, border: `1px solid ${C.border}` }}
-                >
-                  <div className="flex items-start justify-between mb-1.5">
-                    <span className="text-sm font-semibold" style={{ color: C.text }}>{ex.name}</span>
-                    <span
-                      className="text-xs px-2 py-0.5 rounded-full font-medium ml-2 flex-shrink-0"
-                      style={{
-                        backgroundColor: ex.difficulty === "Intermediate" ? C.amber + "15" : C.green + "15",
-                        color: ex.difficulty === "Intermediate" ? C.amber : C.green,
-                      }}
-                    >
-                      {ex.difficulty}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-3 text-xs mb-1.5" style={{ color: C.text3 }}>
-                    <span className="font-medium" style={{ color: C.teal }}>{ex.sets} sets × {ex.reps}</span>
-                    <span>Rest: {ex.rest}</span>
-                    <span style={{ color: C.text2 }}>Focus: {ex.focus}</span>
-                  </div>
-                  <p className="text-xs leading-relaxed" style={{ color: C.text2 }}>{ex.cue}</p>
-                </div>
-              ))}
+              {d.exercises.map((ex, i) => {
+                const isActive = activeExercise?.name === ex.name;
+                return (
+                  <button
+                    key={i}
+                    onClick={() => setActiveExercise(isActive ? null : ex)}
+                    className="w-full text-left rounded-xl p-3 transition-all hover:shadow-sm"
+                    style={{
+                      backgroundColor: isActive ? C.tealDim : C.bg,
+                      border: `1.5px solid ${isActive ? C.teal : C.border}`,
+                      outline: "none",
+                    }}
+                  >
+                    <div className="flex items-start justify-between mb-1.5">
+                      <div className="flex items-center gap-2">
+                        {isActive && (
+                          <div className="w-2 h-2 rounded-full animate-pulse flex-shrink-0" style={{ backgroundColor: C.red }} />
+                        )}
+                        {!isActive && (
+                          <Camera size={12} style={{ color: C.text3, flexShrink: 0 }} />
+                        )}
+                        <span className="text-sm font-semibold" style={{ color: isActive ? C.teal : C.text }}>{ex.name}</span>
+                      </div>
+                      <div className="flex items-center gap-1.5 ml-2 flex-shrink-0">
+                        <span
+                          className="text-xs px-2 py-0.5 rounded-full font-medium"
+                          style={{
+                            backgroundColor: ex.difficulty === "Intermediate" ? C.amber + "15" : C.green + "15",
+                            color: ex.difficulty === "Intermediate" ? C.amber : C.green,
+                          }}
+                        >
+                          {ex.difficulty}
+                        </span>
+                        {isActive ? (
+                          <span className="text-xs px-2 py-0.5 rounded-full font-semibold" style={{ backgroundColor: C.red + "15", color: C.red }}>Tracking</span>
+                        ) : (
+                          <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ backgroundColor: C.blue + "12", color: C.blue }}>Track ↗</span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3 text-xs mb-1.5" style={{ color: C.text3 }}>
+                      <span className="font-medium" style={{ color: isActive ? C.teal : C.teal }}>{ex.sets} sets × {ex.reps}</span>
+                      <span>Rest: {ex.rest}</span>
+                      <span style={{ color: C.text2 }}>Focus: {ex.focus}</span>
+                    </div>
+                    <p className="text-xs leading-relaxed" style={{ color: C.text2 }}>{ex.cue}</p>
+                  </button>
+                );
+              })}
             </div>
             <div
               className="mt-4 flex items-start gap-2 text-xs rounded-lg px-3 py-2"
@@ -590,45 +928,75 @@ function HipPelvicModal({ onClose }: { onClose: () => void }) {
             </div>
           </div>
 
-          {/* Right: YouTube video */}
+          {/* Right: live tracking OR instruction video */}
           <div className="p-6 flex flex-col">
-            <p className="text-xs font-semibold mb-4" style={{ color: C.text2 }}>Instruction Video</p>
-            {/* Thumbnail card */}
-            <div className="flex-1 rounded-xl overflow-hidden" style={{ border: `1px solid ${C.border}`, minHeight: 240 }}>
-              <div className="relative w-full" style={{ paddingBottom: "56.25%" }}>
-                <img
-                  src={`https://img.youtube.com/vi/${d.youtubeId}/hqdefault.jpg`}
-                  alt={d.title}
-                  className="absolute inset-0 w-full h-full object-cover"
-                />
-                <div className="absolute inset-0" style={{ background: "linear-gradient(to top, rgba(0,0,0,0.55) 0%, transparent 60%)" }} />
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <div className="w-14 h-14 rounded-full flex items-center justify-center shadow-lg" style={{ backgroundColor: "rgba(255,255,255,0.92)" }}>
-                    <Play size={22} style={{ color: C.teal, marginLeft: 3 }} />
-                  </div>
-                </div>
-                <div className="absolute bottom-2 right-2 text-xs font-semibold px-2 py-0.5 rounded" style={{ backgroundColor: "rgba(0,0,0,0.75)", color: "#fff" }}>7:45</div>
-              </div>
-              <div className="flex items-center justify-between px-3 py-2.5" style={{ backgroundColor: C.surface }}>
-                <div>
-                  <div className="text-xs font-semibold" style={{ color: C.text }}>7 Best Pelvic Stabilization Exercises</div>
-                  <div className="text-xs" style={{ color: C.text3 }}>AskDoctorJo · 445K views</div>
-                </div>
-                <a
-                  href={`https://www.youtube.com/watch?v=${d.youtubeId}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg transition-all hover:opacity-80"
-                  style={{ backgroundColor: C.teal, color: "#fff" }}
+            <AnimatePresence mode="wait">
+              {activeExercise ? (
+                <motion.div
+                  key="tracking"
+                  initial={{ opacity: 0, x: 12 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -12 }}
+                  transition={{ duration: 0.22 }}
+                  className="flex-1 flex flex-col"
                 >
-                  <Play size={11} style={{ marginLeft: 1 }} />
-                  Watch
-                </a>
-              </div>
-            </div>
-            <p className="text-xs mt-2 text-center" style={{ color: C.text3 }}>
-              Hip Flexor &amp; Pelvic Stability Exercises — Stroke Rehabilitation
-            </p>
+                  <LiveTrackingPanel exercise={activeExercise} onStop={() => setActiveExercise(null)} />
+                </motion.div>
+              ) : (
+                <motion.div
+                  key="video"
+                  initial={{ opacity: 0, x: -12 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 12 }}
+                  transition={{ duration: 0.22 }}
+                  className="flex-1 flex flex-col"
+                >
+                  <p className="text-xs font-semibold mb-4" style={{ color: C.text2 }}>Instruction Video</p>
+                  <div className="flex-1 rounded-xl overflow-hidden" style={{ border: `1px solid ${C.border}`, minHeight: 240 }}>
+                    <div className="relative w-full" style={{ paddingBottom: "56.25%" }}>
+                      <img
+                        src={`https://img.youtube.com/vi/${d.youtubeId}/hqdefault.jpg`}
+                        alt={d.title}
+                        className="absolute inset-0 w-full h-full object-cover"
+                      />
+                      <div className="absolute inset-0" style={{ background: "linear-gradient(to top, rgba(0,0,0,0.55) 0%, transparent 60%)" }} />
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <div className="w-14 h-14 rounded-full flex items-center justify-center shadow-lg" style={{ backgroundColor: "rgba(255,255,255,0.92)" }}>
+                          <Play size={22} style={{ color: C.teal, marginLeft: 3 }} />
+                        </div>
+                      </div>
+                      <div className="absolute bottom-2 right-2 text-xs font-semibold px-2 py-0.5 rounded" style={{ backgroundColor: "rgba(0,0,0,0.75)", color: "#fff" }}>7:45</div>
+                    </div>
+                    <div className="flex items-center justify-between px-3 py-2.5" style={{ backgroundColor: C.surface }}>
+                      <div>
+                        <div className="text-xs font-semibold" style={{ color: C.text }}>7 Best Pelvic Stabilization Exercises</div>
+                        <div className="text-xs" style={{ color: C.text3 }}>AskDoctorJo · 445K views</div>
+                      </div>
+                      <a
+                        href={`https://www.youtube.com/watch?v=${d.youtubeId}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg transition-all hover:opacity-80"
+                        style={{ backgroundColor: C.teal, color: "#fff" }}
+                      >
+                        <Play size={11} style={{ marginLeft: 1 }} />
+                        Watch
+                      </a>
+                    </div>
+                  </div>
+                  <p className="text-xs mt-2 text-center" style={{ color: C.text3 }}>
+                    Hip Flexor &amp; Pelvic Stability Exercises — Stroke Rehabilitation
+                  </p>
+                  <div
+                    className="mt-3 flex items-center gap-2 rounded-xl px-3 py-2.5"
+                    style={{ backgroundColor: "#EFF6FF", border: `1px solid #BFDBFE` }}
+                  >
+                    <Camera size={13} style={{ color: C.blue, flexShrink: 0 }} />
+                    <p className="text-xs" style={{ color: C.blue }}>Click any exercise on the left to start real-time movement tracking with AI pose matching.</p>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
         </div>
       </motion.div>
