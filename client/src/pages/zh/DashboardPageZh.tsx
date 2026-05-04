@@ -608,10 +608,7 @@ export default function DashboardPage() {
                       <p className="text-xs text-slate-300 leading-relaxed">
                         <span className="text-white font-medium">{item.patient}</span>
                         {" "}
-                        <span className={
-                          item.action === "完成" ? "text-emerald-400" :
-                          item.action === "未完成" ? "text-amber-400" : "text-[#00D4AA]"
-                        }>
+                        <span className={item.action === '完成' ? 'text-emerald-400' : item.action === '未完成' ? 'text-amber-400' : 'text-[#00D4AA]'}>
                           {item.action}:
                         </span>
                         {" "}{item.detail}

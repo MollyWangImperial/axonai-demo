@@ -1,13 +1,25 @@
 /**
  * LoginPage — AxonAI
- * Design: Dark navy background, teal/violet accent, Sora font
- * Glassmorphism card, animated entrance, demo credentials shown
+ * Design: Clean light app-shell — white card on #F7F8FA, teal accent
  */
 import { useState } from "react";
 import { useLocation } from "wouter";
 import { motion } from "framer-motion";
 import { useAuth } from "@/contexts/AuthContext";
-import { Eye, EyeOff, Zap, AlertCircle } from "lucide-react";
+import { Eye, EyeOff, AlertCircle, ArrowLeft } from "lucide-react";
+
+const C = {
+  bg:      "#F7F8FA",
+  surface: "#FFFFFF",
+  border:  "#E4E7ED",
+  text:    "#1A1D23",
+  text2:   "#5A6070",
+  text3:   "#9AA0AE",
+  teal:    "#00B89A",
+  tealDim: "rgba(0,184,154,0.10)",
+  red:     "#DC2626",
+  redDim:  "rgba(220,38,38,0.08)",
+};
 
 export default function LoginPage() {
   const [, navigate] = useLocation();
@@ -38,15 +50,14 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#050d1a] flex items-center justify-center relative overflow-hidden px-4">
-      {/* Background glows */}
-      <div className="absolute top-0 left-1/4 w-[500px] h-[500px] bg-[#00D4AA]/10 rounded-full blur-[120px] pointer-events-none" />
-      <div className="absolute bottom-0 right-1/4 w-[400px] h-[400px] bg-[#8B5CF6]/10 rounded-full blur-[100px] pointer-events-none" />
-
+    <div
+      className="app-shell min-h-screen flex items-center justify-center px-4"
+      style={{ backgroundColor: C.bg }}
+    >
       <motion.div
-        initial={{ opacity: 0, y: 32 }}
+        initial={{ opacity: 0, y: 24 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, ease: "easeOut" }}
+        transition={{ duration: 0.4, ease: "easeOut" }}
         className="w-full max-w-md"
       >
         {/* Logo */}
@@ -55,22 +66,34 @@ export default function LoginPage() {
             onClick={() => navigate("/")}
             className="inline-flex items-center gap-2 mb-6 group"
           >
-            <span className="text-2xl font-black tracking-widest text-white group-hover:text-[#00D4AA] transition-colors">
+            <span
+              className="text-2xl font-black tracking-widest transition-colors"
+              style={{ color: C.teal }}
+            >
               AXONAI
             </span>
           </button>
-          <h1 className="text-3xl font-bold text-white mb-2">Welcome back</h1>
-          <p className="text-slate-400 text-sm">
+          <h1 className="text-3xl font-black mb-2" style={{ color: C.text }}>
+            Welcome back
+          </h1>
+          <p className="text-sm" style={{ color: C.text2 }}>
             Sign in to access your clinical workspace
           </p>
         </div>
 
         {/* Card */}
-        <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-8 shadow-2xl">
+        <div
+          className="rounded-2xl p-8"
+          style={{
+            backgroundColor: C.surface,
+            border: `1px solid ${C.border}`,
+            boxShadow: "0 4px 24px rgba(0,0,0,0.08)",
+          }}
+        >
           <form onSubmit={handleSubmit} className="space-y-5">
             {/* Email */}
             <div>
-              <label className="block text-sm font-medium text-slate-300 mb-1.5">
+              <label className="block text-sm font-medium mb-1.5" style={{ color: C.text2 }}>
                 Email address
               </label>
               <input
@@ -79,13 +102,20 @@ export default function LoginPage() {
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="you@nhs.uk"
                 required
-                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-[#00D4AA]/60 focus:ring-1 focus:ring-[#00D4AA]/30 transition-all text-sm"
+                className="w-full rounded-xl px-4 py-3 text-sm outline-none transition-all"
+                style={{
+                  backgroundColor: C.bg,
+                  border: `1.5px solid ${C.border}`,
+                  color: C.text,
+                }}
+                onFocus={(e) => (e.target.style.borderColor = C.teal)}
+                onBlur={(e) => (e.target.style.borderColor = C.border)}
               />
             </div>
 
             {/* Password */}
             <div>
-              <label className="block text-sm font-medium text-slate-300 mb-1.5">
+              <label className="block text-sm font-medium mb-1.5" style={{ color: C.text2 }}>
                 Password
               </label>
               <div className="relative">
@@ -95,12 +125,20 @@ export default function LoginPage() {
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
                   required
-                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 pr-11 text-white placeholder-slate-500 focus:outline-none focus:border-[#00D4AA]/60 focus:ring-1 focus:ring-[#00D4AA]/30 transition-all text-sm"
+                  className="w-full rounded-xl px-4 py-3 pr-11 text-sm outline-none transition-all"
+                  style={{
+                    backgroundColor: C.bg,
+                    border: `1.5px solid ${C.border}`,
+                    color: C.text,
+                  }}
+                  onFocus={(e) => (e.target.style.borderColor = C.teal)}
+                  onBlur={(e) => (e.target.style.borderColor = C.border)}
                 />
                 <button
                   type="button"
                   onClick={() => setShowPw(!showPw)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition-colors"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 transition-opacity hover:opacity-60"
+                  style={{ color: C.text3 }}
                 >
                   {showPw ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
@@ -110,9 +148,10 @@ export default function LoginPage() {
             {/* Error */}
             {error && (
               <motion.div
-                initial={{ opacity: 0, y: -8 }}
+                initial={{ opacity: 0, y: -6 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="flex items-center gap-2 text-red-400 text-sm bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2"
+                className="flex items-center gap-2 text-sm rounded-lg px-3 py-2"
+                style={{ backgroundColor: C.redDim, color: C.red, border: `1px solid ${C.red}20` }}
               >
                 <AlertCircle size={14} />
                 {error}
@@ -123,11 +162,16 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-gradient-to-r from-[#00D4AA] to-[#00A8FF] text-[#050d1a] font-bold py-3 rounded-xl hover:opacity-90 transition-all disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-sm"
+              className="w-full font-bold py-3 rounded-xl transition-all text-sm text-white flex items-center justify-center gap-2"
+              style={{
+                backgroundColor: loading ? C.tealDim : C.teal,
+                opacity: loading ? 0.7 : 1,
+                boxShadow: loading ? "none" : `0 4px 16px ${C.teal}40`,
+              }}
             >
               {loading ? (
                 <>
-                  <div className="w-4 h-4 border-2 border-[#050d1a]/30 border-t-[#050d1a] rounded-full animate-spin" />
+                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                   Signing in…
                 </>
               ) : (
@@ -136,24 +180,33 @@ export default function LoginPage() {
             </button>
           </form>
 
-          {/* Demo credentials — visually hidden, functionality preserved */}
-          <button
-            onClick={fillDemo}
-            aria-hidden="true"
-            tabIndex={-1}
-            className="sr-only"
+          {/* Demo credentials hint */}
+          <div
+            className="mt-5 rounded-xl px-4 py-3 text-xs"
+            style={{ backgroundColor: C.tealDim, color: C.teal }}
           >
-            Use Demo Account
-          </button>
+            <p className="font-semibold mb-1">Demo credentials</p>
+            <p>Email: <span className="font-mono">sarah.mitchell@nhs.uk</span></p>
+            <p>Password: <span className="font-mono">demo123</span></p>
+            <button
+              onClick={fillDemo}
+              className="mt-2 underline font-semibold"
+              style={{ color: C.teal }}
+            >
+              Fill automatically →
+            </button>
+          </div>
         </div>
 
         {/* Back link */}
-        <p className="text-center mt-6 text-xs text-slate-500">
+        <p className="text-center mt-6 text-xs" style={{ color: C.text3 }}>
           <button
             onClick={() => navigate("/")}
-            className="hover:text-[#00D4AA] transition-colors"
+            className="flex items-center gap-1 mx-auto transition-opacity hover:opacity-60"
+            style={{ color: C.text3 }}
           >
-            ← Back to AxonAI homepage
+            <ArrowLeft size={11} />
+            Back to AxonAI homepage
           </button>
         </p>
       </motion.div>

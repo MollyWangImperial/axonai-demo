@@ -1,174 +1,957 @@
 /**
- * ReportPage — AxonAI Functional Assessment Report
- * Design: Dark navy, teal/violet accent, glassmorphism cards
- * Sections: Core Metrics, Bilateral Symmetry, Kinematic Curves, AI Summary,
- *           Gait Cycle Phases, Balance & Stability, Historical Trend
+ * ReportPage — Functional Movement Assessment
+ * Design: Clean light app-shell (#F7F8FA bg, white cards, teal/blue accents)
+ * 5 Modules:
+ *   1. Overview          — visual-only capability fingerprint
+ *   2. Auto Metrics      — OpenPose/OpenCap derived (no extra input)
+ *   3. Guided-Video      — standardised tests with instruction videos
+ *   4. AI-Model Metrics  — require trained model (EMG, fall-risk, etc.)
+ *   5. Manual Input      — therapist-entered clinical scales
  */
 import { useState } from "react";
 import { useLocation } from "wouter";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAssessment } from "@/contexts/AssessmentContext";
 import {
-  LineChart,
-  Line,
-  BarChart,
-  Bar,
-  RadarChart,
-  Radar,
-  PolarGrid,
-  PolarAngleAxis,
-  PolarRadiusAxis,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
-  ResponsiveContainer,
-  ReferenceLine,
-  Area,
-  AreaChart,
+  RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
+  ResponsiveContainer, Cell,
 } from "recharts";
 import {
-  ArrowLeft,
-  Download,
-  ChevronRight,
-  Brain,
-  Activity,
-  AlertTriangle,
-  CheckCircle2,
-  TrendingUp,
-  TrendingDown,
-  User,
-  Clock,
-  Calendar,
+  ArrowLeft, Download, User, Calendar, Clock, ChevronDown, ChevronUp,
+  Play, Brain, Cpu, ClipboardList, Activity, CheckCircle2,
+  AlertTriangle, Info, BarChart2, Zap, BookOpen, Plus,
 } from "lucide-react";
 
+// ─── App shell colours (CSS vars defined in index.css .app-shell) ─────────────
+const C = {
+  bg:      "var(--app-bg)",
+  surface: "var(--app-surface)",
+  border:  "var(--app-border)",
+  text:    "var(--app-text)",
+  text2:   "var(--app-text-2)",
+  text3:   "var(--app-text-3)",
+  teal:    "var(--app-teal)",
+  tealDim: "var(--app-teal-dim)",
+  blue:    "var(--app-blue)",
+  blueDim: "var(--app-blue-dim)",
+  amber:   "var(--app-amber)",
+  red:     "var(--app-red)",
+  green:   "var(--app-green)",
+  purple:  "var(--app-purple)",
+};
+
 // ─── Mock data ────────────────────────────────────────────────────────────────
-
-const kinematics = Array.from({ length: 21 }, (_, i) => ({
-  cycle: i * 5,
-  pelvicRotation: 12 * Math.sin((i / 20) * Math.PI * 2) + 2 * Math.sin((i / 20) * Math.PI * 4),
-  kneeFlexion: 35 * Math.sin((i / 20) * Math.PI * 2 + 0.8) + 15 + 5 * Math.sin((i / 20) * Math.PI * 4),
-  ankleDF: 15 * Math.sin((i / 20) * Math.PI * 2 + 1.2) - 5,
-  hipFlexion: 28 * Math.sin((i / 20) * Math.PI * 2 + 0.3) + 5,
-}));
-
-const symmetryData = [
-  { joint: "Hip", affected: 15, healthy: 30, deviation: -15, risk: "high" },
-  { joint: "Knee", affected: 55, healthy: 60, deviation: -5, risk: "medium" },
-  { joint: "Ankle", affected: 30, healthy: 50, deviation: -20, risk: "high" },
-  { joint: "Pelvis", affected: 8, healthy: 12, deviation: -4, risk: "low" },
-  { joint: "Trunk", affected: 6, healthy: 8, deviation: -2, risk: "low" },
+const overviewRadar = [
+  { axis: "Gait",         score: 62, ref: 100 },
+  { axis: "Balance",      score: 58, ref: 100 },
+  { axis: "Strength",     score: 45, ref: 100 },
+  { axis: "Coordination", score: 70, ref: 100 },
+  { axis: "Endurance",    score: 54, ref: 100 },
+  { axis: "Symmetry",     score: 71, ref: 100 },
 ];
 
-const radarData = [
-  { metric: "Speed", score: 52, normal: 100 },
-  { metric: "Cadence", score: 70, normal: 100 },
-  { metric: "Symmetry", score: 71, normal: 100 },
-  { metric: "Stability", score: 64, normal: 100 },
-  { metric: "Stride", score: 68, normal: 100 },
-  { metric: "Balance", score: 58, normal: 100 },
+const autoMetrics = [
+  { group: "Spatiotemporal", items: [
+    { label: "Gait Speed",         value: "0.65", unit: "m/s",  ref: "1.20",  risk: "high" },
+    { label: "Cadence",            value: "78",   unit: "spm",  ref: "110",   risk: "medium" },
+    { label: "Stride Length (L)",  value: "112",  unit: "cm",   ref: "145",   risk: "medium" },
+    { label: "Stride Length (R)",  value: "138",  unit: "cm",   ref: "145",   risk: "low" },
+    { label: "Step Time (L)",      value: "0.62", unit: "s",    ref: "0.52",  risk: "medium" },
+    { label: "Step Time (R)",      value: "0.50", unit: "s",    ref: "0.52",  risk: "low" },
+    { label: "Step Width",         value: "14.2", unit: "cm",   ref: "10–12", risk: "medium" },
+  ]},
+  { group: "Phase Ratios", items: [
+    { label: "Stance Phase (L)",   value: "64",   unit: "%",    ref: "60",    risk: "medium" },
+    { label: "Swing Phase (L)",    value: "36",   unit: "%",    ref: "40",    risk: "medium" },
+    { label: "Bilateral Symmetry", value: "71",   unit: "%",    ref: "≥90",   risk: "high" },
+  ]},
+  { group: "Joint Kinematics", items: [
+    { label: "Hip Flexion ROM",      value: "24",  unit: "°",  ref: "30–40", risk: "medium" },
+    { label: "Hip Extension ROM",    value: "8",   unit: "°",  ref: "10–15", risk: "medium" },
+    { label: "Knee Flexion ROM",     value: "52",  unit: "°",  ref: "60–70", risk: "medium" },
+    { label: "Ankle Dorsiflexion",   value: "8",   unit: "°",  ref: "10–15", risk: "medium" },
+    { label: "Pelvic Tilt",          value: "12",  unit: "°",  ref: "4–8",   risk: "high" },
+    { label: "Pelvic Rotation",      value: "9",   unit: "°",  ref: "4–6",   risk: "high" },
+    { label: "Trunk Lateral Lean",   value: "6",   unit: "°",  ref: "≤3",    risk: "high" },
+    { label: "Toe Clearance (L)",    value: "1.1", unit: "cm", ref: "≥1.5",  risk: "high" },
+  ]},
 ];
 
-const historicalData = [
-  { session: "Baseline", gaitScore: 42, speed: 0.48, symmetry: 61 },
-  { session: "Week 2", gaitScore: 51, speed: 0.55, symmetry: 65 },
-  { session: "Week 4", gaitScore: 58, speed: 0.65, symmetry: 71 },
+const guidedMetrics = [
+  {
+    label: "Single-Leg Stance — Left",
+    unit: "s",
+    videoTitle: "Single-Leg Stance Test",
+    videoDesc: "Stand on your left leg with arms crossed over chest. Hold for up to 30 seconds. Eyes open.",
+    videoThumb: "balance",
+  },
+  {
+    label: "Single-Leg Stance — Right",
+    unit: "s",
+    videoTitle: "Single-Leg Stance Test",
+    videoDesc: "Stand on your right leg with arms crossed over chest. Hold for up to 30 seconds. Eyes open.",
+    videoThumb: "balance",
+  },
+  {
+    label: "Timed Up-and-Go (TUG)",
+    unit: "s",
+    videoTitle: "Timed Up-and-Go Test",
+    videoDesc: "From seated position: rise, walk 3 m at comfortable pace, turn around, walk back, sit down. Timer starts on 'Go'.",
+    videoThumb: "tug",
+  },
+  {
+    label: "10-Metre Walk Test",
+    unit: "m/s",
+    videoTitle: "10-Metre Walk Test",
+    videoDesc: "Walk 10 metres at your comfortable pace. Timer records the middle 6 metres to exclude acceleration/deceleration.",
+    videoThumb: "walk",
+  },
+  {
+    label: "Functional Reach",
+    unit: "cm",
+    videoTitle: "Functional Reach Test",
+    videoDesc: "Stand beside a wall-mounted ruler. Reach forward with dominant arm as far as possible without stepping or losing balance.",
+    videoThumb: "reach",
+  },
+  {
+    label: "30-Second Sit-to-Stand",
+    unit: "reps",
+    videoTitle: "30-Second Chair Stand Test",
+    videoDesc: "From seated position with arms crossed: rise to full stand and return to seated. Count repetitions in 30 seconds.",
+    videoThumb: "sts",
+  },
+  {
+    label: "Stair Ascent Time",
+    unit: "s",
+    videoTitle: "Stair Ascent Test",
+    videoDesc: "Ascend 10 standard steps at comfortable pace using handrail if needed. Timer starts at first step.",
+    videoThumb: "stair",
+  },
+  {
+    label: "Stair Descent Time",
+    unit: "s",
+    videoTitle: "Stair Descent Test",
+    videoDesc: "Descend 10 standard steps at comfortable pace using handrail if needed. Timer starts at first step.",
+    videoThumb: "stair",
+  },
+  {
+    label: "Tandem Stance (Eyes Open)",
+    unit: "s",
+    videoTitle: "Tandem Stance Test",
+    videoDesc: "Place one foot directly in front of the other (heel-to-toe). Hold for up to 30 seconds with eyes open.",
+    videoThumb: "tandem",
+  },
+  {
+    label: "Tandem Stance (Eyes Closed)",
+    unit: "s",
+    videoTitle: "Romberg Tandem Test",
+    videoDesc: "Same as eyes-open tandem stance but with eyes closed. Hold for up to 30 seconds.",
+    videoThumb: "tandem",
+  },
 ];
 
-const gaitPhases = [
-  { phase: "Initial Contact", left: 92, right: 100, status: "abnormal" },
-  { phase: "Loading Response", left: 78, right: 100, status: "abnormal" },
-  { phase: "Mid Stance", left: 85, right: 100, status: "warning" },
-  { phase: "Terminal Stance", left: 70, right: 100, status: "abnormal" },
-  { phase: "Pre-Swing", left: 88, right: 100, status: "warning" },
-  { phase: "Swing", left: 95, right: 100, status: "normal" },
+const aiMetrics = [
+  {
+    id: "muscle_strength",
+    label: "Muscle Strength Estimation",
+    unit: "Nm",
+    muscles: ["Hip Flexors", "Knee Extensors", "Ankle Plantarflexors"],
+    description: "Estimates peak joint torque from kinematic patterns using a model trained on simultaneous EMG + dynamometer data.",
+    datasetInstructions: [
+      "Recruit ≥50 subjects (mix of healthy + post-stroke)",
+      "Instrument with surface EMG on target muscle groups",
+      "Record isometric MVC trials on isokinetic dynamometer (3 trials × 5 s each)",
+      "Simultaneously capture walking video with calibrated camera",
+      "Label each frame with torque values; train regression model (e.g., LSTM or Transformer)",
+    ],
+    datasetType: "EMG + Dynamometer",
+    modelStatus: "not_loaded",
+  },
+  {
+    id: "spasticity",
+    label: "Spasticity Grade",
+    unit: "MAS (0–4)",
+    muscles: ["Biceps", "Wrist Flexors", "Quadriceps", "Gastrocnemius"],
+    description: "Classifies Modified Ashworth Scale grade from passive movement kinematics and EMG co-activation patterns.",
+    datasetInstructions: [
+      "Collect ≥200 clinical assessments with certified therapist MAS labels",
+      "Record passive limb movement with motion capture + surface EMG",
+      "Annotate resistance onset, catch, and release events",
+      "Train ordinal classifier (0, 1, 1+, 2, 3, 4); validate with ICC ≥0.80",
+    ],
+    datasetType: "EMG + Clinical Labels",
+    modelStatus: "not_loaded",
+  },
+  {
+    id: "fatigue",
+    label: "Fatigue Index",
+    unit: "%",
+    muscles: [],
+    description: "Quantifies gait deterioration over a 6-minute walk by comparing early vs late stride kinematics.",
+    datasetInstructions: [
+      "Record 6-minute walk test with continuous video capture",
+      "Segment into 30-second epochs; compute kinematic features per epoch",
+      "Collect self-reported RPE (Borg scale) at each epoch",
+      "Train regression model mapping kinematic change to fatigue score",
+    ],
+    datasetType: "Longitudinal Kinematics + RPE",
+    modelStatus: "not_loaded",
+  },
+  {
+    id: "fall_risk",
+    label: "Fall Risk Score",
+    unit: "0–100",
+    muscles: [],
+    description: "Predicts 6-month fall probability from gait variability, balance metrics, and patient demographics.",
+    datasetInstructions: [
+      "Enrol ≥300 community-dwelling stroke survivors",
+      "Collect baseline gait assessment + demographics + medications",
+      "Follow up for 6 months with daily fall diary",
+      "Label each participant as faller / non-faller; train binary classifier",
+      "Validate with AUC ≥0.75 on held-out test set",
+    ],
+    datasetType: "Prospective Cohort + Fall Diary",
+    modelStatus: "not_loaded",
+  },
+  {
+    id: "compensation",
+    label: "Compensatory Movement Index",
+    unit: "0–100",
+    muscles: [],
+    description: "Quantifies trunk/pelvis compensation strategies adopted to offset distal weakness or spasticity.",
+    datasetInstructions: [
+      "Collect paired kinematics from healthy controls + matched post-stroke patients",
+      "Define compensation features: trunk lean, pelvic hike, hip circumduction, vaulting",
+      "Train anomaly detection or regression model on healthy reference distribution",
+      "Validate against expert therapist compensation ratings (ICC ≥0.75)",
+    ],
+    datasetType: "Paired Healthy / Post-Stroke Kinematics",
+    modelStatus: "not_loaded",
+  },
 ];
 
-const stepTimeData = Array.from({ length: 12 }, (_, i) => ({
-  step: i + 1,
-  left: 0.52 + (Math.random() - 0.5) * 0.12,
-  right: 0.48 + (Math.random() - 0.5) * 0.08,
-}));
+const manualScales = [
+  {
+    id: "fma_ue",
+    label: "Fugl-Meyer Assessment — Upper Extremity",
+    abbr: "FMA-UE",
+    range: [0, 66],
+    description: "Assesses motor recovery of the upper limb. Higher scores indicate greater motor function.",
+    subscales: ["Shoulder/Elbow/Forearm (0–36)", "Wrist (0–10)", "Hand (0–14)", "Coordination/Speed (0–6)"],
+  },
+  {
+    id: "fma_le",
+    label: "Fugl-Meyer Assessment — Lower Extremity",
+    abbr: "FMA-LE",
+    range: [0, 34],
+    description: "Assesses motor recovery of the lower limb. Higher scores indicate greater motor function.",
+    subscales: ["Hip/Knee/Ankle (0–28)", "Coordination/Speed (0–6)"],
+  },
+  {
+    id: "mas",
+    label: "Modified Ashworth Scale",
+    abbr: "MAS",
+    range: [0, 4],
+    description: "Grades muscle spasticity during passive stretch. Assessed per muscle group.",
+    subscales: ["Elbow Flexors", "Wrist Flexors", "Knee Extensors", "Ankle Plantarflexors"],
+    isPerMuscle: true,
+  },
+  {
+    id: "brunnstrom",
+    label: "Brunnstrom Stage",
+    abbr: "BS",
+    range: [1, 6],
+    description: "Stages motor recovery after stroke from flaccidity (1) to near-normal movement (6).",
+    subscales: ["Upper Extremity", "Lower Extremity", "Hand"],
+    isPerMuscle: true,
+  },
+  {
+    id: "nihss",
+    label: "NIH Stroke Scale",
+    abbr: "NIHSS",
+    range: [0, 42],
+    description: "Quantifies neurological impairment. Scores 0–4 = minor, 5–15 = moderate, 16–20 = moderate-severe, 21–42 = severe.",
+    subscales: [],
+  },
+  {
+    id: "barthel",
+    label: "Barthel Index",
+    abbr: "BI",
+    range: [0, 100],
+    description: "Measures functional independence in activities of daily living. Higher scores indicate greater independence.",
+    subscales: [],
+  },
+  {
+    id: "pain_vas",
+    label: "Pain — Visual Analogue Scale",
+    abbr: "VAS",
+    range: [0, 10],
+    description: "Patient-reported pain intensity. 0 = no pain, 10 = worst imaginable pain.",
+    subscales: [],
+  },
+];
 
-// ─── Sub-components ───────────────────────────────────────────────────────────
+// ─── Shared sub-components ────────────────────────────────────────────────────
 
-function MetricCard({
-  label,
-  value,
-  unit,
-  change,
-  icon: Icon,
-  color,
-}: {
-  label: string;
-  value: string | number;
-  unit: string;
-  change: number;
-  icon: React.ElementType;
-  color: string;
-}) {
-  const positive = change > 0;
-  return (
-    <div
-      className="bg-white/5 border border-white/10 rounded-xl p-4 hover:bg-white/8 transition-all"
-      style={{ borderColor: color + "30" }}
-    >
-      <div className="flex items-start justify-between mb-3">
-        <div
-          className="w-9 h-9 rounded-lg flex items-center justify-center"
-          style={{ backgroundColor: color + "20" }}
-        >
-          <Icon size={16} style={{ color }} />
-        </div>
-        <span
-          className={`text-xs font-medium flex items-center gap-1 ${positive ? "text-emerald-400" : "text-red-400"}`}
-        >
-          {positive ? <TrendingUp size={11} /> : <TrendingDown size={11} />}
-          {positive ? "+" : ""}
-          {change}%
-        </span>
-      </div>
-      <div className="text-2xl font-bold text-white mb-0.5">
-        {value}
-        <span className="text-sm font-normal text-slate-400 ml-1">{unit}</span>
-      </div>
-      <div className="text-xs text-slate-400">{label}</div>
-    </div>
-  );
-}
-
-function RiskBadge({ risk }: { risk: string }) {
-  const map: Record<string, { bg: string; text: string; label: string }> = {
-    high: { bg: "bg-red-500/20", text: "text-red-400", label: "High Risk" },
-    medium: { bg: "bg-amber-500/20", text: "text-amber-400", label: "Moderate" },
-    low: { bg: "bg-emerald-500/20", text: "text-emerald-400", label: "Normal" },
+function RiskPill({ risk }: { risk: string }) {
+  const map: Record<string, { bg: string; color: string; label: string }> = {
+    high:   { bg: "#FEF2F2", color: "#DC2626", label: "Deficit" },
+    medium: { bg: "#FFFBEB", color: "#D97706", label: "Borderline" },
+    low:    { bg: "#F0FDF4", color: "#059669", label: "Normal" },
   };
   const s = map[risk] ?? map.low;
   return (
-    <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${s.bg} ${s.text}`}>
+    <span
+      className="text-xs font-semibold px-2 py-0.5 rounded-full"
+      style={{ backgroundColor: s.bg, color: s.color }}
+    >
       {s.label}
     </span>
   );
 }
 
-const CustomTooltip = ({ active, payload, label }: any) => {
-  if (active && payload && payload.length) {
-    return (
-      <div className="bg-[#0a1628] border border-white/10 rounded-xl p-3 text-xs shadow-xl">
-        <p className="text-slate-400 mb-1.5 font-medium">{label}% gait cycle</p>
-        {payload.map((p: any) => (
-          <p key={p.name} style={{ color: p.color }} className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full inline-block" style={{ backgroundColor: p.color }} />
-            {p.name}: <span className="font-bold">{p.value?.toFixed(1)}°</span>
-          </p>
+function ModuleHeader({
+  number, icon: Icon, title, subtitle, color,
+}: {
+  number: number; icon: React.ElementType; title: string; subtitle: string; color: string;
+}) {
+  return (
+    <div className="flex items-start gap-4 mb-6">
+      <div
+        className="flex-shrink-0 w-10 h-10 rounded-xl flex items-center justify-center text-white font-bold text-sm"
+        style={{ backgroundColor: color }}
+      >
+        {number}
+      </div>
+      <div className="flex-1">
+        <div className="flex items-center gap-2 mb-0.5">
+          <Icon size={15} style={{ color }} />
+          <h2 className="text-base font-semibold" style={{ color: C.text }}>{title}</h2>
+        </div>
+        <p className="text-xs" style={{ color: C.text3 }}>{subtitle}</p>
+      </div>
+    </div>
+  );
+}
+
+function ModuleCard({ children, className = "" }: { children: React.ReactNode; className?: string }) {
+  return (
+    <div
+      className={`rounded-2xl p-6 mb-6 ${className}`}
+      style={{
+        backgroundColor: C.surface,
+        border: `1px solid ${C.border}`,
+        boxShadow: "var(--app-shadow-md)",
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
+// ─── Module 1: Overview ───────────────────────────────────────────────────────
+
+function OverviewModule({ metrics }: { metrics: any }) {
+  const overallScore = Math.round(
+    overviewRadar.reduce((s, d) => s + d.score, 0) / overviewRadar.length
+  );
+
+  const scoreColor =
+    overallScore >= 75 ? C.green :
+    overallScore >= 50 ? C.amber : C.red;
+
+  return (
+    <ModuleCard>
+      <ModuleHeader
+        number={1}
+        icon={Activity}
+        title="Functional Capability Overview"
+        subtitle="Normalised against age- and sex-matched reference population (100 = healthy reference)"
+        color="#00B89A"
+      />
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-center">
+        {/* Overall score circle */}
+        <div className="flex flex-col items-center justify-center gap-3">
+          <div className="relative w-36 h-36">
+            <svg viewBox="0 0 120 120" className="w-full h-full -rotate-90">
+              <circle cx="60" cy="60" r="50" fill="none" stroke={C.border} strokeWidth="10" />
+              <circle
+                cx="60" cy="60" r="50" fill="none"
+                stroke={scoreColor}
+                strokeWidth="10"
+                strokeLinecap="round"
+                strokeDasharray={`${2 * Math.PI * 50}`}
+                strokeDashoffset={`${2 * Math.PI * 50 * (1 - overallScore / 100)}`}
+                style={{ transition: "stroke-dashoffset 1s ease" }}
+              />
+            </svg>
+            <div className="absolute inset-0 flex flex-col items-center justify-center">
+              <span className="text-4xl font-black" style={{ color: scoreColor }}>{overallScore}</span>
+              <span className="text-xs font-medium" style={{ color: C.text3 }}>/100</span>
+            </div>
+          </div>
+          <div className="text-center">
+            <div className="text-xs font-semibold" style={{ color: C.text2 }}>Overall Score</div>
+            <div className="text-xs mt-0.5" style={{ color: C.text3 }}>
+              {overallScore >= 75 ? "Good" : overallScore >= 50 ? "Moderate Impairment" : "Significant Impairment"}
+            </div>
+          </div>
+        </div>
+
+        {/* Radar chart — no text labels on axes, just the shape */}
+        <div className="lg:col-span-2 h-64">
+          <ResponsiveContainer width="100%" height="100%">
+            <RadarChart data={overviewRadar} margin={{ top: 10, right: 30, bottom: 10, left: 30 }}>
+              <PolarGrid stroke={C.border} />
+              <PolarAngleAxis
+                dataKey="axis"
+                tick={{ fill: C.text2, fontSize: 11, fontWeight: 600 }}
+              />
+              <PolarRadiusAxis domain={[0, 100]} tick={false} axisLine={false} />
+              <Radar
+                name="Reference"
+                dataKey="ref"
+                stroke="#E4E7ED"
+                fill="#E4E7ED"
+                fillOpacity={0.3}
+                strokeWidth={1}
+                strokeDasharray="4 4"
+              />
+              <Radar
+                name="Patient"
+                dataKey="score"
+                stroke="#00B89A"
+                fill="#00B89A"
+                fillOpacity={0.25}
+                strokeWidth={2.5}
+              />
+            </RadarChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
+      {/* 6 dimension pills — visual only */}
+      <div className="grid grid-cols-3 sm:grid-cols-6 gap-3 mt-4">
+        {overviewRadar.map((d) => {
+          const pct = d.score;
+          const col = pct >= 75 ? C.green : pct >= 50 ? C.amber : C.red;
+          return (
+            <div
+              key={d.axis}
+              className="flex flex-col items-center gap-1.5 rounded-xl py-3 px-2"
+              style={{ backgroundColor: C.bg }}
+            >
+              <div className="w-full h-1.5 rounded-full" style={{ backgroundColor: C.border }}>
+                <div
+                  className="h-1.5 rounded-full"
+                  style={{ width: `${pct}%`, backgroundColor: col }}
+                />
+              </div>
+              <span className="text-xs font-bold" style={{ color: col }}>{pct}</span>
+              <span className="text-xs" style={{ color: C.text3 }}>{d.axis}</span>
+            </div>
+          );
+        })}
+      </div>
+    </ModuleCard>
+  );
+}
+
+// ─── Module 2: Auto Metrics ───────────────────────────────────────────────────
+
+function AutoMetricsModule() {
+  const [openGroup, setOpenGroup] = useState<string | null>("Spatiotemporal");
+
+  return (
+    <ModuleCard>
+      <ModuleHeader
+        number={2}
+        icon={BarChart2}
+        title="Kinematic & Spatiotemporal Metrics"
+        subtitle="Automatically derived from walking video via OpenPose + OpenCap — no additional input required"
+        color="#2563EB"
+      />
+      <div className="space-y-3">
+        {autoMetrics.map((group) => (
+          <div
+            key={group.group}
+            className="rounded-xl overflow-hidden"
+            style={{ border: `1px solid ${C.border}` }}
+          >
+            <button
+              className="w-full flex items-center justify-between px-4 py-3 text-left transition-colors hover:bg-gray-50"
+              style={{ backgroundColor: C.bg }}
+              onClick={() => setOpenGroup(openGroup === group.group ? null : group.group)}
+            >
+              <span className="text-sm font-semibold" style={{ color: C.text }}>{group.group}</span>
+              <div className="flex items-center gap-2">
+                <span className="text-xs" style={{ color: C.text3 }}>{group.items.length} metrics</span>
+                {openGroup === group.group ? <ChevronUp size={14} style={{ color: C.text3 }} /> : <ChevronDown size={14} style={{ color: C.text3 }} />}
+              </div>
+            </button>
+            <AnimatePresence>
+              {openGroup === group.group && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: "auto", opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={{ duration: 0.2 }}
+                  className="overflow-hidden"
+                >
+                  <div className="px-4 pb-4 pt-2 space-y-2">
+                    {group.items.map((item) => {
+                      const pct = Math.min(100, (parseFloat(item.value) / parseFloat(item.ref)) * 100) || 60;
+                      const barColor =
+                        item.risk === "high" ? C.red :
+                        item.risk === "medium" ? C.amber : C.green;
+                      return (
+                        <div key={item.label} className="grid grid-cols-12 items-center gap-3">
+                          <div className="col-span-4 text-xs font-medium" style={{ color: C.text2 }}>
+                            {item.label}
+                          </div>
+                          <div className="col-span-4">
+                            <div className="w-full h-1.5 rounded-full" style={{ backgroundColor: C.border }}>
+                              <div
+                                className="h-1.5 rounded-full"
+                                style={{ width: `${Math.min(pct, 100)}%`, backgroundColor: barColor }}
+                              />
+                            </div>
+                          </div>
+                          <div className="col-span-2 text-xs font-bold text-right" style={{ color: C.text }}>
+                            {item.value} <span style={{ color: C.text3 }}>{item.unit}</span>
+                          </div>
+                          <div className="col-span-2 flex justify-end">
+                            <RiskPill risk={item.risk} />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
         ))}
       </div>
-    );
-  }
-  return null;
-};
+    </ModuleCard>
+  );
+}
+
+// ─── Module 3: Guided-Video Metrics ──────────────────────────────────────────
+
+function VideoThumb({ type }: { type: string }) {
+  const icons: Record<string, string> = {
+    balance: "⚖️", tug: "🚶", walk: "👟", reach: "🤚", sts: "🪑", stair: "🪜", tandem: "🧍",
+  };
+  return (
+    <div
+      className="w-full h-full rounded-lg flex flex-col items-center justify-center gap-1 text-2xl"
+      style={{ backgroundColor: "#EFF6FF", border: `1px solid #BFDBFE` }}
+    >
+      <span>{icons[type] ?? "▶"}</span>
+      <span className="text-xs font-medium" style={{ color: C.blue }}>Watch Guide</span>
+    </div>
+  );
+}
+
+function GuidedMetricRow({ metric, index }: { metric: typeof guidedMetrics[0]; index: number }) {
+  const [value, setValue] = useState("");
+  const [playing, setPlaying] = useState(false);
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: index * 0.04 }}
+      className="grid grid-cols-12 gap-4 items-stretch py-4"
+      style={{ borderBottom: `1px solid ${C.border}` }}
+    >
+      {/* Video thumbnail */}
+      <div className="col-span-2 sm:col-span-1 h-16">
+        <button
+          className="w-full h-full relative"
+          onClick={() => setPlaying(!playing)}
+          title="Play instruction video"
+        >
+          <VideoThumb type={metric.videoThumb} />
+          <div
+            className="absolute inset-0 flex items-center justify-center rounded-lg opacity-0 hover:opacity-100 transition-opacity"
+            style={{ backgroundColor: "rgba(37,99,235,0.15)" }}
+          >
+            <Play size={18} style={{ color: C.blue }} />
+          </div>
+        </button>
+      </div>
+
+      {/* Metric info */}
+      <div className="col-span-6 sm:col-span-7 flex flex-col justify-center">
+        <div className="text-sm font-semibold mb-0.5" style={{ color: C.text }}>{metric.label}</div>
+        <div className="text-xs leading-relaxed" style={{ color: C.text3 }}>{metric.videoDesc}</div>
+        {playing && (
+          <div
+            className="mt-2 text-xs px-2 py-1 rounded-md inline-flex items-center gap-1"
+            style={{ backgroundColor: "#EFF6FF", color: C.blue }}
+          >
+            <Play size={10} />
+            Video guide playing — follow the on-screen instructions
+          </div>
+        )}
+      </div>
+
+      {/* Input */}
+      <div className="col-span-4 flex flex-col justify-center items-end gap-1">
+        <div className="flex items-center gap-2">
+          <input
+            type="number"
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            placeholder="—"
+            className="w-20 text-right text-sm font-bold rounded-lg px-3 py-1.5 outline-none transition-all"
+            style={{
+              border: `1.5px solid ${value ? C.teal : C.border}`,
+              backgroundColor: value ? "rgba(0,184,154,0.04)" : C.bg,
+              color: C.text,
+            }}
+          />
+          <span className="text-xs w-8" style={{ color: C.text3 }}>{metric.unit}</span>
+        </div>
+        {value && (
+          <div className="flex items-center gap-1 text-xs" style={{ color: C.green }}>
+            <CheckCircle2 size={11} />
+            Recorded
+          </div>
+        )}
+      </div>
+    </motion.div>
+  );
+}
+
+function GuidedVideoModule() {
+  return (
+    <ModuleCard>
+      <ModuleHeader
+        number={3}
+        icon={Play}
+        title="Standardised Functional Tests"
+        subtitle="Each test requires a specific movement protocol. Watch the guide video, perform the test, and enter the result."
+        color="#7C3AED"
+      />
+      <div className="divide-y" style={{ borderTop: `1px solid ${C.border}` }}>
+        {guidedMetrics.map((m, i) => (
+          <GuidedMetricRow key={m.label} metric={m} index={i} />
+        ))}
+      </div>
+    </ModuleCard>
+  );
+}
+
+// ─── Module 4: AI-Model Metrics ───────────────────────────────────────────────
+
+function AIModelCard({ metric }: { metric: typeof aiMetrics[0] }) {
+  const [expanded, setExpanded] = useState(false);
+  const [running, setRunning] = useState(false);
+  const [result, setResult] = useState<string | null>(null);
+
+  const handleRun = () => {
+    setRunning(true);
+    setTimeout(() => {
+      setRunning(false);
+      setResult("Model not yet loaded. Upload a trained model to compute this metric.");
+    }, 1200);
+  };
+
+  return (
+    <div
+      className="rounded-xl overflow-hidden"
+      style={{ border: `1px solid ${C.border}` }}
+    >
+      {/* Header row */}
+      <div className="flex items-center justify-between px-5 py-4" style={{ backgroundColor: C.bg }}>
+        <div className="flex items-center gap-3">
+          <div
+            className="w-8 h-8 rounded-lg flex items-center justify-center"
+            style={{ backgroundColor: "rgba(124,58,237,0.10)" }}
+          >
+            <Cpu size={14} style={{ color: C.purple }} />
+          </div>
+          <div>
+            <div className="text-sm font-semibold" style={{ color: C.text }}>{metric.label}</div>
+            {metric.muscles.length > 0 && (
+              <div className="text-xs mt-0.5" style={{ color: C.text3 }}>
+                {metric.muscles.join(" · ")}
+              </div>
+            )}
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          {result ? (
+            <span
+              className="text-xs px-2 py-1 rounded-lg"
+              style={{ backgroundColor: "#FEF9C3", color: "#92400E" }}
+            >
+              {metric.unit}
+            </span>
+          ) : (
+            <span
+              className="text-xs px-2 py-1 rounded-lg font-mono"
+              style={{ backgroundColor: C.border, color: C.text3 }}
+            >
+              — {metric.unit}
+            </span>
+          )}
+          <button
+            onClick={handleRun}
+            disabled={running}
+            className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg transition-all"
+            style={{
+              backgroundColor: running ? C.border : C.purple,
+              color: running ? C.text3 : "#fff",
+            }}
+          >
+            {running ? (
+              <><span className="animate-spin inline-block w-3 h-3 border-2 border-white/30 border-t-white rounded-full" />Running…</>
+            ) : (
+              <><Zap size={12} />Run Model</>
+            )}
+          </button>
+          <button onClick={() => setExpanded(!expanded)} style={{ color: C.text3 }}>
+            {expanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+          </button>
+        </div>
+      </div>
+
+      {/* Result */}
+      {result && (
+        <div
+          className="px-5 py-2 text-xs flex items-start gap-2"
+          style={{ backgroundColor: "#FFFBEB", borderTop: `1px solid #FDE68A` }}
+        >
+          <AlertTriangle size={12} style={{ color: C.amber, flexShrink: 0, marginTop: 1 }} />
+          <span style={{ color: "#92400E" }}>{result}</span>
+        </div>
+      )}
+
+      {/* Dataset instructions */}
+      <AnimatePresence>
+        {expanded && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="overflow-hidden"
+          >
+            <div
+              className="px-5 py-4"
+              style={{ borderTop: `1px solid ${C.border}`, backgroundColor: C.surface }}
+            >
+              <p className="text-xs mb-3" style={{ color: C.text2 }}>{metric.description}</p>
+              <div className="flex items-center gap-2 mb-2">
+                <BookOpen size={12} style={{ color: C.purple }} />
+                <span className="text-xs font-semibold" style={{ color: C.purple }}>
+                  Dataset Construction Guide — {metric.datasetType}
+                </span>
+              </div>
+              <ol className="space-y-1.5">
+                {metric.datasetInstructions.map((step, i) => (
+                  <li key={i} className="flex items-start gap-2 text-xs" style={{ color: C.text2 }}>
+                    <span
+                      className="flex-shrink-0 w-4 h-4 rounded-full flex items-center justify-center text-white font-bold text-[10px]"
+                      style={{ backgroundColor: C.purple }}
+                    >
+                      {i + 1}
+                    </span>
+                    {step}
+                  </li>
+                ))}
+              </ol>
+              <div
+                className="mt-3 flex items-center gap-2 text-xs px-3 py-2 rounded-lg"
+                style={{ backgroundColor: "rgba(124,58,237,0.06)", color: C.purple }}
+              >
+                <Info size={11} />
+                Upload your trained model via Settings → AI Models to enable this metric.
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+function AIModelModule() {
+  return (
+    <ModuleCard>
+      <ModuleHeader
+        number={4}
+        icon={Brain}
+        title="AI-Assisted Metrics"
+        subtitle="These metrics require a custom AI model trained on specialist datasets. Expand each card for dataset construction guidance."
+        color="#7C3AED"
+      />
+      <div className="space-y-3">
+        {aiMetrics.map((m) => (
+          <AIModelCard key={m.id} metric={m} />
+        ))}
+      </div>
+    </ModuleCard>
+  );
+}
+
+// ─── Module 5: Manual Input ───────────────────────────────────────────────────
+
+function ManualScaleRow({ scale }: { scale: typeof manualScales[0] }) {
+  const [values, setValues] = useState<Record<string, string>>({});
+  const [mainValue, setMainValue] = useState("");
+
+  const isPerMuscle = scale.isPerMuscle && scale.subscales.length > 0;
+
+  return (
+    <div
+      className="rounded-xl px-5 py-4"
+      style={{ border: `1px solid ${C.border}`, backgroundColor: C.bg }}
+    >
+      <div className="flex items-start justify-between gap-3 mb-3">
+        <div>
+          <div className="flex items-center gap-2">
+            <span
+              className="text-xs font-bold px-2 py-0.5 rounded-md"
+              style={{ backgroundColor: "rgba(37,99,235,0.08)", color: C.blue }}
+            >
+              {scale.abbr}
+            </span>
+            <span className="text-sm font-semibold" style={{ color: C.text }}>{scale.label}</span>
+          </div>
+          <p className="text-xs mt-1" style={{ color: C.text3 }}>{scale.description}</p>
+          <p className="text-xs mt-0.5 font-mono" style={{ color: C.text3 }}>
+            Range: {scale.range[0]}–{scale.range[1]}
+          </p>
+        </div>
+        {!isPerMuscle && (
+          <div className="flex-shrink-0 flex items-center gap-2">
+            <input
+              type="number"
+              min={scale.range[0]}
+              max={scale.range[1]}
+              value={mainValue}
+              onChange={(e) => setMainValue(e.target.value)}
+              placeholder="—"
+              className="w-20 text-right text-sm font-bold rounded-lg px-3 py-1.5 outline-none"
+              style={{
+                border: `1.5px solid ${mainValue ? C.blue : C.border}`,
+                backgroundColor: mainValue ? "rgba(37,99,235,0.04)" : C.surface,
+                color: C.text,
+              }}
+            />
+            <span className="text-xs" style={{ color: C.text3 }}>/ {scale.range[1]}</span>
+          </div>
+        )}
+      </div>
+      {isPerMuscle && (
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-2">
+          {scale.subscales.map((sub) => (
+            <div
+              key={sub}
+              className="flex flex-col gap-1 rounded-lg px-3 py-2"
+              style={{ backgroundColor: C.surface, border: `1px solid ${C.border}` }}
+            >
+              <span className="text-xs" style={{ color: C.text3 }}>{sub}</span>
+              <div className="flex items-center gap-1">
+                <input
+                  type="number"
+                  min={scale.range[0]}
+                  max={scale.range[1]}
+                  value={values[sub] ?? ""}
+                  onChange={(e) => setValues({ ...values, [sub]: e.target.value })}
+                  placeholder="—"
+                  className="w-14 text-right text-sm font-bold rounded-md px-2 py-1 outline-none"
+                  style={{
+                    border: `1.5px solid ${values[sub] ? C.blue : C.border}`,
+                    backgroundColor: values[sub] ? "rgba(37,99,235,0.04)" : C.bg,
+                    color: C.text,
+                  }}
+                />
+                <span className="text-xs" style={{ color: C.text3 }}>/{scale.range[1]}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+      {!isPerMuscle && scale.subscales.length > 0 && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
+          {scale.subscales.map((sub) => (
+            <div
+              key={sub}
+              className="flex items-center justify-between rounded-lg px-3 py-2"
+              style={{ backgroundColor: C.surface, border: `1px solid ${C.border}` }}
+            >
+              <span className="text-xs" style={{ color: C.text2 }}>{sub}</span>
+              <div className="flex items-center gap-1">
+                <input
+                  type="number"
+                  value={values[sub] ?? ""}
+                  onChange={(e) => setValues({ ...values, [sub]: e.target.value })}
+                  placeholder="—"
+                  className="w-16 text-right text-xs font-bold rounded-md px-2 py-1 outline-none"
+                  style={{
+                    border: `1.5px solid ${values[sub] ? C.blue : C.border}`,
+                    backgroundColor: values[sub] ? "rgba(37,99,235,0.04)" : C.bg,
+                    color: C.text,
+                  }}
+                />
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ManualInputModule() {
+  const [notes, setNotes] = useState("");
+
+  return (
+    <ModuleCard>
+      <ModuleHeader
+        number={5}
+        icon={ClipboardList}
+        title="Clinical Scales — Manual Input"
+        subtitle="Therapist-entered standardised assessments that cannot be computed from video alone"
+        color="#2563EB"
+      />
+      <div className="space-y-3">
+        {manualScales.map((s) => (
+          <ManualScaleRow key={s.id} scale={s} />
+        ))}
+        {/* Clinical notes */}
+        <div
+          className="rounded-xl px-5 py-4"
+          style={{ border: `1px solid ${C.border}`, backgroundColor: C.bg }}
+        >
+          <label className="text-sm font-semibold block mb-2" style={{ color: C.text }}>
+            Clinical Notes
+          </label>
+          <textarea
+            rows={4}
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            placeholder="Record any additional clinical observations, patient-reported symptoms, or contextual factors relevant to this assessment…"
+            className="w-full text-sm rounded-xl px-4 py-3 outline-none resize-none transition-all"
+            style={{
+              border: `1.5px solid ${notes ? C.blue : C.border}`,
+              backgroundColor: C.surface,
+              color: C.text,
+            }}
+          />
+        </div>
+      </div>
+    </ModuleCard>
+  );
+}
 
 // ─── Main page ────────────────────────────────────────────────────────────────
 
@@ -176,429 +959,135 @@ export default function ReportPage() {
   const [, navigate] = useLocation();
   const { user } = useAuth();
   const { metrics, patientName } = useAssessment();
-  const [activeTab, setActiveTab] = useState<"overview" | "kinematics" | "balance">("overview");
-
-  const cardVariants = {
-    hidden: { opacity: 0, y: 20 },
-    visible: (i: number) => ({
-      opacity: 1,
-      y: 0,
-      transition: { delay: i * 0.08, duration: 0.4 },
-    }),
-  };
 
   return (
-    <div className="min-h-screen bg-[#050d1a] text-white">
-      <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-[#00D4AA]/6 rounded-full blur-[150px] pointer-events-none" />
-      <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-[#8B5CF6]/6 rounded-full blur-[120px] pointer-events-none" />
-
+    <div
+      className="app-shell min-h-screen"
+      style={{ backgroundColor: C.bg, color: C.text }}
+    >
       {/* Navbar */}
-      <nav className="relative z-10 flex items-center justify-between px-6 py-4 border-b border-white/10 bg-[#050d1a]/80 backdrop-blur-xl">
-        <div className="flex items-center gap-4">
+      <nav
+        className="sticky top-0 z-30 flex items-center justify-between px-6 py-3"
+        style={{
+          backgroundColor: C.surface,
+          borderBottom: `1px solid ${C.border}`,
+          boxShadow: "var(--app-shadow)",
+        }}
+      >
+        <div className="flex items-center gap-3">
           <button
             onClick={() => navigate("/upload")}
-            className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors text-sm"
+            className="flex items-center gap-1.5 text-sm transition-colors hover:opacity-70"
+            style={{ color: C.text2 }}
           >
-            <ArrowLeft size={16} />
+            <ArrowLeft size={15} />
             Upload
           </button>
-          <div className="w-px h-4 bg-white/20" />
-          <span className="text-white font-black tracking-widest text-lg">AXONAI</span>
-          <div className="hidden sm:flex items-center gap-2 text-xs text-slate-500">
-            <span>/</span>
-            <span className="text-slate-300">Assessment Report</span>
-          </div>
+          <div className="w-px h-4" style={{ backgroundColor: C.border }} />
+          <span className="font-black tracking-widest text-base" style={{ color: C.teal }}>AXONAI</span>
+          <span className="text-xs hidden sm:block" style={{ color: C.text3 }}>/ Functional Movement Assessment</span>
         </div>
         <div className="flex items-center gap-3">
-          <button className="flex items-center gap-2 text-xs text-slate-400 hover:text-white transition-colors px-3 py-1.5 rounded-lg hover:bg-white/5 border border-white/10">
+          <button
+            className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg transition-all hover:opacity-80"
+            style={{
+              border: `1px solid ${C.border}`,
+              backgroundColor: C.surface,
+              color: C.text2,
+            }}
+          >
             <Download size={13} />
             Export PDF
           </button>
-          <div className="flex items-center gap-2 text-sm text-slate-300">
-            <div className="w-7 h-7 rounded-full bg-[#00D4AA]/20 flex items-center justify-center">
-              <User size={14} className="text-[#00D4AA]" />
+          <div className="flex items-center gap-2 text-sm" style={{ color: C.text2 }}>
+            <div
+              className="w-7 h-7 rounded-full flex items-center justify-center"
+              style={{ backgroundColor: C.tealDim }}
+            >
+              <User size={14} style={{ color: C.teal }} />
             </div>
-            <span className="hidden sm:block">{user?.name}</span>
+            <span className="hidden sm:block text-xs">{user?.name}</span>
           </div>
         </div>
       </nav>
 
-      <div className="relative z-10 max-w-7xl mx-auto px-6 py-8">
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8">
         {/* Page header */}
         <motion.div
-          initial={{ opacity: 0, y: 16 }}
+          initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
-          className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8"
+          className="mb-8"
         >
-          <div>
-            <div className="flex items-center gap-2 mb-1">
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#00D4AA]/10 border border-[#00D4AA]/20 text-[#00D4AA] text-xs font-medium">
-                <Activity size={11} />
-                Step 2 of 3 — Functional Assessment Report
-              </div>
-            </div>
-            <h1 className="text-2xl font-bold text-white">
-              Gait Analysis Report
-            </h1>
-            <div className="flex items-center gap-4 mt-1 text-xs text-slate-400">
-              <span className="flex items-center gap-1.5">
-                <User size={11} />
-                {patientName}
-              </span>
-              <span className="flex items-center gap-1.5">
-                <Calendar size={11} />
-                {new Date().toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}
-              </span>
-              <span className="flex items-center gap-1.5">
-                <Clock size={11} />
-                Session 3 of 8
-              </span>
-            </div>
+          <div
+            className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium mb-3"
+            style={{ backgroundColor: C.tealDim, color: C.teal }}
+          >
+            <Activity size={11} />
+            Step 2 of 3 — Assessment Report
           </div>
-
-          {/* Overall score */}
-          <div className="flex items-center gap-4">
-            <div className="text-center bg-white/5 border border-white/10 rounded-xl px-5 py-3">
-              <div className="text-3xl font-black text-white">{metrics.gaitScore}</div>
-              <div className="text-xs text-slate-400">Gait Score</div>
-              <div className="text-xs text-amber-400 mt-0.5">↑ +16 pts</div>
-            </div>
-            <div className="text-center bg-white/5 border border-white/10 rounded-xl px-5 py-3">
-              <div className="text-3xl font-black" style={{ color: "#00D4AA" }}>{metrics.symmetryIndex}%</div>
-              <div className="text-xs text-slate-400">Symmetry</div>
-              <div className="text-xs text-amber-400 mt-0.5">↑ +10 pts</div>
-            </div>
+          <h1 className="text-2xl font-black mb-1" style={{ color: C.text }}>
+            Functional Movement Assessment
+          </h1>
+          <div className="flex flex-wrap items-center gap-4 text-xs" style={{ color: C.text3 }}>
+            <span className="flex items-center gap-1.5">
+              <User size={11} />
+              {patientName}
+            </span>
+            <span className="flex items-center gap-1.5">
+              <Calendar size={11} />
+              {new Date().toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}
+            </span>
+            <span className="flex items-center gap-1.5">
+              <Clock size={11} />
+              Session 3 of 8
+            </span>
           </div>
         </motion.div>
 
-        {/* Tabs */}
-        <div className="flex gap-1 mb-6 bg-white/5 rounded-xl p-1 w-fit border border-white/10">
-          {(["overview", "kinematics", "balance"] as const).map((tab) => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all capitalize ${
-                activeTab === tab
-                  ? "bg-[#00D4AA] text-[#050d1a]"
-                  : "text-slate-400 hover:text-white"
-              }`}
-            >
-              {tab === "overview" ? "Overview" : tab === "kinematics" ? "Kinematics" : "Balance & Phases"}
-            </button>
-          ))}
-        </div>
-
-        {/* ── OVERVIEW TAB ── */}
-        {activeTab === "overview" && (
-          <div className="space-y-6">
-            {/* Core metrics row */}
-            <motion.div
-              custom={0}
-              variants={cardVariants}
-              initial="hidden"
-              animate="visible"
-            >
-              <h2 className="text-sm font-semibold text-slate-300 mb-3 flex items-center gap-2">
-                <span className="w-5 h-5 rounded-full bg-[#00D4AA]/20 text-[#00D4AA] text-xs flex items-center justify-center font-bold">1</span>
-                Core Metrics Dashboard
-              </h2>
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-                <MetricCard label="Walking Speed" value={metrics.speed} unit="m/s" change={metrics.speedChange} icon={Activity} color="#00D4AA" />
-                <MetricCard label="Cadence" value={metrics.cadence} unit="steps/min" change={metrics.cadenceChange} icon={Activity} color="#8B5CF6" />
-                <MetricCard label="Stride Length" value={metrics.strideLength} unit="cm" change={metrics.strideLengthChange} icon={Activity} color="#00A8FF" />
-                <MetricCard label="Symmetry Index" value={metrics.symmetryIndex} unit="%" change={10} icon={Activity} color="#F59E0B" />
-                <MetricCard label="Stability Score" value={metrics.stabilityScore} unit="/100" change={8} icon={Activity} color="#10B981" />
-                <MetricCard label="Gait Score" value={metrics.gaitScore} unit="/100" change={16} icon={Activity} color="#EC4899" />
-              </div>
-            </motion.div>
-
-            {/* Bilateral symmetry + Radar */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <motion.div custom={1} variants={cardVariants} initial="hidden" animate="visible">
-                <h2 className="text-sm font-semibold text-slate-300 mb-3 flex items-center gap-2">
-                  <span className="w-5 h-5 rounded-full bg-[#8B5CF6]/20 text-[#8B5CF6] text-xs flex items-center justify-center font-bold">2</span>
-                  Bilateral Symmetry Matrix
-                </h2>
-                <div className="bg-white/5 border border-white/10 rounded-2xl p-5">
-                  <p className="text-xs text-slate-400 mb-4">
-                    Multi-joint angle deviations between affected and healthy sides, with colour-coded risk warnings.
-                  </p>
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="text-xs text-slate-500 border-b border-white/10">
-                          <th className="text-left pb-2 font-medium">Joint</th>
-                          <th className="text-right pb-2 font-medium">Affected (L)</th>
-                          <th className="text-right pb-2 font-medium">Healthy (R)</th>
-                          <th className="text-right pb-2 font-medium">Deviation</th>
-                          <th className="text-right pb-2 font-medium">Risk</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-white/5">
-                        {symmetryData.map((row) => (
-                          <tr key={row.joint} className="hover:bg-white/3 transition-colors">
-                            <td className="py-2.5 font-medium text-white">{row.joint}</td>
-                            <td className="py-2.5 text-right text-slate-300">{row.affected}°</td>
-                            <td className="py-2.5 text-right text-slate-300">{row.healthy}°</td>
-                            <td className={`py-2.5 text-right font-bold ${row.risk === "high" ? "text-red-400" : row.risk === "medium" ? "text-amber-400" : "text-emerald-400"}`}>
-                              {row.deviation}°
-                            </td>
-                            <td className="py-2.5 text-right">
-                              <RiskBadge risk={row.risk} />
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              </motion.div>
-
-              <motion.div custom={2} variants={cardVariants} initial="hidden" animate="visible">
-                <h2 className="text-sm font-semibold text-slate-300 mb-3 flex items-center gap-2">
-                  <span className="w-5 h-5 rounded-full bg-[#00A8FF]/20 text-[#00A8FF] text-xs flex items-center justify-center font-bold">3</span>
-                  Multi-Dimensional Performance Radar
-                </h2>
-                <div className="bg-white/5 border border-white/10 rounded-2xl p-5">
-                  <p className="text-xs text-slate-400 mb-3">
-                    Comparison of patient's gait profile against normative reference values.
-                  </p>
-                  <ResponsiveContainer width="100%" height={240}>
-                    <RadarChart data={radarData}>
-                      <PolarGrid stroke="rgba(255,255,255,0.1)" />
-                      <PolarAngleAxis dataKey="metric" tick={{ fill: "#94a3b8", fontSize: 11 }} />
-                      <PolarRadiusAxis angle={90} domain={[0, 100]} tick={{ fill: "#475569", fontSize: 9 }} />
-                      <Radar name="Normal" dataKey="normal" stroke="#ffffff20" fill="#ffffff08" />
-                      <Radar name="Patient" dataKey="score" stroke="#00D4AA" fill="#00D4AA" fillOpacity={0.25} />
-                      <Legend wrapperStyle={{ fontSize: 11, color: "#94a3b8" }} />
-                    </RadarChart>
-                  </ResponsiveContainer>
-                </div>
-              </motion.div>
-            </div>
-
-            {/* Historical trend */}
-            <motion.div custom={3} variants={cardVariants} initial="hidden" animate="visible">
-              <h2 className="text-sm font-semibold text-slate-300 mb-3 flex items-center gap-2">
-                <span className="w-5 h-5 rounded-full bg-[#F59E0B]/20 text-[#F59E0B] text-xs flex items-center justify-center font-bold">4</span>
-                Rehabilitation Progress Trend
-              </h2>
-              <div className="bg-white/5 border border-white/10 rounded-2xl p-5">
-                <p className="text-xs text-slate-400 mb-4">
-                  Longitudinal tracking of key gait parameters across assessment sessions.
-                </p>
-                <ResponsiveContainer width="100%" height={200}>
-                  <AreaChart data={historicalData}>
-                    <defs>
-                      <linearGradient id="gaitGrad" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#00D4AA" stopOpacity={0.3} />
-                        <stop offset="95%" stopColor="#00D4AA" stopOpacity={0} />
-                      </linearGradient>
-                      <linearGradient id="symGrad" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#8B5CF6" stopOpacity={0.3} />
-                        <stop offset="95%" stopColor="#8B5CF6" stopOpacity={0} />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
-                    <XAxis dataKey="session" tick={{ fill: "#64748b", fontSize: 11 }} axisLine={false} tickLine={false} />
-                    <YAxis tick={{ fill: "#64748b", fontSize: 11 }} axisLine={false} tickLine={false} />
-                    <Tooltip contentStyle={{ background: "#0a1628", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 12, fontSize: 12 }} />
-                    <Legend wrapperStyle={{ fontSize: 11, color: "#94a3b8" }} />
-                    <Area type="monotone" dataKey="gaitScore" name="Gait Score" stroke="#00D4AA" fill="url(#gaitGrad)" strokeWidth={2} dot={{ fill: "#00D4AA", r: 4 }} />
-                    <Area type="monotone" dataKey="symmetry" name="Symmetry %" stroke="#8B5CF6" fill="url(#symGrad)" strokeWidth={2} dot={{ fill: "#8B5CF6", r: 4 }} />
-                  </AreaChart>
-                </ResponsiveContainer>
-              </div>
-            </motion.div>
-
-            {/* AI Diagnostic Summary */}
-            <motion.div custom={4} variants={cardVariants} initial="hidden" animate="visible">
-              <h2 className="text-sm font-semibold text-slate-300 mb-3 flex items-center gap-2">
-                <span className="w-5 h-5 rounded-full bg-[#EC4899]/20 text-[#EC4899] text-xs flex items-center justify-center font-bold">5</span>
-                AI Intelligent Diagnostic Summary
-              </h2>
-              <div className="bg-white/5 border border-[#00D4AA]/20 rounded-2xl p-5">
-                <div className="flex items-start gap-4">
-                  <div className="w-10 h-10 rounded-xl bg-[#00D4AA]/15 flex items-center justify-center flex-shrink-0">
-                    <Brain size={20} className="text-[#00D4AA]" />
-                  </div>
-                  <div className="flex-1 space-y-3">
-                    <div>
-                      <span className="text-[#00D4AA] font-semibold text-sm">Core Defect: </span>
-                      <span className="text-slate-300 text-sm">Left hip flexion limited (15° vs 30° normative); right compensatory pelvic tilt observed during terminal stance phase.</span>
-                    </div>
-                    <div>
-                      <span className="text-[#8B5CF6] font-semibold text-sm">Clinical Summary: </span>
-                      <span className="text-slate-300 text-sm">Significant gait asymmetry (symmetry index 71%) with high compensatory risk. Reduced walking speed (0.65 m/s, 38% below normative) indicates impaired gait efficiency. Ankle dorsiflexion deficit (-20°) contributing to toe-drag risk.</span>
-                    </div>
-                    <div>
-                      <span className="text-amber-400 font-semibold text-sm">Intervention Priority: </span>
-                      <span className="text-slate-300 text-sm">Focus on (1) left hip flexor strengthening, (2) pelvic stability exercises, (3) ankle dorsiflexion mobilisation. Recommend 3× weekly supervised sessions with daily home programme.</span>
-                    </div>
-                    <div className="flex flex-wrap gap-2 pt-1">
-                      <span className="px-2.5 py-1 rounded-full bg-red-500/15 text-red-400 text-xs font-medium flex items-center gap-1">
-                        <AlertTriangle size={10} /> High compensatory risk
-                      </span>
-                      <span className="px-2.5 py-1 rounded-full bg-amber-500/15 text-amber-400 text-xs font-medium flex items-center gap-1">
-                        <AlertTriangle size={10} /> Ankle deficit
-                      </span>
-                      <span className="px-2.5 py-1 rounded-full bg-emerald-500/15 text-emerald-400 text-xs font-medium flex items-center gap-1">
-                        <CheckCircle2 size={10} /> Improving trend
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </motion.div>
-          </div>
-        )}
-
-        {/* ── KINEMATICS TAB ── */}
-        {activeTab === "kinematics" && (
-          <div className="space-y-6">
-            <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}>
-              <h2 className="text-sm font-semibold text-slate-300 mb-3 flex items-center gap-2">
-                <span className="w-5 h-5 rounded-full bg-[#00D4AA]/20 text-[#00D4AA] text-xs flex items-center justify-center font-bold">1</span>
-                Kinematic Continuous Curve Atlas
-              </h2>
-              <div className="bg-white/5 border border-white/10 rounded-2xl p-5">
-                <p className="text-xs text-slate-400 mb-4">
-                  Complete gait cycle waveforms for pelvic, lower limb, and spinal joints. Shaded region indicates abnormal phase (early stance).
-                </p>
-                <ResponsiveContainer width="100%" height={300}>
-                  <LineChart data={kinematics}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
-                    <XAxis dataKey="cycle" label={{ value: "Gait Cycle (%)", position: "insideBottom", offset: -2, fill: "#64748b", fontSize: 11 }} tick={{ fill: "#64748b", fontSize: 11 }} axisLine={false} tickLine={false} />
-                    <YAxis label={{ value: "Joint Angle (deg)", angle: -90, position: "insideLeft", fill: "#64748b", fontSize: 11 }} tick={{ fill: "#64748b", fontSize: 11 }} axisLine={false} tickLine={false} />
-                    <Tooltip content={<CustomTooltip />} />
-                    <Legend wrapperStyle={{ fontSize: 11, color: "#94a3b8", paddingTop: 16 }} />
-                    <ReferenceLine x={20} stroke="rgba(239,68,68,0.3)" strokeDasharray="4 4" />
-                    <ReferenceLine x={40} stroke="rgba(239,68,68,0.3)" strokeDasharray="4 4" label={{ value: "Abnormal Phase", position: "top", fill: "#ef4444", fontSize: 10 }} />
-                    <Line type="monotone" dataKey="pelvicRotation" name="Pelvic Rotation" stroke="#8B5CF6" strokeWidth={2} dot={false} />
-                    <Line type="monotone" dataKey="kneeFlexion" name="Knee Flexion" stroke="#00D4AA" strokeWidth={2} dot={false} />
-                    <Line type="monotone" dataKey="ankleDF" name="Ankle Dorsiflexion" stroke="#00A8FF" strokeWidth={2} dot={false} />
-                    <Line type="monotone" dataKey="hipFlexion" name="Hip Flexion" stroke="#F59E0B" strokeWidth={2} dot={false} />
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
-            </motion.div>
-
-            <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
-              <h2 className="text-sm font-semibold text-slate-300 mb-3 flex items-center gap-2">
-                <span className="w-5 h-5 rounded-full bg-[#8B5CF6]/20 text-[#8B5CF6] text-xs flex items-center justify-center font-bold">2</span>
-                Step Time Variability — Left vs Right
-              </h2>
-              <div className="bg-white/5 border border-white/10 rounded-2xl p-5">
-                <p className="text-xs text-slate-400 mb-4">
-                  Step-by-step timing comparison between left and right limbs. Increased variability indicates instability.
-                </p>
-                <ResponsiveContainer width="100%" height={220}>
-                  <BarChart data={stepTimeData} barGap={2}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
-                    <XAxis dataKey="step" label={{ value: "Step Number", position: "insideBottom", offset: -2, fill: "#64748b", fontSize: 11 }} tick={{ fill: "#64748b", fontSize: 11 }} axisLine={false} tickLine={false} />
-                    <YAxis label={{ value: "Step Time (s)", angle: -90, position: "insideLeft", fill: "#64748b", fontSize: 11 }} tick={{ fill: "#64748b", fontSize: 11 }} axisLine={false} tickLine={false} domain={[0.3, 0.7]} />
-                    <Tooltip contentStyle={{ background: "#0a1628", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 12, fontSize: 12 }} />
-                    <Legend wrapperStyle={{ fontSize: 11, color: "#94a3b8" }} />
-                    <ReferenceLine y={0.5} stroke="rgba(255,255,255,0.2)" strokeDasharray="4 4" label={{ value: "Target", position: "right", fill: "#64748b", fontSize: 10 }} />
-                    <Bar dataKey="left" name="Left Limb" fill="#00D4AA" fillOpacity={0.8} radius={[3, 3, 0, 0]} />
-                    <Bar dataKey="right" name="Right Limb" fill="#8B5CF6" fillOpacity={0.8} radius={[3, 3, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </motion.div>
-          </div>
-        )}
-
-        {/* ── BALANCE & PHASES TAB ── */}
-        {activeTab === "balance" && (
-          <div className="space-y-6">
-            <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}>
-              <h2 className="text-sm font-semibold text-slate-300 mb-3 flex items-center gap-2">
-                <span className="w-5 h-5 rounded-full bg-[#00D4AA]/20 text-[#00D4AA] text-xs flex items-center justify-center font-bold">1</span>
-                Gait Phase Analysis — Bilateral Comparison
-              </h2>
-              <div className="bg-white/5 border border-white/10 rounded-2xl p-5">
-                <p className="text-xs text-slate-400 mb-4">
-                  Percentage completion of each gait phase compared to normative right-side values.
-                </p>
-                <div className="space-y-3">
-                  {gaitPhases.map((phase) => (
-                    <div key={phase.phase}>
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="text-sm text-slate-300">{phase.phase}</span>
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs text-slate-400">{phase.left}%</span>
-                          <RiskBadge risk={phase.status === "abnormal" ? "high" : phase.status === "warning" ? "medium" : "low"} />
-                        </div>
-                      </div>
-                      <div className="flex gap-1.5">
-                        <div className="flex-1 bg-white/10 rounded-full h-2">
-                          <div
-                            className="h-2 rounded-full transition-all"
-                            style={{
-                              width: `${phase.left}%`,
-                              backgroundColor: phase.status === "abnormal" ? "#ef4444" : phase.status === "warning" ? "#f59e0b" : "#10b981",
-                            }}
-                          />
-                        </div>
-                        <div className="flex-1 bg-white/10 rounded-full h-2">
-                          <div className="h-2 rounded-full bg-[#00D4AA]" style={{ width: `${phase.right}%` }} />
-                        </div>
-                      </div>
-                      <div className="flex justify-between text-xs text-slate-600 mt-0.5">
-                        <span>Left (affected)</span>
-                        <span>Right (reference)</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </motion.div>
-
-            <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
-              <h2 className="text-sm font-semibold text-slate-300 mb-3 flex items-center gap-2">
-                <span className="w-5 h-5 rounded-full bg-[#F59E0B]/20 text-[#F59E0B] text-xs flex items-center justify-center font-bold">2</span>
-                Balance & Stability Metrics
-              </h2>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                {[
-                  { label: "Centre of Mass Sway", value: "18.4 mm", status: "Elevated", risk: "medium", desc: "Lateral sway 42% above normative threshold" },
-                  { label: "Single-Leg Stance", value: "4.2 s", status: "Impaired", risk: "high", desc: "Left limb stance time significantly reduced" },
-                  { label: "Tandem Walk Score", value: "72/100", status: "Moderate", risk: "medium", desc: "Consistent with mild balance impairment" },
-                ].map((item) => (
-                  <div key={item.label} className="bg-white/5 border border-white/10 rounded-xl p-4">
-                    <div className="flex items-start justify-between mb-2">
-                      <span className="text-xs text-slate-400">{item.label}</span>
-                      <RiskBadge risk={item.risk} />
-                    </div>
-                    <div className="text-2xl font-bold text-white mb-1">{item.value}</div>
-                    <p className="text-xs text-slate-500">{item.desc}</p>
-                  </div>
-                ))}
-              </div>
-            </motion.div>
-          </div>
-        )}
+        {/* 5 Modules */}
+        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}>
+          <OverviewModule metrics={metrics} />
+        </motion.div>
+        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.10 }}>
+          <AutoMetricsModule />
+        </motion.div>
+        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
+          <GuidedVideoModule />
+        </motion.div>
+        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.20 }}>
+          <AIModelModule />
+        </motion.div>
+        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}>
+          <ManualInputModule />
+        </motion.div>
 
         {/* CTA */}
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.5 }}
-          className="mt-8 flex flex-col sm:flex-row items-center justify-between gap-4 bg-gradient-to-r from-[#00D4AA]/10 to-[#8B5CF6]/10 border border-[#00D4AA]/20 rounded-2xl p-6"
+          transition={{ delay: 0.3 }}
+          className="mt-4 flex flex-col sm:flex-row items-center justify-between gap-4 rounded-2xl p-6"
+          style={{
+            backgroundColor: C.surface,
+            border: `1px solid ${C.border}`,
+            boxShadow: "var(--app-shadow-md)",
+          }}
         >
           <div>
-            <h3 className="text-white font-bold mb-1">Ready to generate the rehab plan?</h3>
-            <p className="text-sm text-slate-400">
-              Based on this assessment, AxonAI will generate a personalised rehabilitation programme for {patientName}.
+            <h3 className="font-bold mb-1" style={{ color: C.text }}>
+              Ready to generate the rehabilitation plan?
+            </h3>
+            <p className="text-sm" style={{ color: C.text2 }}>
+              AxonAI will use this assessment to generate a personalised programme for {patientName}.
             </p>
           </div>
           <button
             onClick={() => navigate("/rehab-plan")}
-            className="flex-shrink-0 flex items-center gap-2 bg-gradient-to-r from-[#00D4AA] to-[#00A8FF] text-[#050d1a] font-bold px-6 py-3 rounded-xl hover:opacity-90 transition-all text-sm whitespace-nowrap"
+            className="flex-shrink-0 flex items-center gap-2 font-bold px-6 py-3 rounded-xl transition-all hover:opacity-90 text-sm whitespace-nowrap text-white"
+            style={{ backgroundColor: C.teal }}
           >
-            Personalised Rehab Plan
-            <ChevronRight size={16} />
+            Generate Rehab Plan
+            <ChevronDown size={16} className="-rotate-90" />
           </button>
         </motion.div>
       </div>
