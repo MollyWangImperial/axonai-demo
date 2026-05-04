@@ -22,6 +22,7 @@ import {
   ArrowLeft, Download, User, Calendar, Clock, ChevronDown, ChevronUp,
   Play, Brain, Cpu, ClipboardList, Activity, CheckCircle2,
   AlertTriangle, Info, BarChart2, Zap, BookOpen, Plus,
+  FileSpreadsheet, Upload, X, Loader2,
 } from "lucide-react";
 
 // ─── App shell colours (CSS vars defined in index.css .app-shell) ─────────────
@@ -541,89 +542,112 @@ function AutoMetricsModule() {
 
 // ─── Module 3: Guided-Video Metrics ──────────────────────────────────────────
 
-function VideoThumb({ type }: { type: string }) {
+// YouTube video IDs for guided metrics (only Single-Leg Stance has one for now)
+const YOUTUBE_IDS: Record<string, string> = {
+  balance: "wGcMFBSMxHg", // Single-Leg Stance Test demonstration
+};
+
+function VideoThumb({ type, label }: { type: string; label: string }) {
+  const [showEmbed, setShowEmbed] = useState(false);
+  const ytId = YOUTUBE_IDS[type];
+
+  if (ytId && showEmbed) {
+    return (
+      <div className="relative w-full rounded-xl overflow-hidden" style={{ paddingBottom: "56.25%", backgroundColor: "#000" }}>
+        <iframe
+          className="absolute inset-0 w-full h-full"
+          src={`https://www.youtube.com/embed/${ytId}?autoplay=1&rel=0&modestbranding=1`}
+          title={label}
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+          allowFullScreen
+        />
+        <button
+          onClick={() => setShowEmbed(false)}
+          className="absolute top-2 right-2 w-7 h-7 rounded-full flex items-center justify-center z-10 transition-opacity hover:opacity-80"
+          style={{ backgroundColor: "rgba(0,0,0,0.6)" }}
+        >
+          <X size={13} className="text-white" />
+        </button>
+      </div>
+    );
+  }
+
   const icons: Record<string, string> = {
     balance: "⚖️", tug: "🚶", walk: "👟", reach: "🤚", sts: "🪑", stair: "🪜", tandem: "🧍",
   };
   return (
-    <div
-      className="w-full h-full rounded-lg flex flex-col items-center justify-center gap-1 text-2xl"
+    <button
+      className="w-full h-full rounded-lg flex flex-col items-center justify-center gap-1 text-2xl relative group transition-all hover:opacity-90"
       style={{ backgroundColor: "#EFF6FF", border: `1px solid #BFDBFE` }}
+      onClick={() => ytId && setShowEmbed(true)}
+      title={ytId ? "Watch instruction video" : "Video coming soon"}
     >
       <span>{icons[type] ?? "▶"}</span>
-      <span className="text-xs font-medium" style={{ color: C.blue }}>Watch Guide</span>
-    </div>
+      <span className="text-xs font-medium" style={{ color: C.blue }}>
+        {ytId ? "Watch Guide" : "Coming Soon"}
+      </span>
+      {ytId && (
+        <div
+          className="absolute inset-0 rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+          style={{ backgroundColor: "rgba(37,99,235,0.12)" }}
+        >
+          <div className="w-8 h-8 rounded-full flex items-center justify-center" style={{ backgroundColor: C.blue }}>
+            <Play size={14} className="text-white" style={{ marginLeft: 2 }} />
+          </div>
+        </div>
+      )}
+    </button>
   );
 }
 
 function GuidedMetricRow({ metric, index }: { metric: typeof guidedMetrics[0]; index: number }) {
   const [value, setValue] = useState("");
-  const [playing, setPlaying] = useState(false);
+  const hasVideo = metric.videoThumb in { balance: 1 };
 
   return (
     <motion.div
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.04 }}
-      className="grid grid-cols-12 gap-4 items-stretch py-4"
+      className="py-4"
       style={{ borderBottom: `1px solid ${C.border}` }}
     >
-      {/* Video thumbnail */}
-      <div className="col-span-2 sm:col-span-1 h-16">
-        <button
-          className="w-full h-full relative"
-          onClick={() => setPlaying(!playing)}
-          title="Play instruction video"
-        >
-          <VideoThumb type={metric.videoThumb} />
-          <div
-            className="absolute inset-0 flex items-center justify-center rounded-lg opacity-0 hover:opacity-100 transition-opacity"
-            style={{ backgroundColor: "rgba(37,99,235,0.15)" }}
-          >
-            <Play size={18} style={{ color: C.blue }} />
-          </div>
-        </button>
-      </div>
-
-      {/* Metric info */}
-      <div className="col-span-6 sm:col-span-7 flex flex-col justify-center">
-        <div className="text-sm font-semibold mb-0.5" style={{ color: C.text }}>{metric.label}</div>
-        <div className="text-xs leading-relaxed" style={{ color: C.text3 }}>{metric.videoDesc}</div>
-        {playing && (
-          <div
-            className="mt-2 text-xs px-2 py-1 rounded-md inline-flex items-center gap-1"
-            style={{ backgroundColor: "#EFF6FF", color: C.blue }}
-          >
-            <Play size={10} />
-            Video guide playing — follow the on-screen instructions
-          </div>
-        )}
-      </div>
-
-      {/* Input */}
-      <div className="col-span-4 flex flex-col justify-center items-end gap-1">
-        <div className="flex items-center gap-2">
-          <input
-            type="number"
-            value={value}
-            onChange={(e) => setValue(e.target.value)}
-            placeholder="—"
-            className="w-20 text-right text-sm font-bold rounded-lg px-3 py-1.5 outline-none transition-all"
-            style={{
-              border: `1.5px solid ${value ? C.teal : C.border}`,
-              backgroundColor: value ? "rgba(0,184,154,0.04)" : C.bg,
-              color: C.text,
-            }}
-          />
-          <span className="text-xs w-8" style={{ color: C.text3 }}>{metric.unit}</span>
+      {/* Top row: label + input */}
+      <div className="flex items-start justify-between gap-3 mb-3">
+        <div>
+          <div className="text-sm font-semibold mb-0.5" style={{ color: C.text }}>{metric.label}</div>
+          <div className="text-xs leading-relaxed" style={{ color: C.text3 }}>{metric.videoDesc}</div>
         </div>
-        {value && (
-          <div className="flex items-center gap-1 text-xs" style={{ color: C.green }}>
-            <CheckCircle2 size={11} />
-            Recorded
+        <div className="flex flex-col items-end gap-1 flex-shrink-0">
+          <div className="flex items-center gap-2">
+            <input
+              type="number"
+              value={value}
+              onChange={(e) => setValue(e.target.value)}
+              placeholder="—"
+              className="w-20 text-right text-sm font-bold rounded-lg px-3 py-1.5 outline-none transition-all"
+              style={{
+                border: `1.5px solid ${value ? C.teal : C.border}`,
+                backgroundColor: value ? "rgba(0,184,154,0.04)" : C.bg,
+                color: C.text,
+              }}
+            />
+            <span className="text-xs w-8" style={{ color: C.text3 }}>{metric.unit}</span>
           </div>
-        )}
+          {value && (
+            <div className="flex items-center gap-1 text-xs" style={{ color: C.green }}>
+              <CheckCircle2 size={11} />
+              Recorded
+            </div>
+          )}
+        </div>
       </div>
+
+      {/* Video thumbnail — full width for Single-Leg Stance, small for others */}
+      <div className={hasVideo ? "w-full" : "h-16 w-24"}>
+        <VideoThumb type={metric.videoThumb} label={metric.label} />
+      </div>
+
     </motion.div>
   );
 }
@@ -649,10 +673,15 @@ function GuidedVideoModule() {
 
 // ─── Module 4: AI-Model Metrics ───────────────────────────────────────────────
 
+// Excel template storage path (uploaded via manus-upload-file --webdev)
+const EXCEL_TEMPLATE_PATH = "/manus-storage/axonai_ai_dataset_template_c75e94f1.xlsx";
+
 function AIModelCard({ metric }: { metric: typeof aiMetrics[0] }) {
   const [expanded, setExpanded] = useState(false);
   const [running, setRunning] = useState(false);
   const [result, setResult] = useState<string | null>(null);
+  const [uploadState, setUploadState] = useState<"idle" | "uploading" | "done" | "error">("idle");
+  const [uploadedFile, setUploadedFile] = useState<string | null>(null);
 
   const handleRun = () => {
     setRunning(true);
@@ -660,6 +689,17 @@ function AIModelCard({ metric }: { metric: typeof aiMetrics[0] }) {
       setRunning(false);
       setResult("Model not yet loaded. Upload a trained model to compute this metric.");
     }, 1200);
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadState("uploading");
+    setUploadedFile(file.name);
+    // Simulate upload + training trigger
+    setTimeout(() => {
+      setUploadState("done");
+    }, 2200);
   };
 
   return (
@@ -767,12 +807,88 @@ function AIModelCard({ metric }: { metric: typeof aiMetrics[0] }) {
                   </li>
                 ))}
               </ol>
-              <div
-                className="mt-3 flex items-center gap-2 text-xs px-3 py-2 rounded-lg"
-                style={{ backgroundColor: "rgba(124,58,237,0.06)", color: C.purple }}
-              >
-                <Info size={11} />
-                Upload your trained model via Settings → AI Models to enable this metric.
+              {/* Dataset template download + upload-to-train */}
+              <div className="mt-4 rounded-xl overflow-hidden" style={{ border: `1px solid ${C.border}` }}>
+                <div
+                  className="flex items-center justify-between px-4 py-3"
+                  style={{ backgroundColor: "rgba(124,58,237,0.06)", borderBottom: `1px solid ${C.border}` }}
+                >
+                  <div className="flex items-center gap-2">
+                    <FileSpreadsheet size={14} style={{ color: C.purple }} />
+                    <span className="text-xs font-semibold" style={{ color: C.purple }}>Dataset Template &amp; Model Training</span>
+                  </div>
+                </div>
+                <div className="p-4 space-y-3" style={{ backgroundColor: C.surface }}>
+                  {/* Step 1: Download template */}
+                  <div className="flex items-start gap-3">
+                    <div
+                      className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5 text-white"
+                      style={{ backgroundColor: C.purple }}
+                    >1</div>
+                    <div className="flex-1">
+                      <p className="text-xs font-semibold mb-1" style={{ color: C.text }}>Download the dataset template</p>
+                      <p className="text-xs mb-2" style={{ color: C.text2 }}>Fill in the Excel file with your collected data following the column definitions and sample rows provided.</p>
+                      <a
+                        href={EXCEL_TEMPLATE_PATH}
+                        download
+                        className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg transition-all hover:opacity-80 text-white"
+                        style={{ backgroundColor: C.purple }}
+                      >
+                        <FileSpreadsheet size={12} />
+                        Download Excel Template
+                      </a>
+                    </div>
+                  </div>
+
+                  {/* Step 2: Upload filled dataset */}
+                  <div className="flex items-start gap-3">
+                    <div
+                      className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5 text-white"
+                      style={{ backgroundColor: C.purple }}
+                    >2</div>
+                    <div className="flex-1">
+                      <p className="text-xs font-semibold mb-1" style={{ color: C.text }}>Upload your completed dataset</p>
+                      <p className="text-xs mb-2" style={{ color: C.text2 }}>Once you have collected sufficient data, upload the completed Excel file. The backend will automatically begin model training.</p>
+                      <label className="cursor-pointer">
+                        <input
+                          type="file"
+                          accept=".xlsx,.csv"
+                          className="hidden"
+                          onChange={handleFileUpload}
+                        />
+                        <div
+                          className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg transition-all hover:opacity-80"
+                          style={{
+                            border: `1.5px dashed ${uploadState === "done" ? C.green : C.purple}`,
+                            color: uploadState === "done" ? C.green : C.purple,
+                            backgroundColor: uploadState === "done" ? "rgba(5,150,105,0.06)" : "rgba(124,58,237,0.06)",
+                          }}
+                        >
+                          {uploadState === "uploading" ? (
+                            <><Loader2 size={12} className="animate-spin" />Uploading &amp; queuing training…</>
+                          ) : uploadState === "done" ? (
+                            <><CheckCircle2 size={12} />Dataset uploaded — training queued</>
+                          ) : (
+                            <><Upload size={12} />Upload Completed Dataset (.xlsx / .csv)</>
+                          )}
+                        </div>
+                      </label>
+                      {uploadedFile && uploadState !== "idle" && (
+                        <p className="text-xs mt-1" style={{ color: C.text3 }}>{uploadedFile}</p>
+                      )}
+                    </div>
+                  </div>
+
+                  {uploadState === "done" && (
+                    <div
+                      className="flex items-start gap-2 text-xs rounded-lg px-3 py-2"
+                      style={{ backgroundColor: "rgba(5,150,105,0.08)", color: C.green }}
+                    >
+                      <CheckCircle2 size={12} style={{ flexShrink: 0, marginTop: 1 }} />
+                      <span>Training job queued. You will be notified when the model is ready. The "Run Model" button will activate automatically.</span>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </motion.div>

@@ -1,8 +1,15 @@
 /**
  * RehabPlanPage — AxonAI Personalised Rehabilitation Plan
  * Design: Clean light app-shell (#F7F8FA bg, white cards, teal/blue accents)
+ *
+ * Changes:
+ *  - "Hip & Pelvic" session card expands to show detailed exercise info (left)
+ *    + YouTube instruction video (right)
+ *  - Weekly Schedule comes BEFORE Progressive Training Plan
+ *  - Weekly Schedule is fully editable (add/delete sessions per day, edit home task)
+ *  - Progressive Training Plan auto-updates from the Weekly Schedule state
  */
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useLocation } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/contexts/AuthContext";
@@ -11,7 +18,7 @@ import {
   ArrowLeft, ChevronDown, ChevronRight, Download,
   Target, Dumbbell, Calendar, Apple, User, Clock,
   CheckCircle2, AlertCircle, Flame, Heart, Zap,
-  LayoutGrid, Users,
+  LayoutGrid, Users, Plus, Trash2, Play, X,
 } from "lucide-react";
 
 const C = {
@@ -30,7 +37,61 @@ const C = {
   green:   "#059669",
 };
 
-// ─── Module data ──────────────────────────────────────────────────────────────
+// ─── Hip & Pelvic detail data ─────────────────────────────────────────────────
+
+const HIP_PELVIC_DETAIL = {
+  title: "Hip & Pelvic Stability",
+  youtubeId: "2_e4zgcMsKA", // Hip flexor & pelvic stability exercises for stroke rehab
+  exercises: [
+    {
+      name: "Hip Flexor Stretch",
+      sets: 3, reps: "30 s hold", rest: "15 s",
+      focus: "Hip flexor lengthening",
+      cue: "Kneel on the affected leg, push hips forward gently until a stretch is felt at the front of the hip. Keep trunk upright.",
+      difficulty: "Beginner",
+    },
+    {
+      name: "Supine Hip Flexion",
+      sets: 3, reps: "15 reps", rest: "30 s",
+      focus: "Hip flexor activation",
+      cue: "Lie on back, slowly raise knee toward chest to 90°, hold 2 s, lower with control. Avoid trunk rotation.",
+      difficulty: "Beginner",
+    },
+    {
+      name: "Seated Knee Raise",
+      sets: 2, reps: "20 reps", rest: "20 s",
+      focus: "Hip flexor endurance",
+      cue: "Sit upright on a chair, lift knee to hip height, hold 1 s, lower. Keep back straight throughout.",
+      difficulty: "Beginner",
+    },
+    {
+      name: "Pelvic Tilts",
+      sets: 3, reps: "15 reps", rest: "20 s",
+      focus: "Lumbo-pelvic control",
+      cue: "Lie on back with knees bent. Flatten lower back against floor by tightening abdominals, hold 3 s, release.",
+      difficulty: "Beginner",
+    },
+    {
+      name: "Dead Bug",
+      sets: 3, reps: "10 reps each side", rest: "30 s",
+      focus: "Core & pelvic stability",
+      cue: "Lie on back, arms vertical, knees at 90°. Slowly lower opposite arm and leg toward floor while keeping lower back flat.",
+      difficulty: "Intermediate",
+    },
+    {
+      name: "Side-Lying Hip Abduction",
+      sets: 3, reps: "15 reps", rest: "30 s",
+      focus: "Gluteus medius activation",
+      cue: "Lie on unaffected side, raise top leg to 30–40°, hold 2 s, lower slowly. Keep pelvis stable.",
+      difficulty: "Beginner",
+    },
+  ],
+  frequency: "Daily (hip flexor stretch) + 5×/week (strengthening)",
+  totalDuration: "35 min per session",
+  notes: "Prioritise quality over quantity. Stop if sharp hip or groin pain occurs. Progress to standing exercises when 3×15 reps is achieved without compensatory trunk lean.",
+};
+
+// ─── Focus areas ──────────────────────────────────────────────────────────────
 
 const focusAreas = [
   {
@@ -75,56 +136,25 @@ const focusAreas = [
   },
 ];
 
-const trainingPlan = [
-  {
-    week: "Weeks 1–2",
-    phase: "Foundation",
-    color: C.teal,
-    goal: "Restore baseline ROM and activate inhibited muscle groups",
-    sessions: [
-      { day: "Mon", focus: "Hip & Pelvic", duration: "35 min", intensity: "Low" },
-      { day: "Wed", focus: "Ankle & Balance", duration: "30 min", intensity: "Low" },
-      { day: "Fri", focus: "Full Lower Limb", duration: "40 min", intensity: "Low–Mod" },
-    ],
-    homeExercises: "Daily: hip flexor stretch, ankle mobilisation (15 min)",
-  },
-  {
-    week: "Weeks 3–4",
-    phase: "Strengthening",
-    color: C.purple,
-    goal: "Progressive loading of hip flexors and ankle dorsiflexors",
-    sessions: [
-      { day: "Mon", focus: "Hip Strength", duration: "40 min", intensity: "Moderate" },
-      { day: "Tue", focus: "Balance Training", duration: "30 min", intensity: "Moderate" },
-      { day: "Thu", focus: "Gait Retraining", duration: "45 min", intensity: "Moderate" },
-      { day: "Sat", focus: "Functional Movement", duration: "35 min", intensity: "Moderate" },
-    ],
-    homeExercises: "Daily: resistance band exercises, balance board (20 min)",
-  },
-  {
-    week: "Weeks 5–8",
-    phase: "Functional Integration",
-    color: C.blue,
-    goal: "Integrate gains into normalised gait pattern and community mobility",
-    sessions: [
-      { day: "Mon", focus: "Gait & Speed", duration: "45 min", intensity: "Mod–High" },
-      { day: "Wed", focus: "Endurance Walk", duration: "50 min", intensity: "Moderate" },
-      { day: "Fri", focus: "Functional Tasks", duration: "45 min", intensity: "Mod–High" },
-      { day: "Sun", focus: "Active Recovery", duration: "30 min", intensity: "Low" },
-    ],
-    homeExercises: "Daily: 20-min community walk, home programme (25 min)",
-  },
+// ─── Default weekly schedule (editable) ──────────────────────────────────────
+
+type DaySchedule = {
+  day: string;
+  sessions: string[];
+  homeTask: string;
+};
+
+const DEFAULT_WEEKLY: DaySchedule[] = [
+  { day: "Monday",    sessions: ["Hip & Pelvic (35 min)", "Pelvic Stability (15 min)"], homeTask: "Ankle stretch × 3 sets" },
+  { day: "Tuesday",   sessions: ["Balance Training (30 min)"],                           homeTask: "Hip flexor stretch × 3 sets" },
+  { day: "Wednesday", sessions: ["Gait Retraining (45 min)", "Ankle Mobilisation (15 min)"], homeTask: "Resistance band exercises" },
+  { day: "Thursday",  sessions: ["Rest / Light Walk (20 min)"],                          homeTask: "Balance board × 3 sets" },
+  { day: "Friday",    sessions: ["Full Lower Limb Circuit (40 min)"],                    homeTask: "Ankle alphabet × 2 sets" },
+  { day: "Saturday",  sessions: ["Functional Movement (35 min)"],                        homeTask: "Community walk 15 min" },
+  { day: "Sunday",    sessions: ["Active Recovery / Stretching (30 min)"],               homeTask: "Relaxation & light stretching" },
 ];
 
-const weeklySchedule = [
-  { day: "Monday",    sessions: ["Hip Flexor Strengthening (30 min)", "Pelvic Stability (15 min)"], homeTask: "Ankle stretch × 3 sets" },
-  { day: "Tuesday",   sessions: ["Balance Training (30 min)"],                                       homeTask: "Hip flexor stretch × 3 sets" },
-  { day: "Wednesday", sessions: ["Gait Retraining (45 min)", "Ankle Mobilisation (15 min)"],         homeTask: "Resistance band exercises" },
-  { day: "Thursday",  sessions: ["Rest / Light Walk (20 min)"],                                      homeTask: "Balance board × 3 sets" },
-  { day: "Friday",    sessions: ["Full Lower Limb Circuit (40 min)"],                                homeTask: "Ankle alphabet × 2 sets" },
-  { day: "Saturday",  sessions: ["Functional Movement (35 min)"],                                    homeTask: "Community walk 15 min" },
-  { day: "Sunday",    sessions: ["Active Recovery / Stretching (30 min)"],                           homeTask: "Relaxation & light stretching" },
-];
+// ─── Nutrition ────────────────────────────────────────────────────────────────
 
 const nutritionAdvice = [
   {
@@ -232,12 +262,392 @@ function Module({
   );
 }
 
+// ─── Hip & Pelvic detail panel ────────────────────────────────────────────────
+
+function HipPelvicDetail() {
+  const [showVideo, setShowVideo] = useState(false);
+  const d = HIP_PELVIC_DETAIL;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 6 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="mt-3 rounded-2xl overflow-hidden"
+      style={{ border: `1.5px solid ${C.teal}40`, backgroundColor: C.surface }}
+    >
+      {/* Header */}
+      <div
+        className="flex items-center justify-between px-5 py-3"
+        style={{ backgroundColor: C.tealDim, borderBottom: `1px solid ${C.teal}25` }}
+      >
+        <div className="flex items-center gap-2">
+          <Dumbbell size={15} style={{ color: C.teal }} />
+          <span className="text-sm font-bold" style={{ color: C.teal }}>{d.title} — Detailed Programme</span>
+        </div>
+        <div className="flex items-center gap-3 text-xs" style={{ color: C.text3 }}>
+          <span className="flex items-center gap-1"><Clock size={11} />{d.totalDuration}</span>
+          <span>{d.frequency}</span>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-0">
+        {/* Left: exercises */}
+        <div className="p-5" style={{ borderRight: `1px solid ${C.border}` }}>
+          <p className="text-xs font-semibold mb-3" style={{ color: C.text2 }}>Exercise Programme</p>
+          <div className="space-y-3">
+            {d.exercises.map((ex, i) => (
+              <div
+                key={i}
+                className="rounded-xl p-3"
+                style={{ backgroundColor: C.bg, border: `1px solid ${C.border}` }}
+              >
+                <div className="flex items-start justify-between mb-1.5">
+                  <span className="text-sm font-semibold" style={{ color: C.text }}>{ex.name}</span>
+                  <span
+                    className="text-xs px-2 py-0.5 rounded-full font-medium ml-2 flex-shrink-0"
+                    style={{
+                      backgroundColor: ex.difficulty === "Intermediate" ? C.amber + "15" : C.green + "15",
+                      color: ex.difficulty === "Intermediate" ? C.amber : C.green,
+                    }}
+                  >
+                    {ex.difficulty}
+                  </span>
+                </div>
+                <div className="flex items-center gap-3 text-xs mb-1.5" style={{ color: C.text3 }}>
+                  <span className="font-medium" style={{ color: C.teal }}>{ex.sets} sets × {ex.reps}</span>
+                  <span>Rest: {ex.rest}</span>
+                  <span style={{ color: C.text2 }}>Focus: {ex.focus}</span>
+                </div>
+                <p className="text-xs leading-relaxed" style={{ color: C.text2 }}>{ex.cue}</p>
+              </div>
+            ))}
+          </div>
+          <div
+            className="mt-3 flex items-start gap-2 text-xs rounded-lg px-3 py-2"
+            style={{ backgroundColor: C.tealDim, color: C.teal }}
+          >
+            <AlertCircle size={11} style={{ flexShrink: 0, marginTop: 1 }} />
+            <span><span className="font-semibold">Clinical note: </span>{d.notes}</span>
+          </div>
+        </div>
+
+        {/* Right: YouTube video */}
+        <div className="p-5 flex flex-col">
+          <p className="text-xs font-semibold mb-3" style={{ color: C.text2 }}>Instruction Video</p>
+          {showVideo ? (
+            <div className="relative w-full rounded-xl overflow-hidden flex-1" style={{ minHeight: 220, backgroundColor: "#000" }}>
+              <iframe
+                className="absolute inset-0 w-full h-full"
+                src={`https://www.youtube.com/embed/${d.youtubeId}?autoplay=1&rel=0&modestbranding=1`}
+                title={d.title}
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+              />
+              <button
+                onClick={() => setShowVideo(false)}
+                className="absolute top-2 right-2 w-7 h-7 rounded-full flex items-center justify-center z-10 transition-opacity hover:opacity-80"
+                style={{ backgroundColor: "rgba(0,0,0,0.6)" }}
+              >
+                <X size={13} className="text-white" />
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => setShowVideo(true)}
+              className="relative flex-1 rounded-xl overflow-hidden group transition-all hover:opacity-90"
+              style={{ minHeight: 220, backgroundColor: "#0F172A" }}
+            >
+              {/* YouTube thumbnail */}
+              <img
+                src={`https://img.youtube.com/vi/${d.youtubeId}/hqdefault.jpg`}
+                alt={d.title}
+                className="w-full h-full object-cover opacity-80"
+                style={{ minHeight: 220 }}
+              />
+              {/* Play button overlay */}
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
+                <div
+                  className="w-14 h-14 rounded-full flex items-center justify-center shadow-lg transition-transform group-hover:scale-110"
+                  style={{ backgroundColor: C.teal }}
+                >
+                  <Play size={22} className="text-white" style={{ marginLeft: 3 }} />
+                </div>
+                <span className="text-white text-sm font-semibold drop-shadow">Watch Instruction Video</span>
+              </div>
+            </button>
+          )}
+          <p className="text-xs mt-2 text-center" style={{ color: C.text3 }}>
+            Hip Flexor &amp; Pelvic Stability Exercises — Stroke Rehabilitation
+          </p>
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
+// ─── Editable Weekly Schedule ─────────────────────────────────────────────────
+
+function EditableWeeklySchedule({
+  schedule,
+  onChange,
+}: {
+  schedule: DaySchedule[];
+  onChange: (updated: DaySchedule[]) => void;
+}) {
+  const [editingHome, setEditingHome] = useState<number | null>(null);
+  const [newSession, setNewSession] = useState<{ [day: number]: string }>({});
+
+  const updateDay = (idx: number, patch: Partial<DaySchedule>) => {
+    const next = schedule.map((d, i) => (i === idx ? { ...d, ...patch } : d));
+    onChange(next);
+  };
+
+  const addSession = (idx: number) => {
+    const val = (newSession[idx] ?? "").trim();
+    if (!val) return;
+    updateDay(idx, { sessions: [...schedule[idx].sessions, val] });
+    setNewSession((prev) => ({ ...prev, [idx]: "" }));
+  };
+
+  const removeSession = (dayIdx: number, sessionIdx: number) => {
+    const next = schedule[dayIdx].sessions.filter((_, i) => i !== sessionIdx);
+    updateDay(dayIdx, { sessions: next });
+  };
+
+  return (
+    <div className="pt-4 space-y-2">
+      {schedule.map((day, i) => (
+        <div
+          key={day.day}
+          className="rounded-xl overflow-hidden"
+          style={{ border: `1px solid ${C.border}` }}
+        >
+          {/* Day header */}
+          <div
+            className="flex items-center justify-between px-4 py-2"
+            style={{ backgroundColor: i % 2 === 0 ? C.bg : C.surface, borderBottom: `1px solid ${C.border}` }}
+          >
+            <span className="text-xs font-bold w-24" style={{ color: i % 2 === 0 ? C.purple : C.text3 }}>
+              {day.day}
+            </span>
+            <span className="text-xs" style={{ color: C.text3 }}>
+              {day.sessions.length} session{day.sessions.length !== 1 ? "s" : ""}
+            </span>
+          </div>
+
+          <div className="px-4 py-3 space-y-2" style={{ backgroundColor: C.surface }}>
+            {/* Sessions list */}
+            <div className="space-y-1.5">
+              {day.sessions.map((s, si) => (
+                <div key={si} className="flex items-center gap-2 group">
+                  <CheckCircle2 size={11} style={{ color: C.purple, flexShrink: 0 }} />
+                  <span className="flex-1 text-xs" style={{ color: C.text2 }}>{s}</span>
+                  <button
+                    onClick={() => removeSession(i, si)}
+                    className="opacity-0 group-hover:opacity-100 transition-opacity text-xs p-0.5 rounded hover:bg-red-50"
+                    title="Remove session"
+                  >
+                    <Trash2 size={11} style={{ color: C.red }} />
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            {/* Add session input */}
+            <div className="flex items-center gap-2 mt-1">
+              <input
+                type="text"
+                value={newSession[i] ?? ""}
+                onChange={(e) => setNewSession((prev) => ({ ...prev, [i]: e.target.value }))}
+                onKeyDown={(e) => e.key === "Enter" && addSession(i)}
+                placeholder="Add session…"
+                className="flex-1 text-xs rounded-lg px-2.5 py-1.5 outline-none transition-all"
+                style={{
+                  border: `1px solid ${C.border}`,
+                  backgroundColor: C.bg,
+                  color: C.text,
+                }}
+              />
+              <button
+                onClick={() => addSession(i)}
+                className="flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-lg transition-all hover:opacity-80 text-white"
+                style={{ backgroundColor: C.purple }}
+              >
+                <Plus size={11} />
+                Add
+              </button>
+            </div>
+
+            {/* Home task */}
+            <div
+              className="flex items-start gap-2 rounded-lg px-2.5 py-1.5 mt-1"
+              style={{ backgroundColor: C.tealDim }}
+            >
+              <span className="text-xs font-medium flex-shrink-0" style={{ color: C.teal }}>Home:</span>
+              {editingHome === i ? (
+                <input
+                  autoFocus
+                  type="text"
+                  value={day.homeTask}
+                  onChange={(e) => updateDay(i, { homeTask: e.target.value })}
+                  onBlur={() => setEditingHome(null)}
+                  onKeyDown={(e) => e.key === "Enter" && setEditingHome(null)}
+                  className="flex-1 text-xs bg-transparent outline-none"
+                  style={{ color: C.teal }}
+                />
+              ) : (
+                <button
+                  className="flex-1 text-left text-xs hover:underline"
+                  style={{ color: C.teal }}
+                  onClick={() => setEditingHome(i)}
+                  title="Click to edit home task"
+                >
+                  {day.homeTask}
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ─── Progressive Training Plan (derived from weekly schedule) ─────────────────
+
+function DerivedTrainingPlan({ schedule }: { schedule: DaySchedule[] }) {
+  // Count sessions per week to infer intensity progression
+  const totalSessions = schedule.reduce((acc, d) => acc + d.sessions.filter(s => !s.toLowerCase().includes("rest")).length, 0);
+
+  const phases = useMemo(() => [
+    {
+      week: "Weeks 1–2",
+      phase: "Foundation",
+      color: C.teal,
+      goal: "Restore baseline ROM and activate inhibited muscle groups",
+      sessions: schedule.flatMap((d) =>
+        d.sessions.slice(0, 1).map((s) => ({
+          day: d.day.slice(0, 3),
+          focus: s.replace(/\s*\(\d+\s*min\)/, ""),
+          duration: s.match(/\((\d+\s*min)\)/)?.[1] ?? "30 min",
+          intensity: "Low",
+        }))
+      ).slice(0, 4),
+      homeExercises: schedule.map((d) => d.homeTask).slice(0, 3).join("; "),
+    },
+    {
+      week: "Weeks 3–4",
+      phase: "Strengthening",
+      color: C.purple,
+      goal: "Progressive loading of hip flexors and ankle dorsiflexors",
+      sessions: schedule.flatMap((d) =>
+        d.sessions.slice(0, 1).map((s) => ({
+          day: d.day.slice(0, 3),
+          focus: s.replace(/\s*\(\d+\s*min\)/, ""),
+          duration: s.match(/\((\d+\s*min)\)/)?.[1] ?? "35 min",
+          intensity: "Moderate",
+        }))
+      ).slice(0, 4),
+      homeExercises: schedule.map((d) => d.homeTask).slice(0, 4).join("; "),
+    },
+    {
+      week: "Weeks 5–8",
+      phase: "Functional Integration",
+      color: C.blue,
+      goal: "Integrate gains into normalised gait pattern and community mobility",
+      sessions: schedule.flatMap((d) =>
+        d.sessions.slice(0, 1).map((s) => ({
+          day: d.day.slice(0, 3),
+          focus: s.replace(/\s*\(\d+\s*min\)/, ""),
+          duration: s.match(/\((\d+\s*min)\)/)?.[1] ?? "40 min",
+          intensity: totalSessions >= 6 ? "Mod–High" : "Moderate",
+        }))
+      ).slice(0, 4),
+      homeExercises: schedule.map((d) => d.homeTask).join("; "),
+    },
+  ], [schedule, totalSessions]);
+
+  return (
+    <div className="pt-4 space-y-4">
+      <div
+        className="flex items-center gap-2 text-xs rounded-lg px-3 py-2 mb-1"
+        style={{ backgroundColor: C.tealDim, color: C.teal }}
+      >
+        <AlertCircle size={11} style={{ flexShrink: 0 }} />
+        <span>This plan updates automatically based on your Weekly Schedule above. Edit the schedule to customise each phase.</span>
+      </div>
+      {phases.map((phase) => (
+        <div
+          key={phase.week}
+          className="rounded-xl overflow-hidden"
+          style={{ border: `1px solid ${C.border}` }}
+        >
+          <div
+            className="px-4 py-3 flex items-center justify-between"
+            style={{ backgroundColor: phase.color + "10", borderBottom: `1px solid ${phase.color}25` }}
+          >
+            <div>
+              <span className="text-sm font-bold" style={{ color: C.text }}>{phase.week}</span>
+              <span
+                className="ml-2 text-xs font-medium px-2 py-0.5 rounded-full"
+                style={{ backgroundColor: phase.color + "20", color: phase.color }}
+              >
+                {phase.phase}
+              </span>
+            </div>
+          </div>
+          <div className="p-4" style={{ backgroundColor: C.surface }}>
+            <p className="text-xs mb-3" style={{ color: C.text2 }}>
+              <span style={{ color: C.text, fontWeight: 600 }}>Goal: </span>{phase.goal}
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-3">
+              {phase.sessions.map((s, si) => (
+                <div
+                  key={si}
+                  className="flex items-center gap-2 rounded-lg px-3 py-2"
+                  style={{ backgroundColor: C.bg, border: `1px solid ${C.border}` }}
+                >
+                  <span className="text-xs font-bold w-8 flex-shrink-0" style={{ color: phase.color }}>{s.day}</span>
+                  <span className="text-xs flex-1" style={{ color: C.text2 }}>{s.focus}</span>
+                  <span className="text-xs" style={{ color: C.text3 }}>{s.duration}</span>
+                  <span
+                    className="text-xs px-1.5 py-0.5 rounded font-medium"
+                    style={{
+                      backgroundColor: s.intensity.includes("High") ? "#FEF2F2" : s.intensity.includes("Mod") ? "#FFFBEB" : "#F0FDF4",
+                      color: s.intensity.includes("High") ? C.red : s.intensity.includes("Mod") ? C.amber : C.green,
+                    }}
+                  >
+                    {s.intensity}
+                  </span>
+                </div>
+              ))}
+            </div>
+            <div
+              className="flex items-start gap-2 text-xs rounded-lg px-3 py-2"
+              style={{ backgroundColor: C.tealDim, color: C.teal }}
+            >
+              <AlertCircle size={11} style={{ flexShrink: 0, marginTop: 1 }} />
+              <span><span className="font-semibold">Home programme: </span>{phase.homeExercises}</span>
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 // ─── Main page ────────────────────────────────────────────────────────────────
 
 export default function RehabPlanPage() {
   const [, navigate] = useLocation();
   const { user } = useAuth();
   const { patientName, metrics } = useAssessment();
+
+  // Editable weekly schedule state
+  const [weeklySchedule, setWeeklySchedule] = useState<DaySchedule[]>(DEFAULT_WEEKLY);
+
+  // Track which session card is expanded (for Hip & Pelvic detail)
+  const [expandedSession, setExpandedSession] = useState<string | null>(null);
 
   return (
     <div className="app-shell min-h-screen" style={{ backgroundColor: C.bg, color: C.text }}>
@@ -330,102 +740,42 @@ export default function RehabPlanPage() {
 
         {/* Expandable modules */}
         <div className="space-y-3">
+
+          {/* 1. Key Focus Areas */}
           <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
             <Module title="Key Focus Areas" icon={Target} color={C.red} defaultOpen badge="4 areas identified">
               <div className="pt-4 space-y-3">
                 {focusAreas.map((area) => (
-                  <div
-                    key={area.id}
-                    className="rounded-xl p-4"
-                    style={{ backgroundColor: C.bg, border: `1px solid ${C.border}` }}
-                  >
-                    <div className="flex items-start justify-between mb-2">
-                      <h4 className="text-sm font-semibold" style={{ color: C.text }}>{area.title}</h4>
-                      <div className="flex items-center gap-2 flex-shrink-0 ml-3">
-                        <span
-                          className="text-xs px-2 py-0.5 rounded-full font-medium"
-                          style={{ backgroundColor: area.priorityColor + "15", color: area.priorityColor }}
-                        >
-                          {area.priority}
-                        </span>
-                        <span className="text-xs flex items-center gap-1" style={{ color: C.text3 }}>
-                          <Clock size={10} />{area.duration}
-                        </span>
-                      </div>
-                    </div>
-                    <p className="text-xs mb-2 leading-relaxed" style={{ color: C.text2 }}>{area.rationale}</p>
-                    <div className="space-y-1">
-                      {area.exercises.map((ex) => (
-                        <div key={ex} className="flex items-center gap-2 text-xs" style={{ color: C.text2 }}>
-                          <CheckCircle2 size={11} style={{ color: C.teal, flexShrink: 0 }} />
-                          {ex}
-                        </div>
-                      ))}
-                    </div>
-                    <div className="mt-2 text-xs" style={{ color: C.text3 }}>
-                      Frequency: <span style={{ color: C.text2, fontWeight: 600 }}>{area.frequency}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </Module>
-          </motion.div>
-
-          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
-            <Module title="Progressive Training Plan" icon={Dumbbell} color={C.teal} badge="3 phases · 8 weeks">
-              <div className="pt-4 space-y-4">
-                {trainingPlan.map((phase) => (
-                  <div
-                    key={phase.week}
-                    className="rounded-xl overflow-hidden"
-                    style={{ border: `1px solid ${C.border}` }}
-                  >
+                  <div key={area.id}>
                     <div
-                      className="px-4 py-3 flex items-center justify-between"
-                      style={{ backgroundColor: phase.color + "10", borderBottom: `1px solid ${phase.color}25` }}
+                      className="rounded-xl p-4"
+                      style={{ backgroundColor: C.bg, border: `1px solid ${C.border}` }}
                     >
-                      <div>
-                        <span className="text-sm font-bold" style={{ color: C.text }}>{phase.week}</span>
-                        <span
-                          className="ml-2 text-xs font-medium px-2 py-0.5 rounded-full"
-                          style={{ backgroundColor: phase.color + "20", color: phase.color }}
-                        >
-                          {phase.phase}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="p-4" style={{ backgroundColor: C.surface }}>
-                      <p className="text-xs mb-3" style={{ color: C.text2 }}>
-                        <span style={{ color: C.text, fontWeight: 600 }}>Goal: </span>{phase.goal}
-                      </p>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-3">
-                        {phase.sessions.map((s) => (
-                          <div
-                            key={s.day}
-                            className="flex items-center gap-2 rounded-lg px-3 py-2"
-                            style={{ backgroundColor: C.bg, border: `1px solid ${C.border}` }}
+                      <div className="flex items-start justify-between mb-2">
+                        <h4 className="text-sm font-semibold" style={{ color: C.text }}>{area.title}</h4>
+                        <div className="flex items-center gap-2 flex-shrink-0 ml-3">
+                          <span
+                            className="text-xs px-2 py-0.5 rounded-full font-medium"
+                            style={{ backgroundColor: area.priorityColor + "15", color: area.priorityColor }}
                           >
-                            <span className="text-xs font-bold w-8 flex-shrink-0" style={{ color: phase.color }}>{s.day}</span>
-                            <span className="text-xs flex-1" style={{ color: C.text2 }}>{s.focus}</span>
-                            <span className="text-xs" style={{ color: C.text3 }}>{s.duration}</span>
-                            <span
-                              className="text-xs px-1.5 py-0.5 rounded font-medium"
-                              style={{
-                                backgroundColor: s.intensity.includes("High") ? "#FEF2F2" : s.intensity.includes("Mod") ? "#FFFBEB" : "#F0FDF4",
-                                color: s.intensity.includes("High") ? C.red : s.intensity.includes("Mod") ? C.amber : C.green,
-                              }}
-                            >
-                              {s.intensity}
-                            </span>
+                            {area.priority}
+                          </span>
+                          <span className="text-xs flex items-center gap-1" style={{ color: C.text3 }}>
+                            <Clock size={10} />{area.duration}
+                          </span>
+                        </div>
+                      </div>
+                      <p className="text-xs mb-2 leading-relaxed" style={{ color: C.text2 }}>{area.rationale}</p>
+                      <div className="space-y-1">
+                        {area.exercises.map((ex) => (
+                          <div key={ex} className="flex items-center gap-2 text-xs" style={{ color: C.text2 }}>
+                            <CheckCircle2 size={11} style={{ color: C.teal, flexShrink: 0 }} />
+                            {ex}
                           </div>
                         ))}
                       </div>
-                      <div
-                        className="flex items-start gap-2 text-xs rounded-lg px-3 py-2"
-                        style={{ backgroundColor: C.tealDim, color: C.teal }}
-                      >
-                        <AlertCircle size={11} style={{ flexShrink: 0, marginTop: 1 }} />
-                        <span><span className="font-semibold">Home programme: </span>{phase.homeExercises}</span>
+                      <div className="mt-2 text-xs" style={{ color: C.text3 }}>
+                        Frequency: <span style={{ color: C.text2, fontWeight: 600 }}>{area.frequency}</span>
                       </div>
                     </div>
                   </div>
@@ -434,39 +784,61 @@ export default function RehabPlanPage() {
             </Module>
           </motion.div>
 
-          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
-            <Module title="Weekly Schedule" icon={Calendar} color={C.purple} badge="Week 3 template">
-              <div className="pt-4 space-y-2">
-                {weeklySchedule.map((day, i) => (
-                  <div
-                    key={day.day}
-                    className="flex items-start gap-4 p-3 rounded-xl"
-                    style={{
-                      backgroundColor: i % 2 === 0 ? C.bg : C.surface,
-                      border: `1px solid ${C.border}`,
-                    }}
-                  >
-                    <div className="w-20 flex-shrink-0">
-                      <span className="text-xs font-bold" style={{ color: i % 2 === 0 ? C.purple : C.text3 }}>{day.day}</span>
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      {day.sessions.map((s) => (
-                        <div key={s} className="flex items-center gap-1.5 text-xs mb-0.5" style={{ color: C.text2 }}>
-                          <CheckCircle2 size={10} style={{ color: C.purple, flexShrink: 0 }} />
-                          {s}
-                        </div>
-                      ))}
-                    </div>
-                    <div className="flex-shrink-0 text-right">
-                      <p className="text-xs" style={{ color: C.text3 }}>Home:</p>
-                      <p className="text-xs" style={{ color: C.text2 }}>{day.homeTask}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
+          {/* 2. Weekly Schedule (editable) — now BEFORE Progressive Training Plan */}
+          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
+            <Module title="Weekly Schedule" icon={Calendar} color={C.purple} defaultOpen badge="Editable — Week 3 template">
+              <EditableWeeklySchedule schedule={weeklySchedule} onChange={setWeeklySchedule} />
             </Module>
           </motion.div>
 
+          {/* 3. Progressive Training Plan (auto-derived from weekly schedule) */}
+          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
+            <Module title="Progressive Training Plan" icon={Dumbbell} color={C.teal} badge="3 phases · 8 weeks · auto-updated">
+              {/* Hip & Pelvic clickable session card */}
+              <div className="pt-4 mb-4">
+                <p className="text-xs font-semibold mb-2" style={{ color: C.text2 }}>
+                  Click a session to view detailed exercise programme
+                </p>
+                <button
+                  onClick={() => setExpandedSession(expandedSession === "hip-pelvic" ? null : "hip-pelvic")}
+                  className="w-full flex items-center justify-between rounded-xl px-4 py-3 text-left transition-all hover:opacity-90"
+                  style={{
+                    backgroundColor: expandedSession === "hip-pelvic" ? C.tealDim : C.bg,
+                    border: `1.5px solid ${expandedSession === "hip-pelvic" ? C.teal : C.border}`,
+                  }}
+                >
+                  <div className="flex items-center gap-3">
+                    <div
+                      className="w-8 h-8 rounded-lg flex items-center justify-center"
+                      style={{ backgroundColor: C.teal + "20" }}
+                    >
+                      <Dumbbell size={15} style={{ color: C.teal }} />
+                    </div>
+                    <div>
+                      <span className="text-sm font-semibold" style={{ color: C.text }}>Hip &amp; Pelvic</span>
+                      <span className="ml-2 text-xs" style={{ color: C.text3 }}>35 min · Daily + 5×/week</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs" style={{ color: C.teal }}>
+                      {expandedSession === "hip-pelvic" ? "Hide detail" : "View detail + video"}
+                    </span>
+                    <motion.div animate={{ rotate: expandedSession === "hip-pelvic" ? 180 : 0 }} transition={{ duration: 0.2 }}>
+                      <ChevronDown size={15} style={{ color: C.teal }} />
+                    </motion.div>
+                  </div>
+                </button>
+
+                <AnimatePresence>
+                  {expandedSession === "hip-pelvic" && <HipPelvicDetail />}
+                </AnimatePresence>
+              </div>
+
+              <DerivedTrainingPlan schedule={weeklySchedule} />
+            </Module>
+          </motion.div>
+
+          {/* 4. Nutrition */}
           <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}>
             <Module title="Nutrition & Recovery Guidance" icon={Apple} color={C.green} badge="4 categories">
               <div className="pt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
