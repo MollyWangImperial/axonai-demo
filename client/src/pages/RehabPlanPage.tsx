@@ -513,9 +513,148 @@ function EditableWeeklySchedule({
   );
 }
 
+// ─── Hip & Pelvic Modal ──────────────────────────────────────────────────────
+
+function HipPelvicModal({ onClose }: { onClose: () => void }) {
+  const d = HIP_PELVIC_DETAIL;
+  const [showVideo, setShowVideo] = useState(false);
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ backgroundColor: "rgba(0,0,0,0.55)" }}
+      onClick={onClose}
+    >
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95, y: 16 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.95, y: 16 }}
+        transition={{ duration: 0.22, ease: "easeOut" }}
+        className="relative w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded-2xl shadow-2xl"
+        style={{ backgroundColor: C.surface }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Modal header */}
+        <div
+          className="sticky top-0 z-10 flex items-center justify-between px-6 py-4"
+          style={{ backgroundColor: C.tealDim, borderBottom: `1px solid ${C.teal}25` }}
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ backgroundColor: C.teal + "25" }}>
+              <Dumbbell size={17} style={{ color: C.teal }} />
+            </div>
+            <div>
+              <p className="font-bold text-base" style={{ color: C.teal }}>{d.title}</p>
+              <p className="text-xs" style={{ color: C.text3 }}>{d.frequency} · {d.totalDuration}</p>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            className="w-8 h-8 rounded-full flex items-center justify-center transition-all hover:opacity-70"
+            style={{ backgroundColor: C.border }}
+          >
+            <X size={15} style={{ color: C.text2 }} />
+          </button>
+        </div>
+
+        {/* Modal body */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-0">
+          {/* Left: exercises */}
+          <div className="p-6" style={{ borderRight: `1px solid ${C.border}` }}>
+            <p className="text-xs font-semibold mb-4" style={{ color: C.text2 }}>Exercise Programme</p>
+            <div className="space-y-3">
+              {d.exercises.map((ex, i) => (
+                <div
+                  key={i}
+                  className="rounded-xl p-3"
+                  style={{ backgroundColor: C.bg, border: `1px solid ${C.border}` }}
+                >
+                  <div className="flex items-start justify-between mb-1.5">
+                    <span className="text-sm font-semibold" style={{ color: C.text }}>{ex.name}</span>
+                    <span
+                      className="text-xs px-2 py-0.5 rounded-full font-medium ml-2 flex-shrink-0"
+                      style={{
+                        backgroundColor: ex.difficulty === "Intermediate" ? C.amber + "15" : C.green + "15",
+                        color: ex.difficulty === "Intermediate" ? C.amber : C.green,
+                      }}
+                    >
+                      {ex.difficulty}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-3 text-xs mb-1.5" style={{ color: C.text3 }}>
+                    <span className="font-medium" style={{ color: C.teal }}>{ex.sets} sets × {ex.reps}</span>
+                    <span>Rest: {ex.rest}</span>
+                    <span style={{ color: C.text2 }}>Focus: {ex.focus}</span>
+                  </div>
+                  <p className="text-xs leading-relaxed" style={{ color: C.text2 }}>{ex.cue}</p>
+                </div>
+              ))}
+            </div>
+            <div
+              className="mt-4 flex items-start gap-2 text-xs rounded-lg px-3 py-2"
+              style={{ backgroundColor: C.tealDim, color: C.teal }}
+            >
+              <AlertCircle size={11} style={{ flexShrink: 0, marginTop: 1 }} />
+              <span><span className="font-semibold">Clinical note: </span>{d.notes}</span>
+            </div>
+          </div>
+
+          {/* Right: YouTube video */}
+          <div className="p-6 flex flex-col">
+            <p className="text-xs font-semibold mb-4" style={{ color: C.text2 }}>Instruction Video</p>
+            {showVideo ? (
+              <div className="relative w-full rounded-xl overflow-hidden flex-1" style={{ minHeight: 240, backgroundColor: "#000" }}>
+                <iframe
+                  className="absolute inset-0 w-full h-full"
+                  src={`https://www.youtube.com/embed/${d.youtubeId}?autoplay=1&rel=0&modestbranding=1`}
+                  title={d.title}
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                />
+                <button
+                  onClick={() => setShowVideo(false)}
+                  className="absolute top-2 right-2 w-7 h-7 rounded-full flex items-center justify-center z-10 transition-opacity hover:opacity-80"
+                  style={{ backgroundColor: "rgba(0,0,0,0.6)" }}
+                >
+                  <X size={13} className="text-white" />
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => setShowVideo(true)}
+                className="relative flex-1 rounded-xl overflow-hidden group transition-all hover:opacity-90"
+                style={{ minHeight: 240, backgroundColor: "#0F172A" }}
+              >
+                <img
+                  src={`https://img.youtube.com/vi/${d.youtubeId}/hqdefault.jpg`}
+                  alt={d.title}
+                  className="w-full h-full object-cover opacity-80"
+                  style={{ minHeight: 240 }}
+                />
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
+                  <div
+                    className="w-14 h-14 rounded-full flex items-center justify-center shadow-lg transition-transform group-hover:scale-110"
+                    style={{ backgroundColor: C.teal }}
+                  >
+                    <Play size={22} className="text-white" style={{ marginLeft: 3 }} />
+                  </div>
+                  <span className="text-white text-sm font-semibold drop-shadow">Watch Instruction Video</span>
+                </div>
+              </button>
+            )}
+            <p className="text-xs mt-2 text-center" style={{ color: C.text3 }}>
+              Hip Flexor &amp; Pelvic Stability Exercises — Stroke Rehabilitation
+            </p>
+          </div>
+        </div>
+      </motion.div>
+    </div>
+  );
+}
+
 // ─── Progressive Training Plan (derived from weekly schedule) ─────────────────
 
-function DerivedTrainingPlan({ schedule }: { schedule: DaySchedule[] }) {
+function DerivedTrainingPlan({ schedule, onOpenHipPelvic }: { schedule: DaySchedule[]; onOpenHipPelvic: () => void }) {
   // Count sessions per week to infer intensity progression
   const totalSessions = schedule.reduce((acc, d) => acc + d.sessions.filter(s => !s.toLowerCase().includes("rest")).length, 0);
 
@@ -601,14 +740,23 @@ function DerivedTrainingPlan({ schedule }: { schedule: DaySchedule[] }) {
               <span style={{ color: C.text, fontWeight: 600 }}>Goal: </span>{phase.goal}
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-3">
-              {phase.sessions.map((s, si) => (
+              {phase.sessions.map((s, si) => {
+                const isHipPelvic = s.focus.toLowerCase().includes("hip") || s.focus.toLowerCase().includes("pelvic");
+                return (
                 <div
                   key={si}
-                  className="flex items-center gap-2 rounded-lg px-3 py-2"
-                  style={{ backgroundColor: C.bg, border: `1px solid ${C.border}` }}
+                  className={`flex items-center gap-2 rounded-lg px-3 py-2 ${isHipPelvic ? "cursor-pointer hover:opacity-80 transition-opacity" : ""}`}
+                  style={{
+                    backgroundColor: C.bg,
+                    border: `1px solid ${isHipPelvic ? C.teal + "60" : C.border}`,
+                  }}
+                  onClick={isHipPelvic ? onOpenHipPelvic : undefined}
+                  title={isHipPelvic ? "Click to view exercise detail & video" : undefined}
                 >
                   <span className="text-xs font-bold w-8 flex-shrink-0" style={{ color: phase.color }}>{s.day}</span>
-                  <span className="text-xs flex-1" style={{ color: C.text2 }}>{s.focus}</span>
+                  <span className="text-xs flex-1" style={{ color: isHipPelvic ? C.teal : C.text2 }}>
+                    {s.focus}{isHipPelvic ? " ↗" : ""}
+                  </span>
                   <span className="text-xs" style={{ color: C.text3 }}>{s.duration}</span>
                   <span
                     className="text-xs px-1.5 py-0.5 rounded font-medium"
@@ -620,7 +768,8 @@ function DerivedTrainingPlan({ schedule }: { schedule: DaySchedule[] }) {
                     {s.intensity}
                   </span>
                 </div>
-              ))}
+                );
+              })}
             </div>
             <div
               className="flex items-start gap-2 text-xs rounded-lg px-3 py-2"
@@ -794,47 +943,7 @@ export default function RehabPlanPage() {
           {/* 3. Progressive Training Plan (auto-derived from weekly schedule) */}
           <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
             <Module title="Progressive Training Plan" icon={Dumbbell} color={C.teal} badge="3 phases · 8 weeks · auto-updated">
-              {/* Hip & Pelvic clickable session card */}
-              <div className="pt-4 mb-4">
-                <p className="text-xs font-semibold mb-2" style={{ color: C.text2 }}>
-                  Click a session to view detailed exercise programme
-                </p>
-                <button
-                  onClick={() => setExpandedSession(expandedSession === "hip-pelvic" ? null : "hip-pelvic")}
-                  className="w-full flex items-center justify-between rounded-xl px-4 py-3 text-left transition-all hover:opacity-90"
-                  style={{
-                    backgroundColor: expandedSession === "hip-pelvic" ? C.tealDim : C.bg,
-                    border: `1.5px solid ${expandedSession === "hip-pelvic" ? C.teal : C.border}`,
-                  }}
-                >
-                  <div className="flex items-center gap-3">
-                    <div
-                      className="w-8 h-8 rounded-lg flex items-center justify-center"
-                      style={{ backgroundColor: C.teal + "20" }}
-                    >
-                      <Dumbbell size={15} style={{ color: C.teal }} />
-                    </div>
-                    <div>
-                      <span className="text-sm font-semibold" style={{ color: C.text }}>Hip &amp; Pelvic</span>
-                      <span className="ml-2 text-xs" style={{ color: C.text3 }}>35 min · Daily + 5×/week</span>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs" style={{ color: C.teal }}>
-                      {expandedSession === "hip-pelvic" ? "Hide detail" : "View detail + video"}
-                    </span>
-                    <motion.div animate={{ rotate: expandedSession === "hip-pelvic" ? 180 : 0 }} transition={{ duration: 0.2 }}>
-                      <ChevronDown size={15} style={{ color: C.teal }} />
-                    </motion.div>
-                  </div>
-                </button>
-
-                <AnimatePresence>
-                  {expandedSession === "hip-pelvic" && <HipPelvicDetail />}
-                </AnimatePresence>
-              </div>
-
-              <DerivedTrainingPlan schedule={weeklySchedule} />
+              <DerivedTrainingPlan schedule={weeklySchedule} onOpenHipPelvic={() => setExpandedSession("hip-pelvic")} />
             </Module>
           </motion.div>
 
@@ -920,6 +1029,13 @@ export default function RehabPlanPage() {
           </button>
         </motion.div>
       </div>
+
+      {/* Hip & Pelvic Modal */}
+      <AnimatePresence>
+        {expandedSession === "hip-pelvic" && (
+          <HipPelvicModal onClose={() => setExpandedSession(null)} />
+        )}
+      </AnimatePresence>
     </div>
   );
 }
