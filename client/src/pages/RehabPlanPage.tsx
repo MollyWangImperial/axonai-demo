@@ -41,7 +41,7 @@ const C = {
 
 const HIP_PELVIC_DETAIL = {
   title: "Hip & Pelvic Stability",
-  youtubeId: "2_e4zgcMsKA", // Hip flexor & pelvic stability exercises for stroke rehab
+  youtubeId: "iZdJZjScmCc", // 7 Best Pelvic Stabilization Exercises – AskDoctorJo (445K views)
   exercises: [
     {
       name: "Hip Flexor Stretch",
@@ -334,48 +334,39 @@ function HipPelvicDetail() {
         {/* Right: YouTube video */}
         <div className="p-5 flex flex-col">
           <p className="text-xs font-semibold mb-3" style={{ color: C.text2 }}>Instruction Video</p>
-          {showVideo ? (
-            <div className="relative w-full rounded-xl overflow-hidden flex-1" style={{ minHeight: 220, backgroundColor: "#000" }}>
-              <iframe
-                className="absolute inset-0 w-full h-full"
-                src={`https://www.youtube.com/embed/${d.youtubeId}?autoplay=1&rel=0&modestbranding=1`}
-                title={d.title}
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                allowFullScreen
-              />
-              <button
-                onClick={() => setShowVideo(false)}
-                className="absolute top-2 right-2 w-7 h-7 rounded-full flex items-center justify-center z-10 transition-opacity hover:opacity-80"
-                style={{ backgroundColor: "rgba(0,0,0,0.6)" }}
-              >
-                <X size={13} className="text-white" />
-              </button>
-            </div>
-          ) : (
-            <button
-              onClick={() => setShowVideo(true)}
-              className="relative flex-1 rounded-xl overflow-hidden group transition-all hover:opacity-90"
-              style={{ minHeight: 220, backgroundColor: "#0F172A" }}
-            >
-              {/* YouTube thumbnail */}
+          {/* Thumbnail card */}
+          <div className="flex-1 rounded-xl overflow-hidden" style={{ border: `1px solid ${C.border}`, minHeight: 220 }}>
+            <div className="relative w-full" style={{ paddingBottom: "56.25%" }}>
               <img
                 src={`https://img.youtube.com/vi/${d.youtubeId}/hqdefault.jpg`}
                 alt={d.title}
-                className="w-full h-full object-cover opacity-80"
-                style={{ minHeight: 220 }}
+                className="absolute inset-0 w-full h-full object-cover"
               />
-              {/* Play button overlay */}
-              <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
-                <div
-                  className="w-14 h-14 rounded-full flex items-center justify-center shadow-lg transition-transform group-hover:scale-110"
-                  style={{ backgroundColor: C.teal }}
-                >
-                  <Play size={22} className="text-white" style={{ marginLeft: 3 }} />
+              <div className="absolute inset-0" style={{ background: "linear-gradient(to top, rgba(0,0,0,0.55) 0%, transparent 60%)" }} />
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="w-14 h-14 rounded-full flex items-center justify-center shadow-lg" style={{ backgroundColor: "rgba(255,255,255,0.92)" }}>
+                  <Play size={22} style={{ color: C.teal, marginLeft: 3 }} />
                 </div>
-                <span className="text-white text-sm font-semibold drop-shadow">Watch Instruction Video</span>
               </div>
-            </button>
-          )}
+              <div className="absolute bottom-2 right-2 text-xs font-semibold px-2 py-0.5 rounded" style={{ backgroundColor: "rgba(0,0,0,0.75)", color: "#fff" }}>7:45</div>
+            </div>
+            <div className="flex items-center justify-between px-3 py-2.5" style={{ backgroundColor: C.surface }}>
+              <div>
+                <div className="text-xs font-semibold" style={{ color: C.text }}>7 Best Pelvic Stabilization Exercises</div>
+                <div className="text-xs" style={{ color: C.text3 }}>AskDoctorJo · 445K views</div>
+              </div>
+              <a
+                href={`https://www.youtube.com/watch?v=${d.youtubeId}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg transition-all hover:opacity-80"
+                style={{ backgroundColor: C.teal, color: "#fff" }}
+              >
+                <Play size={11} style={{ marginLeft: 1 }} />
+                Watch
+              </a>
+            </div>
+          </div>
           <p className="text-xs mt-2 text-center" style={{ color: C.text3 }}>
             Hip Flexor &amp; Pelvic Stability Exercises — Stroke Rehabilitation
           </p>
@@ -602,46 +593,39 @@ function HipPelvicModal({ onClose }: { onClose: () => void }) {
           {/* Right: YouTube video */}
           <div className="p-6 flex flex-col">
             <p className="text-xs font-semibold mb-4" style={{ color: C.text2 }}>Instruction Video</p>
-            {showVideo ? (
-              <div className="relative w-full rounded-xl overflow-hidden flex-1" style={{ minHeight: 240, backgroundColor: "#000" }}>
-                <iframe
-                  className="absolute inset-0 w-full h-full"
-                  src={`https://www.youtube.com/embed/${d.youtubeId}?autoplay=1&rel=0&modestbranding=1`}
-                  title={d.title}
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  allowFullScreen
-                />
-                <button
-                  onClick={() => setShowVideo(false)}
-                  className="absolute top-2 right-2 w-7 h-7 rounded-full flex items-center justify-center z-10 transition-opacity hover:opacity-80"
-                  style={{ backgroundColor: "rgba(0,0,0,0.6)" }}
-                >
-                  <X size={13} className="text-white" />
-                </button>
-              </div>
-            ) : (
-              <button
-                onClick={() => setShowVideo(true)}
-                className="relative flex-1 rounded-xl overflow-hidden group transition-all hover:opacity-90"
-                style={{ minHeight: 240, backgroundColor: "#0F172A" }}
-              >
+            {/* Thumbnail card */}
+            <div className="flex-1 rounded-xl overflow-hidden" style={{ border: `1px solid ${C.border}`, minHeight: 240 }}>
+              <div className="relative w-full" style={{ paddingBottom: "56.25%" }}>
                 <img
                   src={`https://img.youtube.com/vi/${d.youtubeId}/hqdefault.jpg`}
                   alt={d.title}
-                  className="w-full h-full object-cover opacity-80"
-                  style={{ minHeight: 240 }}
+                  className="absolute inset-0 w-full h-full object-cover"
                 />
-                <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
-                  <div
-                    className="w-14 h-14 rounded-full flex items-center justify-center shadow-lg transition-transform group-hover:scale-110"
-                    style={{ backgroundColor: C.teal }}
-                  >
-                    <Play size={22} className="text-white" style={{ marginLeft: 3 }} />
+                <div className="absolute inset-0" style={{ background: "linear-gradient(to top, rgba(0,0,0,0.55) 0%, transparent 60%)" }} />
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="w-14 h-14 rounded-full flex items-center justify-center shadow-lg" style={{ backgroundColor: "rgba(255,255,255,0.92)" }}>
+                    <Play size={22} style={{ color: C.teal, marginLeft: 3 }} />
                   </div>
-                  <span className="text-white text-sm font-semibold drop-shadow">Watch Instruction Video</span>
                 </div>
-              </button>
-            )}
+                <div className="absolute bottom-2 right-2 text-xs font-semibold px-2 py-0.5 rounded" style={{ backgroundColor: "rgba(0,0,0,0.75)", color: "#fff" }}>7:45</div>
+              </div>
+              <div className="flex items-center justify-between px-3 py-2.5" style={{ backgroundColor: C.surface }}>
+                <div>
+                  <div className="text-xs font-semibold" style={{ color: C.text }}>7 Best Pelvic Stabilization Exercises</div>
+                  <div className="text-xs" style={{ color: C.text3 }}>AskDoctorJo · 445K views</div>
+                </div>
+                <a
+                  href={`https://www.youtube.com/watch?v=${d.youtubeId}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg transition-all hover:opacity-80"
+                  style={{ backgroundColor: C.teal, color: "#fff" }}
+                >
+                  <Play size={11} style={{ marginLeft: 1 }} />
+                  Watch
+                </a>
+              </div>
+            </div>
             <p className="text-xs mt-2 text-center" style={{ color: C.text3 }}>
               Hip Flexor &amp; Pelvic Stability Exercises — Stroke Rehabilitation
             </p>

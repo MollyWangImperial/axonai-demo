@@ -543,60 +543,78 @@ function AutoMetricsModule() {
 // ─── Module 3: Guided-Video Metrics ──────────────────────────────────────────
 
 // YouTube video IDs for guided metrics (only Single-Leg Stance has one for now)
+// Note: YouTube iframes require domain whitelisting; we use thumbnail + open-in-new-tab approach
 const YOUTUBE_IDS: Record<string, string> = {
-  balance: "wGcMFBSMxHg", // Single-Leg Stance Test demonstration
+  balance: "78PpqNX_t0w", // Single-Leg Stance – Post-stroke Exercise (American Heart Association)
 };
 
 function VideoThumb({ type, label }: { type: string; label: string }) {
-  const [showEmbed, setShowEmbed] = useState(false);
   const ytId = YOUTUBE_IDS[type];
 
-  if (ytId && showEmbed) {
+  if (ytId) {
+    const thumbUrl = `https://img.youtube.com/vi/${ytId}/hqdefault.jpg`;
+    const watchUrl = `https://www.youtube.com/watch?v=${ytId}`;
     return (
-      <div className="relative w-full rounded-xl overflow-hidden" style={{ paddingBottom: "56.25%", backgroundColor: "#000" }}>
-        <iframe
-          className="absolute inset-0 w-full h-full"
-          src={`https://www.youtube.com/embed/${ytId}?autoplay=1&rel=0&modestbranding=1`}
-          title={label}
-          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-          allowFullScreen
-        />
-        <button
-          onClick={() => setShowEmbed(false)}
-          className="absolute top-2 right-2 w-7 h-7 rounded-full flex items-center justify-center z-10 transition-opacity hover:opacity-80"
-          style={{ backgroundColor: "rgba(0,0,0,0.6)" }}
+      <div className="w-full rounded-xl overflow-hidden" style={{ border: `1px solid ${C.border}` }}>
+        {/* Thumbnail with play overlay */}
+        <div className="relative w-full" style={{ paddingBottom: "56.25%" }}>
+          <img
+            src={thumbUrl}
+            alt={label}
+            className="absolute inset-0 w-full h-full object-cover"
+          />
+          {/* Dark gradient overlay */}
+          <div className="absolute inset-0" style={{ background: "linear-gradient(to top, rgba(0,0,0,0.55) 0%, transparent 60%)" }} />
+          {/* Play button */}
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div
+              className="w-14 h-14 rounded-full flex items-center justify-center shadow-lg"
+              style={{ backgroundColor: "rgba(255,255,255,0.92)" }}
+            >
+              <Play size={22} style={{ color: C.blue, marginLeft: 3 }} />
+            </div>
+          </div>
+          {/* Duration badge */}
+          <div
+            className="absolute bottom-2 right-2 text-xs font-semibold px-2 py-0.5 rounded"
+            style={{ backgroundColor: "rgba(0,0,0,0.75)", color: "#fff" }}
+          >
+            0:54
+          </div>
+        </div>
+        {/* Footer */}
+        <div
+          className="flex items-center justify-between px-3 py-2.5"
+          style={{ backgroundColor: C.surface }}
         >
-          <X size={13} className="text-white" />
-        </button>
+          <div>
+            <div className="text-xs font-semibold" style={{ color: C.text }}>Single-Leg Stance – Post-stroke</div>
+            <div className="text-xs" style={{ color: C.text3 }}>American Heart Association · 25K views</div>
+          </div>
+          <a
+            href={watchUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg transition-all hover:opacity-80"
+            style={{ backgroundColor: C.blue, color: "#fff" }}
+          >
+            <Play size={11} style={{ marginLeft: 1 }} />
+            Watch
+          </a>
+        </div>
       </div>
     );
   }
 
-  const icons: Record<string, string> = {
-    balance: "⚖️", tug: "🚶", walk: "👟", reach: "🤚", sts: "🪑", stair: "🪜", tandem: "🧍",
-  };
+  // No video yet — coming soon placeholder
   return (
-    <button
-      className="w-full h-full rounded-lg flex flex-col items-center justify-center gap-1 text-2xl relative group transition-all hover:opacity-90"
-      style={{ backgroundColor: "#EFF6FF", border: `1px solid #BFDBFE` }}
-      onClick={() => ytId && setShowEmbed(true)}
-      title={ytId ? "Watch instruction video" : "Video coming soon"}
+    <div
+      className="w-full h-16 rounded-lg flex items-center justify-center gap-2"
+      style={{ backgroundColor: "#F1F5F9", border: `1px dashed ${C.border}` }}
     >
-      <span>{icons[type] ?? "▶"}</span>
-      <span className="text-xs font-medium" style={{ color: C.blue }}>
-        {ytId ? "Watch Guide" : "Coming Soon"}
-      </span>
-      {ytId && (
-        <div
-          className="absolute inset-0 rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-          style={{ backgroundColor: "rgba(37,99,235,0.12)" }}
-        >
-          <div className="w-8 h-8 rounded-full flex items-center justify-center" style={{ backgroundColor: C.blue }}>
-            <Play size={14} className="text-white" style={{ marginLeft: 2 }} />
-          </div>
-        </div>
-      )}
-    </button>
+      <Play size={14} style={{ color: C.text3 }} />
+      <span className="text-xs" style={{ color: C.text3 }}>Instruction video coming soon</span>
+    </div>
   );
 }
 
