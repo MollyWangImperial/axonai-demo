@@ -180,22 +180,7 @@ export default function LoginPage() {
             </button>
           </form>
 
-          {/* Demo credentials hint */}
-          <div
-            className="mt-5 rounded-xl px-4 py-3 text-xs"
-            style={{ backgroundColor: C.tealDim, color: C.teal }}
-          >
-            <p className="font-semibold mb-1">Demo credentials</p>
-            <p>Email: <span className="font-mono">sarah.mitchell@nhs.uk</span></p>
-            <p>Password: <span className="font-mono">demo123</span></p>
-            <button
-              onClick={fillDemo}
-              className="mt-2 underline font-semibold"
-              style={{ color: C.teal }}
-            >
-              Fill automatically →
-            </button>
-          </div>
+
         </div>
 
         {/* Back link */}
