@@ -1,554 +1,872 @@
 /**
- * DashboardPage — AxonAI Therapist Workspace
+ * DashboardPage — AxonAI Agent Command Centre
  * Design: Clean light app-shell (#F7F8FA bg, white cards, teal accent)
+ * Philosophy: Therapist as supervisor of an AI agent. The agent acts; the therapist approves.
+ * Primary surface: "Needs Your Review" queue — AI proposals awaiting human sign-off.
  */
 import { useState } from "react";
 import { useLocation } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/contexts/AuthContext";
 import {
-  AreaChart, Area, BarChart, Bar, XAxis, YAxis,
-  CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine,
+  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from "recharts";
 import {
-  ArrowLeft, Bell, Search, User, ChevronRight, MessageSquare,
-  Settings, TrendingUp, AlertTriangle, CheckCircle2, Clock,
-  Activity, Users, Zap, Home, MoreHorizontal, Send,
+  Bell, Search, ChevronRight, CheckCircle2, Clock, AlertTriangle,
+  Activity, Users, Zap, Home, TrendingUp, TrendingDown, Minus,
+  ArrowRight, Check, X, MessageSquare, Eye, RefreshCw, Brain,
+  Shield, BarChart2, Calendar, FileText, LogOut, ChevronDown,
+  CircleDot, Flame, Star,
 } from "lucide-react";
 
 const C = {
-  bg:      "#F7F8FA",
-  surface: "#FFFFFF",
-  border:  "#E4E7ED",
-  text:    "#1A1D23",
-  text2:   "#5A6070",
-  text3:   "#9AA0AE",
-  teal:    "#00B89A",
-  tealDim: "rgba(0,184,154,0.10)",
-  blue:    "#2563EB",
-  purple:  "#7C3AED",
-  red:     "#DC2626",
-  amber:   "#D97706",
-  green:   "#059669",
-  sidebar: "#FFFFFF",
+  bg:       "#F7F8FA",
+  surface:  "#FFFFFF",
+  border:   "#E4E7ED",
+  text:     "#1A1D23",
+  text2:    "#5A6070",
+  text3:    "#9AA0AE",
+  teal:     "#00B89A",
+  tealDim:  "rgba(0,184,154,0.10)",
+  blue:     "#2563EB",
+  blueDim:  "rgba(37,99,235,0.08)",
+  purple:   "#7C3AED",
+  purpleDim:"rgba(124,58,237,0.08)",
+  red:      "#DC2626",
+  redDim:   "rgba(220,38,38,0.08)",
+  amber:    "#D97706",
+  amberDim: "rgba(217,119,6,0.08)",
+  green:    "#059669",
+  greenDim: "rgba(5,150,105,0.08)",
+  sidebar:  "#FFFFFF",
 };
 
-// ─── Mock data ────────────────────────────────────────────────────────────────
+// ─── Rich mock data for agentic demo ─────────────────────────────────────────
 
-const patients = [
-  { id: "p1", name: "James Thornton",  age: 68, diagnosis: "Post-stroke gait rehabilitation", status: "active",   compliance: 87, week: 3, totalWeeks: 8, sessions: 14, avgSession: 24, pain: 3, gaitScore: 58, avatar: "JT", color: C.teal },
-  { id: "p2", name: "Margaret Ellis",  age: 72, diagnosis: "Hip replacement recovery",         status: "active",   compliance: 92, week: 5, totalWeeks: 8, sessions: 22, avgSession: 31, pain: 2, gaitScore: 74, avatar: "ME", color: C.purple },
-  { id: "p3", name: "Robert Singh",    age: 61, diagnosis: "Knee OA gait retraining",           status: "pending",  compliance: 65, week: 2, totalWeeks: 6, sessions: 6,  avgSession: 18, pain: 5, gaitScore: 49, avatar: "RS", color: C.amber },
-  { id: "p4", name: "Dorothy Osei",    age: 55, diagnosis: "Post-fracture rehabilitation",      status: "inactive", compliance: 40, week: 1, totalWeeks: 8, sessions: 3,  avgSession: 12, pain: 4, gaitScore: 38, avatar: "DO", color: "#94A3B8" },
+const agentProposals = [
+  {
+    id: "ap1",
+    priority: "high",
+    patient: "James Thornton",
+    patientId: "p1",
+    avatar: "JT",
+    avatarColor: C.teal,
+    type: "plan_adapt",
+    icon: TrendingUp,
+    iconColor: C.teal,
+    title: "Increase exercise intensity — Week 4 progression",
+    reasoning: "Patient completed all Week 3 sessions at RPE ≤ 2/10 for 5 consecutive days. Gait Score improved +8 pts (50→58). Agent recommends advancing to Week 4 protocol: Seated Knee Raise 2×20 → 3×20, add Standing Hip Abduction 2×15.",
+    confidence: 94,
+    dataPoints: ["5 sessions completed", "Avg RPE 1.8/10", "Gait Score +8 pts", "Pain VAS stable at 2"],
+    timestamp: "2 hours ago",
+    status: "pending",
+  },
+  {
+    id: "ap2",
+    priority: "urgent",
+    patient: "Robert Singh",
+    patientId: "p3",
+    avatar: "RS",
+    avatarColor: C.amber,
+    type: "escalate",
+    icon: AlertTriangle,
+    iconColor: C.red,
+    title: "Fall risk elevated — recommend urgent review",
+    reasoning: "Gait symmetry index dropped from 71% to 58% over the past 3 assessments. Step time variability increased 34%. Patient reported knee pain VAS 7/10 yesterday (baseline: 5). Agent flags possible compensatory gait pattern developing. Manual clinical review recommended.",
+    confidence: 88,
+    dataPoints: ["Symmetry 71% → 58%", "Step variability +34%", "Pain VAS 7/10 (↑2)", "2 missed sessions"],
+    timestamp: "4 hours ago",
+    status: "pending",
+  },
+  {
+    id: "ap3",
+    priority: "medium",
+    patient: "Margaret Ellis",
+    patientId: "p2",
+    avatar: "ME",
+    avatarColor: C.purple,
+    type: "schedule",
+    icon: Calendar,
+    iconColor: C.purple,
+    title: "Schedule next assessment — Week 6 checkpoint",
+    reasoning: "Patient is entering Week 6 of 8. Per protocol, a mid-programme gait assessment is due. Last assessment was 14 days ago. Agent has pre-generated the assessment request and home video capture instructions. Approve to send to patient.",
+    confidence: 99,
+    dataPoints: ["Week 6 of 8", "Last assessment: 14 days ago", "Compliance: 92%", "On track for discharge"],
+    timestamp: "6 hours ago",
+    status: "pending",
+  },
+  {
+    id: "ap4",
+    priority: "low",
+    patient: "Dorothy Osei",
+    patientId: "p4",
+    avatar: "DO",
+    avatarColor: "#94A3B8",
+    type: "engage",
+    icon: MessageSquare,
+    iconColor: C.blue,
+    title: "Low compliance — automated re-engagement message",
+    reasoning: "Patient has not submitted a session log in 8 days (compliance: 40%). Agent has drafted a personalised re-engagement message referencing her stated goal ('return to gardening') and offering to simplify the home programme. Approve to send via SMS.",
+    confidence: 82,
+    dataPoints: ["8 days no activity", "Compliance: 40%", "Last contact: 10 days ago", "Goal: return to gardening"],
+    timestamp: "Yesterday",
+    status: "pending",
+  },
 ];
 
-const exerciseProgress = [
-  { week: "Wk 1", target: 100, actual: 45 },
-  { week: "Wk 2", target: 100, actual: 62 },
-  { week: "Wk 3", target: 100, actual: 87 },
-  { week: "Wk 4", target: 100, actual: null },
-  { week: "Wk 5", target: 100, actual: null },
-  { week: "Wk 6", target: 100, actual: null },
-  { week: "Wk 7", target: 100, actual: null },
-  { week: "Wk 8", target: 100, actual: null },
+const activePatients = [
+  {
+    id: "p1", name: "James Thornton", age: 68, avatar: "JT", color: C.teal,
+    diagnosis: "Post-stroke gait rehabilitation",
+    week: 3, totalWeeks: 8, compliance: 87, gaitScore: 58, gaitDelta: +8,
+    lastActivity: "Today 9:15am", status: "on_track",
+    trend: [42, 47, 51, 55, 58],
+    nextAction: "Week 4 plan pending approval",
+  },
+  {
+    id: "p2", name: "Margaret Ellis", age: 72, avatar: "ME", color: C.purple,
+    diagnosis: "Hip replacement recovery",
+    week: 5, totalWeeks: 8, compliance: 92, gaitScore: 74, gaitDelta: +12,
+    lastActivity: "Yesterday 4:30pm", status: "exceeding",
+    trend: [55, 60, 65, 70, 74],
+    nextAction: "Assessment due in 2 days",
+  },
+  {
+    id: "p3", name: "Robert Singh", age: 61, avatar: "RS", color: C.amber,
+    diagnosis: "Knee OA gait retraining",
+    week: 2, totalWeeks: 6, compliance: 65, gaitScore: 49, gaitDelta: -3,
+    lastActivity: "3 days ago", status: "at_risk",
+    trend: [52, 54, 51, 49],
+    nextAction: "Urgent review flagged",
+  },
+  {
+    id: "p4", name: "Dorothy Osei", age: 55, avatar: "DO", color: "#94A3B8",
+    diagnosis: "Post-fracture rehabilitation",
+    week: 1, totalWeeks: 8, compliance: 40, gaitScore: 38, gaitDelta: 0,
+    lastActivity: "8 days ago", status: "disengaged",
+    trend: [38, 38, 38],
+    nextAction: "Re-engagement message pending",
+  },
 ];
 
-const gaitScoreTrend = [
-  { session: "Assessment 1", score: 42, target: 80 },
-  { session: "Assessment 2", score: 51, target: 80 },
-  { session: "Assessment 3", score: 58, target: 80 },
+const agentStats = [
+  { label: "Proposals This Week", value: "12", sub: "4 pending review", icon: Brain, color: C.teal },
+  { label: "Patients Monitored", value: "4", sub: "2 require attention", icon: Users, color: C.blue },
+  { label: "Actions Approved", value: "8", sub: "this week", icon: CheckCircle2, color: C.green },
+  { label: "Avg Response Time", value: "2.4h", sub: "therapist review lag", icon: Clock, color: C.purple },
 ];
 
-const activityFeed = [
-  { id: 1, time: "Today 9:15am",  patient: "James Thornton",  action: "completed",  detail: "Sit-to-Stand × 3 sets, 10 reps",                    type: "success" },
-  { id: 2, time: "Yesterday",     patient: "James Thornton",  action: "missed",     detail: "Balance Training (patient reported fatigue)",         type: "warning" },
-  { id: 3, time: "3 days ago",    patient: "James Thornton",  action: "assessment", detail: "Gait Score improved +13 pts → 58/100",               type: "info" },
-  { id: 4, time: "4 days ago",    patient: "Margaret Ellis",  action: "completed",  detail: "Full lower limb circuit — 40 min session",           type: "success" },
-  { id: 5, time: "5 days ago",    patient: "Robert Singh",    action: "missed",     detail: "Hip strengthening (no reason given)",                type: "warning" },
-];
-
-const complianceData = [
-  { name: "James Thornton", compliance: 87, sessions: 14, color: C.teal },
-  { name: "Margaret Ellis", compliance: 92, sessions: 22, color: C.purple },
-  { name: "Robert Singh",   compliance: 65, sessions: 6,  color: C.amber },
-  { name: "Dorothy Osei",   compliance: 40, sessions: 3,  color: "#94A3B8" },
+const recentDecisions = [
+  { id: 1, time: "Today 11:30am", patient: "James Thornton", action: "Approved", detail: "Week 3 plan progression", type: "approved" },
+  { id: 2, time: "Today 9:00am",  patient: "Margaret Ellis",  action: "Approved", detail: "Assessment request sent to patient", type: "approved" },
+  { id: 3, time: "Yesterday",     patient: "Robert Singh",    action: "Modified", detail: "Reduced load — therapist adjusted sets from 3 to 2", type: "modified" },
+  { id: 4, time: "2 days ago",    patient: "Dorothy Osei",    action: "Rejected", detail: "Re-engagement message — therapist will call instead", type: "rejected" },
+  { id: 5, time: "3 days ago",    patient: "James Thornton",  action: "Approved", detail: "Pain spike alert — patient contacted", type: "approved" },
 ];
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
-function StatusDot({ status }: { status: string }) {
-  const map: Record<string, string> = { active: C.green, pending: C.amber, inactive: "#94A3B8" };
-  return <span className="w-2 h-2 rounded-full inline-block flex-shrink-0" style={{ backgroundColor: map[status] ?? "#94A3B8" }} />;
-}
-
-function ComplianceRing({ value, color }: { value: number; color: string }) {
-  const r = 18;
-  const circ = 2 * Math.PI * r;
-  const offset = circ - (value / 100) * circ;
+function PriorityBadge({ priority }: { priority: string }) {
+  const map: Record<string, { label: string; bg: string; color: string }> = {
+    urgent: { label: "Urgent", bg: C.redDim, color: C.red },
+    high:   { label: "High",   bg: C.amberDim, color: C.amber },
+    medium: { label: "Medium", bg: C.blueDim, color: C.blue },
+    low:    { label: "Low",    bg: C.greenDim, color: C.green },
+  };
+  const s = map[priority] || map.low;
   return (
-    <div className="relative w-12 h-12 flex items-center justify-center">
-      <svg width="48" height="48" className="-rotate-90">
-        <circle cx="24" cy="24" r={r} fill="none" stroke={C.border} strokeWidth="3" />
-        <circle cx="24" cy="24" r={r} fill="none" stroke={color} strokeWidth="3"
-          strokeDasharray={circ} strokeDashoffset={offset} strokeLinecap="round" />
-      </svg>
-      <span className="absolute text-xs font-bold" style={{ color }}>{value}%</span>
-    </div>
+    <span className="text-xs font-semibold px-2 py-0.5 rounded-full" style={{ backgroundColor: s.bg, color: s.color }}>
+      {s.label}
+    </span>
   );
 }
 
-const LightTooltip = ({ active, payload, label }: any) => {
-  if (active && payload && payload.length) {
-    return (
-      <div className="rounded-xl p-3 text-xs shadow-xl" style={{ backgroundColor: C.surface, border: `1px solid ${C.border}` }}>
-        <p className="font-medium mb-1.5" style={{ color: C.text2 }}>{label}</p>
-        {payload.map((p: any) => (
-          <p key={p.name} className="flex items-center gap-2" style={{ color: p.color }}>
-            <span className="w-2 h-2 rounded-full inline-block" style={{ backgroundColor: p.color }} />
-            {p.name}: <span className="font-bold">{p.value}%</span>
-          </p>
-        ))}
-      </div>
-    );
-  }
-  return null;
-};
+function StatusBadge({ status }: { status: string }) {
+  const map: Record<string, { label: string; color: string; bg: string }> = {
+    on_track:   { label: "On Track",   color: C.green,  bg: C.greenDim },
+    exceeding:  { label: "Exceeding",  color: C.teal,   bg: C.tealDim },
+    at_risk:    { label: "At Risk",    color: C.red,    bg: C.redDim },
+    disengaged: { label: "Disengaged", color: "#94A3B8", bg: "#F1F5F9" },
+  };
+  const s = map[status] || map.on_track;
+  return (
+    <span className="text-xs font-semibold px-2 py-0.5 rounded-full" style={{ backgroundColor: s.bg, color: s.color }}>
+      {s.label}
+    </span>
+  );
+}
 
-// ─── Main page ────────────────────────────────────────────────────────────────
+function MiniSparkline({ data, color }: { data: number[]; color: string }) {
+  const min = Math.min(...data);
+  const max = Math.max(...data);
+  const range = max - min || 1;
+  const w = 60, h = 24;
+  const pts = data.map((v, i) => {
+    const x = (i / (data.length - 1)) * w;
+    const y = h - ((v - min) / range) * (h - 4) - 2;
+    return `${x},${y}`;
+  }).join(" ");
+  return (
+    <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} style={{ overflow: "visible" }}>
+      <polyline points={pts} fill="none" stroke={color} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
+      {data.map((v, i) => {
+        const x = (i / (data.length - 1)) * w;
+        const y = h - ((v - min) / range) * (h - 4) - 2;
+        return i === data.length - 1 ? (
+          <circle key={i} cx={x} cy={y} r={2.5} fill={color} />
+        ) : null;
+      })}
+    </svg>
+  );
+}
 
-export default function DashboardPage() {
-  const [, navigate] = useLocation();
-  const { user, logout } = useAuth();
-  const [selectedPatient, setSelectedPatient] = useState(patients[0]);
-  const [showMessage, setShowMessage] = useState(false);
-  const [messageText, setMessageText] = useState("");
+function AgentProposalCard({ proposal, onApprove, onReject, onModify }: {
+  proposal: typeof agentProposals[0];
+  onApprove: (id: string) => void;
+  onReject: (id: string) => void;
+  onModify: (id: string) => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const Icon = proposal.icon;
 
   return (
-    <div className="app-shell min-h-screen flex flex-col" style={{ backgroundColor: C.bg, color: C.text }}>
-      {/* Top navbar */}
-      <nav
-        className="sticky top-0 z-30 flex items-center justify-between px-6 py-3 flex-shrink-0"
-        style={{ backgroundColor: C.surface, borderBottom: `1px solid ${C.border}`, boxShadow: "0 1px 3px rgba(0,0,0,0.07)" }}
-      >
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => navigate("/rehab-plan")}
-            className="transition-opacity hover:opacity-60"
-            style={{ color: C.text2 }}
-          >
-            <ArrowLeft size={16} />
-          </button>
-          <span className="font-black tracking-widest text-base" style={{ color: C.teal }}>AXONAI</span>
-          <span className="text-sm font-medium hidden sm:block" style={{ color: C.text2 }}>Therapist Workspace</span>
-        </div>
-        <div className="flex items-center gap-3">
+    <motion.div
+      layout
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, scale: 0.97 }}
+      className="rounded-2xl overflow-hidden"
+      style={{
+        backgroundColor: C.surface,
+        border: `1px solid ${C.border}`,
+        boxShadow: "0 1px 4px rgba(0,0,0,0.06)",
+      }}
+    >
+      {/* Priority stripe */}
+      <div className="h-0.5 w-full" style={{
+        backgroundColor: proposal.priority === "urgent" ? C.red
+          : proposal.priority === "high" ? C.amber
+          : proposal.priority === "medium" ? C.blue : C.green
+      }} />
+
+      <div className="p-4">
+        {/* Header row */}
+        <div className="flex items-start gap-3">
+          {/* Patient avatar */}
           <div
-            className="hidden md:flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm"
-            style={{ backgroundColor: C.bg, border: `1px solid ${C.border}`, color: C.text3 }}
+            className="w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0"
+            style={{ backgroundColor: proposal.avatarColor }}
           >
-            <Search size={13} />
-            <span>Search patients…</span>
+            {proposal.avatar}
           </div>
-          <button
-            className="relative w-8 h-8 rounded-lg flex items-center justify-center transition-colors hover:bg-gray-100"
-            style={{ border: `1px solid ${C.border}` }}
-          >
-            <Bell size={14} style={{ color: C.text3 }} />
-            <span className="absolute top-1 right-1 w-2 h-2 rounded-full" style={{ backgroundColor: C.teal }} />
-          </button>
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-full flex items-center justify-center" style={{ backgroundColor: C.tealDim }}>
-              <User size={13} style={{ color: C.teal }} />
+
+          {/* Content */}
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap mb-0.5">
+              <span className="text-xs font-semibold" style={{ color: proposal.avatarColor }}>{proposal.patient}</span>
+              <PriorityBadge priority={proposal.priority} />
+              <span className="text-xs" style={{ color: C.text3 }}>{proposal.timestamp}</span>
             </div>
-            <span className="hidden sm:block text-sm" style={{ color: C.text2 }}>{user?.name}</span>
+            <div className="flex items-start gap-2">
+              <Icon size={14} style={{ color: proposal.iconColor, marginTop: 2, flexShrink: 0 }} />
+              <p className="text-sm font-semibold leading-snug" style={{ color: C.text }}>{proposal.title}</p>
+            </div>
           </div>
+
+          {/* Expand toggle */}
           <button
-            onClick={() => { logout(); navigate("/"); }}
-            className="text-xs transition-opacity hover:opacity-60"
+            onClick={() => setExpanded(v => !v)}
+            className="p-1 rounded-lg transition-colors hover:bg-gray-100 flex-shrink-0"
+          >
+            <ChevronDown size={15} style={{
+              color: C.text3,
+              transform: expanded ? "rotate(180deg)" : "rotate(0deg)",
+              transition: "transform 0.2s",
+            }} />
+          </button>
+        </div>
+
+        {/* Expandable reasoning */}
+        <AnimatePresence>
+          {expanded && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.2 }}
+              className="overflow-hidden"
+            >
+              <div className="mt-3 ml-12">
+                {/* Agent reasoning */}
+                <div
+                  className="rounded-xl p-3 mb-3 text-xs leading-relaxed"
+                  style={{ backgroundColor: "#F8FAFC", border: `1px solid ${C.border}`, color: C.text2 }}
+                >
+                  <div className="flex items-center gap-1.5 mb-1.5">
+                    <Brain size={11} style={{ color: C.teal }} />
+                    <span className="font-semibold text-xs" style={{ color: C.teal }}>Agent Reasoning</span>
+                    <span className="ml-auto text-xs font-semibold" style={{ color: C.green }}>
+                      {proposal.confidence}% confidence
+                    </span>
+                  </div>
+                  {proposal.reasoning}
+                </div>
+
+                {/* Data points */}
+                <div className="flex flex-wrap gap-1.5 mb-3">
+                  {proposal.dataPoints.map((dp, i) => (
+                    <span
+                      key={i}
+                      className="text-xs px-2 py-0.5 rounded-full font-medium"
+                      style={{ backgroundColor: C.tealDim, color: C.teal }}
+                    >
+                      {dp}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Action buttons */}
+        <div className="flex items-center gap-2 mt-3 ml-12">
+          <button
+            onClick={() => onApprove(proposal.id)}
+            className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg transition-all hover:opacity-80"
+            style={{ backgroundColor: C.teal, color: "#fff" }}
+          >
+            <Check size={11} />
+            Approve
+          </button>
+          <button
+            onClick={() => onModify(proposal.id)}
+            className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg transition-all hover:opacity-80"
+            style={{ backgroundColor: C.blueDim, color: C.blue, border: `1px solid ${C.blue}22` }}
+          >
+            <FileText size={11} />
+            Modify
+          </button>
+          <button
+            onClick={() => onReject(proposal.id)}
+            className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg transition-all hover:opacity-80"
+            style={{ backgroundColor: C.redDim, color: C.red, border: `1px solid ${C.red}22` }}
+          >
+            <X size={11} />
+            Reject
+          </button>
+          <button
+            onClick={() => setExpanded(v => !v)}
+            className="ml-auto flex items-center gap-1 text-xs"
             style={{ color: C.text3 }}
           >
-            Sign out
+            <Eye size={11} />
+            {expanded ? "Less" : "View reasoning"}
           </button>
         </div>
-      </nav>
+      </div>
+    </motion.div>
+  );
+}
 
-      {/* Main layout */}
-      <div className="flex flex-1 overflow-hidden">
-        {/* Patient sidebar */}
-        <div
-          className="w-64 flex-shrink-0 overflow-y-auto"
-          style={{ backgroundColor: C.sidebar, borderRight: `1px solid ${C.border}` }}
-        >
-          <div className="p-4">
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="text-xs font-semibold uppercase tracking-wider" style={{ color: C.text3 }}>My Patients</h2>
-              <span className="text-xs" style={{ color: C.text3 }}>{patients.length} total</span>
+// ─── Main component ───────────────────────────────────────────────────────────
+
+export default function DashboardPage() {
+  const { user, logout } = useAuth();
+  const [, navigate] = useLocation();
+  const [proposals, setProposals] = useState(agentProposals);
+  const [decisions, setDecisions] = useState(recentDecisions);
+  const [activeTab, setActiveTab] = useState<"review" | "monitoring" | "log">("review");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [notifOpen, setNotifOpen] = useState(false);
+
+  const pendingCount = proposals.filter(p => p.status === "pending").length;
+  const urgentCount = proposals.filter(p => p.priority === "urgent" && p.status === "pending").length;
+
+  function handleApprove(id: string) {
+    const p = proposals.find(x => x.id === id);
+    if (!p) return;
+    setProposals(prev => prev.filter(x => x.id !== id));
+    setDecisions(prev => [{
+      id: Date.now(), time: "Just now", patient: p.patient,
+      action: "Approved", detail: p.title, type: "approved",
+    }, ...prev]);
+  }
+
+  function handleReject(id: string) {
+    const p = proposals.find(x => x.id === id);
+    if (!p) return;
+    setProposals(prev => prev.filter(x => x.id !== id));
+    setDecisions(prev => [{
+      id: Date.now(), time: "Just now", patient: p.patient,
+      action: "Rejected", detail: p.title, type: "rejected",
+    }, ...prev]);
+  }
+
+  function handleModify(id: string) {
+    const p = proposals.find(x => x.id === id);
+    if (!p) return;
+    setProposals(prev => prev.filter(x => x.id !== id));
+    setDecisions(prev => [{
+      id: Date.now(), time: "Just now", patient: p.patient,
+      action: "Modified", detail: p.title + " — therapist edited", type: "modified",
+    }, ...prev]);
+  }
+
+  return (
+    <div className="min-h-screen flex" style={{ backgroundColor: C.bg, fontFamily: "'Inter', sans-serif" }}>
+
+      {/* ── Sidebar ── */}
+      <aside
+        className="w-56 flex-shrink-0 flex flex-col border-r"
+        style={{ backgroundColor: C.sidebar, borderColor: C.border, minHeight: "100vh" }}
+      >
+        {/* Logo */}
+        <div className="px-5 py-5 border-b" style={{ borderColor: C.border }}>
+          <div className="flex items-center gap-2">
+            <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ backgroundColor: C.teal }}>
+              <Zap size={14} color="#fff" />
             </div>
-            <div className="space-y-1">
-              {patients.map((p) => (
-                <button
-                  key={p.id}
-                  onClick={() => setSelectedPatient(p)}
-                  className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-all"
-                  style={{
-                    backgroundColor: selectedPatient.id === p.id ? C.bg : "transparent",
-                    border: `1px solid ${selectedPatient.id === p.id ? C.border : "transparent"}`,
-                  }}
-                >
-                  <div
-                    className="w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
-                    style={{ backgroundColor: p.color + "20", color: p.color }}
-                  >
-                    {p.avatar}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-1.5">
-                      <StatusDot status={p.status} />
-                      <span className="text-sm font-medium truncate" style={{ color: C.text }}>{p.name}</span>
-                    </div>
-                    <span className="text-xs capitalize" style={{ color: C.text3 }}>{p.status}</span>
-                  </div>
-                  <ComplianceRing value={p.compliance} color={p.color} />
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Sidebar stats */}
-          <div className="p-4 space-y-3" style={{ borderTop: `1px solid ${C.border}` }}>
-            <h3 className="text-xs font-semibold uppercase tracking-wider" style={{ color: C.text3 }}>Core Impact</h3>
-            {[
-              { label: "Therapist capacity",     value: "3–5× increase",   icon: Users,     color: C.teal },
-              { label: "Post-discharge follow-up", value: "<10% → >80%",   icon: TrendingUp, color: C.purple },
-              { label: "Avg. compliance rate",   value: "71%",             icon: Activity,  color: C.amber },
-            ].map((stat) => (
-              <div key={stat.label} className="flex items-center gap-2">
-                <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0" style={{ backgroundColor: stat.color + "15" }}>
-                  <stat.icon size={12} style={{ color: stat.color }} />
-                </div>
-                <div>
-                  <p className="text-xs font-semibold" style={{ color: C.text }}>{stat.value}</p>
-                  <p className="text-xs" style={{ color: C.text3 }}>{stat.label}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {/* Navigation */}
-          <div className="p-4 space-y-1" style={{ borderTop: `1px solid ${C.border}` }}>
-            {[
-              { label: "Back to Home",    icon: Home,     action: () => navigate("/") },
-              { label: "New Assessment",  icon: Zap,      action: () => navigate("/upload") },
-              { label: "Settings",        icon: Settings, action: () => {} },
-            ].map((item) => (
-              <button
-                key={item.label}
-                onClick={item.action}
-                className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-left transition-colors hover:bg-gray-50"
-                style={{ color: C.text2 }}
-              >
-                <item.icon size={14} />
-                {item.label}
-              </button>
-            ))}
+            <span className="font-bold text-sm tracking-tight" style={{ color: C.text }}>AxonAI</span>
           </div>
         </div>
 
-        {/* Main content */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-5">
-          {/* Patient header */}
-          <motion.div
-            key={selectedPatient.id}
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.25 }}
-          >
-            <div
-              className="rounded-2xl p-5"
-              style={{ backgroundColor: C.surface, border: `1px solid ${C.border}`, boxShadow: "0 1px 3px rgba(0,0,0,0.07)" }}
-            >
-              <div className="flex flex-wrap items-start justify-between gap-4">
-                <div className="flex items-center gap-3">
-                  <div
-                    className="w-12 h-12 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0"
-                    style={{ backgroundColor: selectedPatient.color + "20", color: selectedPatient.color }}
-                  >
-                    {selectedPatient.avatar}
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2 mb-0.5">
-                      <h2 className="text-lg font-bold" style={{ color: C.text }}>{selectedPatient.name}</h2>
-                      <span className="text-sm" style={{ color: C.text3 }}>Age {selectedPatient.age}</span>
-                      <span
-                        className="text-xs px-2 py-0.5 rounded-full font-medium capitalize"
-                        style={{
-                          backgroundColor: selectedPatient.status === "active" ? "#F0FDF4" : selectedPatient.status === "pending" ? "#FFFBEB" : "#F8FAFC",
-                          color: selectedPatient.status === "active" ? C.green : selectedPatient.status === "pending" ? C.amber : "#94A3B8",
-                        }}
-                      >
-                        {selectedPatient.status}
-                      </span>
-                    </div>
-                    <p className="text-sm" style={{ color: C.text2 }}>Diagnosis: {selectedPatient.diagnosis}</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => setShowMessage(!showMessage)}
-                    className="flex items-center gap-2 text-xs px-3 py-2 rounded-lg transition-all"
-                    style={{ border: `1px solid ${C.teal}40`, color: C.teal, backgroundColor: C.tealDim }}
-                  >
-                    <MessageSquare size={12} />
-                    Message Patient
-                  </button>
-                  <button
-                    onClick={() => navigate("/rehab-plan")}
-                    className="flex items-center gap-2 text-xs px-3 py-2 rounded-lg transition-all hover:bg-gray-50"
-                    style={{ border: `1px solid ${C.border}`, color: C.text2 }}
-                  >
-                    <Settings size={12} />
-                    Adjust Plan
-                  </button>
-                  <button
-                    className="w-8 h-8 rounded-lg flex items-center justify-center transition-all hover:bg-gray-50"
-                    style={{ border: `1px solid ${C.border}`, color: C.text3 }}
-                  >
-                    <MoreHorizontal size={14} />
-                  </button>
-                </div>
-              </div>
-
-              {/* Message box */}
-              <AnimatePresence>
-                {showMessage && (
-                  <motion.div
-                    initial={{ height: 0, opacity: 0 }}
-                    animate={{ height: "auto", opacity: 1 }}
-                    exit={{ height: 0, opacity: 0 }}
-                    className="overflow-hidden"
-                  >
-                    <div className="mt-4 pt-4 flex gap-2" style={{ borderTop: `1px solid ${C.border}` }}>
-                      <input
-                        value={messageText}
-                        onChange={(e) => setMessageText(e.target.value)}
-                        placeholder={`Send a message to ${selectedPatient.name}…`}
-                        className="flex-1 rounded-xl px-4 py-2.5 text-sm outline-none transition-all"
-                        style={{ backgroundColor: C.bg, border: `1.5px solid ${C.border}`, color: C.text }}
-                        onFocus={(e) => (e.target.style.borderColor = C.teal)}
-                        onBlur={(e) => (e.target.style.borderColor = C.border)}
-                      />
-                      <button
-                        onClick={() => { setMessageText(""); setShowMessage(false); }}
-                        className="flex items-center gap-2 font-semibold px-4 py-2.5 rounded-xl text-sm text-white transition-all hover:opacity-90"
-                        style={{ backgroundColor: C.teal }}
-                      >
-                        <Send size={13} />
-                        Send
-                      </button>
-                    </div>
-                  </motion.div>
+        {/* Nav */}
+        <nav className="flex-1 px-3 py-4 space-y-0.5">
+          {[
+            { icon: Brain,    label: "Command Centre", tab: "review",     badge: pendingCount },
+            { icon: Activity, label: "Monitoring",     tab: "monitoring", badge: 0 },
+            { icon: FileText, label: "Decision Log",   tab: "log",        badge: 0 },
+          ].map(item => {
+            const Icon = item.icon;
+            const active = activeTab === item.tab;
+            return (
+              <button
+                key={item.tab}
+                onClick={() => setActiveTab(item.tab as any)}
+                className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm font-medium transition-all"
+                style={{
+                  backgroundColor: active ? C.tealDim : "transparent",
+                  color: active ? C.teal : C.text2,
+                }}
+              >
+                <Icon size={15} />
+                <span className="flex-1 text-left">{item.label}</span>
+                {item.badge > 0 && (
+                  <span className="text-xs font-bold px-1.5 py-0.5 rounded-full" style={{ backgroundColor: C.teal, color: "#fff" }}>
+                    {item.badge}
+                  </span>
                 )}
-              </AnimatePresence>
+              </button>
+            );
+          })}
 
-              {/* Stats row */}
-              <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mt-4">
-                {[
-                  { label: "Programme",    value: `Week ${selectedPatient.week} of ${selectedPatient.totalWeeks}`, color: selectedPatient.color },
-                  { label: "Compliance",   value: `${selectedPatient.compliance}%`, color: selectedPatient.compliance >= 80 ? C.green : selectedPatient.compliance >= 60 ? C.amber : C.red },
-                  { label: "Sessions",     value: `${selectedPatient.sessions} completed`, color: C.text2 },
-                  { label: "Avg. session", value: `${selectedPatient.avgSession} min`,      color: C.text2 },
-                  { label: "Pain score",   value: `${selectedPatient.pain}/10`,             color: selectedPatient.pain <= 3 ? C.green : selectedPatient.pain <= 6 ? C.amber : C.red },
-                ].map((stat) => (
-                  <div
-                    key={stat.label}
-                    className="rounded-xl px-3 py-2.5 text-center"
-                    style={{ backgroundColor: C.bg, border: `1px solid ${C.border}` }}
-                  >
-                    <p className="text-xs mb-0.5" style={{ color: C.text3 }}>{stat.label}</p>
-                    <p className="text-sm font-bold" style={{ color: stat.color }}>{stat.value}</p>
-                  </div>
-                ))}
-              </div>
+          <div className="pt-3 mt-3 border-t" style={{ borderColor: C.border }}>
+            {[
+              { icon: Users,    label: "Patients",    onClick: () => {} },
+              { icon: Calendar, label: "Schedule",    onClick: () => {} },
+              { icon: BarChart2,label: "Analytics",   onClick: () => {} },
+            ].map(item => {
+              const Icon = item.icon;
+              return (
+                <button
+                  key={item.label}
+                  onClick={item.onClick}
+                  className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm font-medium transition-all hover:bg-gray-50"
+                  style={{ color: C.text2 }}
+                >
+                  <Icon size={15} />
+                  {item.label}
+                </button>
+              );
+            })}
+          </div>
+        </nav>
 
-              {/* Compliance bar */}
-              <div className="mt-3">
-                <div className="flex items-center justify-between text-xs mb-1.5">
-                  <span style={{ color: C.text3 }}>Overall compliance</span>
-                  <span style={{ color: selectedPatient.color, fontWeight: 600 }}>{selectedPatient.compliance}%</span>
-                </div>
-                <div className="w-full rounded-full h-2" style={{ backgroundColor: C.bg, border: `1px solid ${C.border}` }}>
-                  <motion.div
-                    initial={{ width: 0 }}
-                    animate={{ width: `${selectedPatient.compliance}%` }}
-                    transition={{ duration: 0.8, ease: "easeOut" }}
-                    className="h-2 rounded-full"
-                    style={{ backgroundColor: selectedPatient.color }}
-                  />
-                </div>
-              </div>
+        {/* User */}
+        <div className="px-3 pb-4 border-t pt-3" style={{ borderColor: C.border }}>
+          <div className="flex items-center gap-2.5 px-3 py-2 rounded-xl" style={{ backgroundColor: C.bg }}>
+            <div
+              className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-white"
+              style={{ backgroundColor: C.teal }}
+            >
+              {user?.name?.split(" ").map(n => n[0]).join("").slice(0, 2) || "DR"}
             </div>
-          </motion.div>
+            <div className="flex-1 min-w-0">
+              <div className="text-xs font-semibold truncate" style={{ color: C.text }}>{user?.name || "Dr. Erisa"}</div>
+              <div className="text-xs truncate" style={{ color: C.text3 }}>Physiotherapist</div>
+            </div>
+            <button onClick={() => { logout(); navigate("/login"); }} className="hover:opacity-60 transition-opacity">
+              <LogOut size={13} style={{ color: C.text3 }} />
+            </button>
+          </div>
+        </div>
+      </aside>
 
-          {/* Charts row */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-            <motion.div
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.1 }}
-              className="rounded-2xl p-5"
-              style={{ backgroundColor: C.surface, border: `1px solid ${C.border}`, boxShadow: "0 1px 3px rgba(0,0,0,0.07)" }}
-            >
-              <h3 className="text-sm font-semibold mb-0.5" style={{ color: C.text }}>Exercise Completion Rate</h3>
-              <p className="text-xs mb-4" style={{ color: C.text3 }}>Weekly exercise completion vs target (100%)</p>
-              <ResponsiveContainer width="100%" height={200}>
-                <AreaChart data={exerciseProgress}>
-                  <defs>
-                    <linearGradient id="actualGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor={C.teal} stopOpacity={0.2} />
-                      <stop offset="95%" stopColor={C.teal} stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke={C.border} />
-                  <XAxis dataKey="week" tick={{ fill: C.text3, fontSize: 10 }} axisLine={false} tickLine={false} />
-                  <YAxis domain={[0, 100]} tick={{ fill: C.text3, fontSize: 10 }} axisLine={false} tickLine={false} unit="%" />
-                  <Tooltip content={<LightTooltip />} />
-                  <Legend wrapperStyle={{ fontSize: 11, color: C.text3 }} />
-                  <ReferenceLine y={100} stroke={C.border} strokeDasharray="4 4" label={{ value: "Target", position: "right", fill: C.text3, fontSize: 10 }} />
-                  <Area type="monotone" dataKey="actual" name="Actual %" stroke={C.teal} fill="url(#actualGrad)" strokeWidth={2} dot={{ fill: C.teal, r: 4 }} connectNulls={false} />
-                </AreaChart>
-              </ResponsiveContainer>
-            </motion.div>
+      {/* ── Main content ── */}
+      <div className="flex-1 flex flex-col min-w-0">
 
-            <motion.div
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.15 }}
-              className="rounded-2xl p-5"
-              style={{ backgroundColor: C.surface, border: `1px solid ${C.border}`, boxShadow: "0 1px 3px rgba(0,0,0,0.07)" }}
-            >
-              <h3 className="text-sm font-semibold mb-0.5" style={{ color: C.text }}>Gait Score Trend</h3>
-              <p className="text-xs mb-4" style={{ color: C.text3 }}>Assessment-by-assessment improvement tracking</p>
-              <ResponsiveContainer width="100%" height={200}>
-                <BarChart data={gaitScoreTrend} barSize={40}>
-                  <CartesianGrid strokeDasharray="3 3" stroke={C.border} />
-                  <XAxis dataKey="session" tick={{ fill: C.text3, fontSize: 10 }} axisLine={false} tickLine={false} />
-                  <YAxis domain={[0, 100]} tick={{ fill: C.text3, fontSize: 10 }} axisLine={false} tickLine={false} />
-                  <Tooltip contentStyle={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 12, fontSize: 12, color: C.text }} />
-                  <Legend wrapperStyle={{ fontSize: 11, color: C.text3 }} />
-                  <ReferenceLine y={80} stroke={C.teal} strokeDasharray="4 4" label={{ value: "Target 80", position: "right", fill: C.teal, fontSize: 10 }} />
-                  <Bar dataKey="score" name="Gait Score" fill={C.blue} fillOpacity={0.85} radius={[4, 4, 0, 0]} label={{ position: "top", fill: C.text3, fontSize: 11 }} />
-                </BarChart>
-              </ResponsiveContainer>
-            </motion.div>
+        {/* Top bar */}
+        <header
+          className="flex items-center gap-4 px-6 py-3.5 border-b"
+          style={{ backgroundColor: C.surface, borderColor: C.border }}
+        >
+          <div className="flex-1">
+            <h1 className="text-base font-bold" style={{ color: C.text }}>
+              {activeTab === "review"     ? "Agent Command Centre" :
+               activeTab === "monitoring" ? "Patient Monitoring" :
+               "Decision Log"}
+            </h1>
+            <p className="text-xs" style={{ color: C.text3 }}>
+              {activeTab === "review"     ? `${pendingCount} proposals awaiting your review${urgentCount > 0 ? ` · ${urgentCount} urgent` : ""}` :
+               activeTab === "monitoring" ? "Live status across all active patients" :
+               "Full audit trail of agent decisions"}
+            </p>
           </div>
 
-          {/* Compliance + Activity feed */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-            <motion.div
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2 }}
-              className="rounded-2xl p-5"
-              style={{ backgroundColor: C.surface, border: `1px solid ${C.border}`, boxShadow: "0 1px 3px rgba(0,0,0,0.07)" }}
+          {/* Search */}
+          <div
+            className="flex items-center gap-2 px-3 py-1.5 rounded-xl text-sm"
+            style={{ backgroundColor: C.bg, border: `1px solid ${C.border}`, width: 200 }}
+          >
+            <Search size={13} style={{ color: C.text3 }} />
+            <input
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              placeholder="Search patients…"
+              className="flex-1 bg-transparent outline-none text-xs"
+              style={{ color: C.text }}
+            />
+          </div>
+
+          {/* Notifications */}
+          <div className="relative">
+            <button
+              onClick={() => setNotifOpen(v => !v)}
+              className="relative p-2 rounded-xl transition-colors hover:bg-gray-100"
             >
-              <h3 className="text-sm font-semibold mb-0.5" style={{ color: C.text }}>Patient Compliance Overview</h3>
-              <p className="text-xs mb-4" style={{ color: C.text3 }}>Compliance rate across all active patients</p>
-              <div className="space-y-3">
-                {complianceData.map((p) => (
-                  <div key={p.name}>
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-xs" style={{ color: C.text2 }}>{p.name}</span>
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs" style={{ color: C.text3 }}>{p.sessions} sessions</span>
-                        <span className="text-xs font-bold" style={{ color: p.color }}>{p.compliance}%</span>
+              <Bell size={16} style={{ color: C.text2 }} />
+              {urgentCount > 0 && (
+                <span className="absolute top-1 right-1 w-2 h-2 rounded-full" style={{ backgroundColor: C.red }} />
+              )}
+            </button>
+          </div>
+
+          {/* Quick nav */}
+          <button
+            onClick={() => navigate("/upload")}
+            className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg transition-all hover:opacity-80"
+            style={{ backgroundColor: C.teal, color: "#fff" }}
+          >
+            <Zap size={11} />
+            New Assessment
+          </button>
+        </header>
+
+        {/* ── Agent stats bar ── */}
+        <div
+          className="grid grid-cols-4 gap-0 border-b"
+          style={{ backgroundColor: C.surface, borderColor: C.border }}
+        >
+          {agentStats.map((stat, i) => {
+            const Icon = stat.icon;
+            return (
+              <div
+                key={i}
+                className="flex items-center gap-3 px-6 py-3.5"
+                style={{ borderRight: i < 3 ? `1px solid ${C.border}` : "none" }}
+              >
+                <div
+                  className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0"
+                  style={{ backgroundColor: stat.color + "15" }}
+                >
+                  <Icon size={15} style={{ color: stat.color }} />
+                </div>
+                <div>
+                  <div className="text-lg font-bold leading-none mb-0.5" style={{ color: C.text }}>{stat.value}</div>
+                  <div className="text-xs" style={{ color: C.text3 }}>{stat.label}</div>
+                  <div className="text-xs font-medium" style={{ color: stat.color }}>{stat.sub}</div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* ── Tab content ── */}
+        <div className="flex-1 overflow-auto p-6">
+          <AnimatePresence mode="wait">
+
+            {/* ── NEEDS REVIEW TAB ── */}
+            {activeTab === "review" && (
+              <motion.div
+                key="review"
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0 }}
+                className="grid grid-cols-3 gap-6"
+              >
+                {/* Left: proposal queue (2/3 width) */}
+                <div className="col-span-2 space-y-3">
+                  <div className="flex items-center justify-between mb-1">
+                    <h2 className="text-sm font-bold" style={{ color: C.text }}>
+                      Needs Your Review
+                      {proposals.filter(p => p.status === "pending").length > 0 && (
+                        <span
+                          className="ml-2 text-xs font-bold px-2 py-0.5 rounded-full"
+                          style={{ backgroundColor: C.teal, color: "#fff" }}
+                        >
+                          {proposals.filter(p => p.status === "pending").length}
+                        </span>
+                      )}
+                    </h2>
+                    <button className="flex items-center gap-1 text-xs" style={{ color: C.text3 }}>
+                      <RefreshCw size={11} />
+                      Refresh
+                    </button>
+                  </div>
+
+                  <AnimatePresence>
+                    {proposals.filter(p => p.status === "pending").length === 0 ? (
+                      <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        className="rounded-2xl p-12 text-center"
+                        style={{ backgroundColor: C.surface, border: `1px solid ${C.border}` }}
+                      >
+                        <CheckCircle2 size={32} style={{ color: C.green, margin: "0 auto 12px" }} />
+                        <p className="text-sm font-semibold" style={{ color: C.text }}>All caught up</p>
+                        <p className="text-xs mt-1" style={{ color: C.text3 }}>No pending proposals. The agent is monitoring your patients.</p>
+                      </motion.div>
+                    ) : (
+                      proposals
+                        .filter(p => p.status === "pending")
+                        .sort((a, b) => {
+                          const order = { urgent: 0, high: 1, medium: 2, low: 3 };
+                          return (order[a.priority as keyof typeof order] ?? 3) - (order[b.priority as keyof typeof order] ?? 3);
+                        })
+                        .map(p => (
+                          <AgentProposalCard
+                            key={p.id}
+                            proposal={p}
+                            onApprove={handleApprove}
+                            onReject={handleReject}
+                            onModify={handleModify}
+                          />
+                        ))
+                    )}
+                  </AnimatePresence>
+                </div>
+
+                {/* Right: recent decisions + quick patient status */}
+                <div className="space-y-4">
+                  {/* Recent decisions */}
+                  <div
+                    className="rounded-2xl p-4"
+                    style={{ backgroundColor: C.surface, border: `1px solid ${C.border}` }}
+                  >
+                    <h3 className="text-sm font-bold mb-3" style={{ color: C.text }}>Recent Decisions</h3>
+                    <div className="space-y-2.5">
+                      {decisions.slice(0, 5).map(d => (
+                        <div key={d.id} className="flex items-start gap-2.5">
+                          <div
+                            className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5"
+                            style={{
+                              backgroundColor:
+                                d.type === "approved" ? C.greenDim :
+                                d.type === "modified" ? C.blueDim : C.redDim,
+                            }}
+                          >
+                            {d.type === "approved" ? <Check size={9} style={{ color: C.green }} /> :
+                             d.type === "modified" ? <FileText size={9} style={{ color: C.blue }} /> :
+                             <X size={9} style={{ color: C.red }} />}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="text-xs font-semibold truncate" style={{ color: C.text }}>{d.patient}</div>
+                            <div className="text-xs truncate" style={{ color: C.text3 }}>{d.detail}</div>
+                            <div className="text-xs" style={{ color: C.text3 }}>{d.time}</div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Quick patient status */}
+                  <div
+                    className="rounded-2xl p-4"
+                    style={{ backgroundColor: C.surface, border: `1px solid ${C.border}` }}
+                  >
+                    <h3 className="text-sm font-bold mb-3" style={{ color: C.text }}>Patient Overview</h3>
+                    <div className="space-y-2.5">
+                      {activePatients.map(p => (
+                        <div
+                          key={p.id}
+                          className="flex items-center gap-2.5 cursor-pointer hover:opacity-80 transition-opacity"
+                          onClick={() => navigate("/report")}
+                        >
+                          <div
+                            className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0"
+                            style={{ backgroundColor: p.color }}
+                          >
+                            {p.avatar}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="text-xs font-semibold truncate" style={{ color: C.text }}>{p.name}</div>
+                            <div className="text-xs" style={{ color: C.text3 }}>Wk {p.week}/{p.totalWeeks} · {p.compliance}% compliance</div>
+                          </div>
+                          <StatusBadge status={p.status} />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+
+            {/* ── MONITORING TAB ── */}
+            {activeTab === "monitoring" && (
+              <motion.div
+                key="monitoring"
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0 }}
+                className="space-y-4"
+              >
+                <div className="grid grid-cols-2 gap-4">
+                  {activePatients.map((p, idx) => (
+                    <motion.div
+                      key={p.id}
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: idx * 0.05 }}
+                      className="rounded-2xl p-5 cursor-pointer hover:shadow-md transition-shadow"
+                      style={{ backgroundColor: C.surface, border: `1px solid ${C.border}` }}
+                      onClick={() => navigate("/report")}
+                    >
+                      {/* Patient header */}
+                      <div className="flex items-start justify-between mb-4">
+                        <div className="flex items-center gap-3">
+                          <div
+                            className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold text-white"
+                            style={{ backgroundColor: p.color }}
+                          >
+                            {p.avatar}
+                          </div>
+                          <div>
+                            <div className="text-sm font-bold" style={{ color: C.text }}>{p.name}</div>
+                            <div className="text-xs" style={{ color: C.text3 }}>{p.diagnosis}</div>
+                          </div>
+                        </div>
+                        <StatusBadge status={p.status} />
+                      </div>
+
+                      {/* Metrics row */}
+                      <div className="grid grid-cols-3 gap-3 mb-4">
+                        <div className="text-center">
+                          <div className="text-lg font-bold" style={{ color: C.text }}>{p.gaitScore}</div>
+                          <div className="text-xs" style={{ color: C.text3 }}>Gait Score</div>
+                          <div
+                            className="text-xs font-semibold flex items-center justify-center gap-0.5"
+                            style={{ color: p.gaitDelta > 0 ? C.green : p.gaitDelta < 0 ? C.red : C.text3 }}
+                          >
+                            {p.gaitDelta > 0 ? <TrendingUp size={10} /> : p.gaitDelta < 0 ? <TrendingDown size={10} /> : <Minus size={10} />}
+                            {p.gaitDelta > 0 ? "+" : ""}{p.gaitDelta}
+                          </div>
+                        </div>
+                        <div className="text-center">
+                          <div className="text-lg font-bold" style={{ color: C.text }}>{p.compliance}%</div>
+                          <div className="text-xs" style={{ color: C.text3 }}>Compliance</div>
+                          <div className="h-1 rounded-full mt-1 mx-2" style={{ backgroundColor: C.border }}>
+                            <div className="h-full rounded-full" style={{ width: `${p.compliance}%`, backgroundColor: p.compliance >= 80 ? C.green : p.compliance >= 60 ? C.amber : C.red }} />
+                          </div>
+                        </div>
+                        <div className="text-center">
+                          <div className="text-lg font-bold" style={{ color: C.text }}>Wk {p.week}</div>
+                          <div className="text-xs" style={{ color: C.text3 }}>of {p.totalWeeks}</div>
+                          <div className="h-1 rounded-full mt-1 mx-2" style={{ backgroundColor: C.border }}>
+                            <div className="h-full rounded-full" style={{ width: `${(p.week / p.totalWeeks) * 100}%`, backgroundColor: p.color }} />
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Sparkline */}
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <div className="text-xs font-medium mb-1" style={{ color: C.text3 }}>Gait score trend</div>
+                          <MiniSparkline data={p.trend} color={p.color} />
+                        </div>
+                        <div className="text-right">
+                          <div className="text-xs" style={{ color: C.text3 }}>Last activity</div>
+                          <div className="text-xs font-semibold" style={{ color: C.text }}>{p.lastActivity}</div>
+                          <div className="text-xs mt-1" style={{ color: p.color }}>{p.nextAction}</div>
+                        </div>
+                      </div>
+                    </motion.div>
+                  ))}
+                </div>
+              </motion.div>
+            )}
+
+            {/* ── DECISION LOG TAB ── */}
+            {activeTab === "log" && (
+              <motion.div
+                key="log"
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0 }}
+              >
+                <div
+                  className="rounded-2xl overflow-hidden"
+                  style={{ backgroundColor: C.surface, border: `1px solid ${C.border}` }}
+                >
+                  {/* Table header */}
+                  <div
+                    className="grid grid-cols-5 gap-4 px-5 py-3 text-xs font-semibold border-b"
+                    style={{ backgroundColor: C.bg, borderColor: C.border, color: C.text3 }}
+                  >
+                    <div>Time</div>
+                    <div>Patient</div>
+                    <div>Agent Proposal</div>
+                    <div>Therapist Decision</div>
+                    <div>Detail</div>
+                  </div>
+
+                  {/* All decisions */}
+                  {[...decisions, ...recentDecisions.slice(decisions.length)].map((d, i) => (
+                    <div
+                      key={d.id}
+                      className="grid grid-cols-5 gap-4 px-5 py-3.5 text-xs border-b items-center"
+                      style={{ borderColor: C.border, backgroundColor: i % 2 === 0 ? C.surface : "#FAFBFC" }}
+                    >
+                      <div style={{ color: C.text3 }}>{d.time}</div>
+                      <div className="font-semibold" style={{ color: C.text }}>{d.patient}</div>
+                      <div style={{ color: C.text2 }}>{d.detail}</div>
+                      <div>
+                        <span
+                          className="px-2 py-0.5 rounded-full font-semibold"
+                          style={{
+                            backgroundColor:
+                              d.type === "approved" ? C.greenDim :
+                              d.type === "modified" ? C.blueDim : C.redDim,
+                            color:
+                              d.type === "approved" ? C.green :
+                              d.type === "modified" ? C.blue : C.red,
+                          }}
+                        >
+                          {d.action}
+                        </span>
+                      </div>
+                      <div style={{ color: C.text3 }}>
+                        {d.type === "approved" ? "Executed automatically" :
+                         d.type === "modified" ? "Therapist edited before approval" :
+                         "Agent proposal discarded"}
                       </div>
                     </div>
-                    <div className="w-full rounded-full h-1.5" style={{ backgroundColor: C.bg, border: `1px solid ${C.border}` }}>
-                      <motion.div
-                        initial={{ width: 0 }}
-                        animate={{ width: `${p.compliance}%` }}
-                        transition={{ duration: 0.8, ease: "easeOut", delay: 0.3 }}
-                        className="h-1.5 rounded-full"
-                        style={{ backgroundColor: p.color }}
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </motion.div>
+                  ))}
+                </div>
+              </motion.div>
+            )}
 
-            <motion.div
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.25 }}
-              className="rounded-2xl p-5"
-              style={{ backgroundColor: C.surface, border: `1px solid ${C.border}`, boxShadow: "0 1px 3px rgba(0,0,0,0.07)" }}
-            >
-              <h3 className="text-sm font-semibold mb-0.5" style={{ color: C.text }}>Recent Activity Feed</h3>
-              <p className="text-xs mb-4" style={{ color: C.text3 }}>Latest patient actions across your caseload</p>
-              <div className="space-y-2.5">
-                {activityFeed.map((item) => (
-                  <div key={item.id} className="flex items-start gap-3">
-                    <div
-                      className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5"
-                      style={{
-                        backgroundColor: item.type === "success" ? "#F0FDF4" : item.type === "warning" ? "#FFFBEB" : C.tealDim,
-                      }}
-                    >
-                      {item.type === "success" ? (
-                        <CheckCircle2 size={13} style={{ color: C.green }} />
-                      ) : item.type === "warning" ? (
-                        <AlertTriangle size={13} style={{ color: C.amber }} />
-                      ) : (
-                        <Activity size={13} style={{ color: C.teal }} />
-                      )}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs leading-relaxed" style={{ color: C.text2 }}>
-                        <span className="font-semibold" style={{ color: C.text }}>{item.patient}</span>
-                        {" "}
-                        <span style={{ color: item.type === "success" ? C.green : item.type === "warning" ? C.amber : C.teal, fontWeight: 600 }}>
-                          {item.action}:
-                        </span>
-                        {" "}{item.detail}
-                      </p>
-                      <p className="text-xs mt-0.5 flex items-center gap-1" style={{ color: C.text3 }}>
-                        <Clock size={9} />
-                        {item.time}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </motion.div>
-          </div>
-
-          {/* Bottom CTA */}
-          <motion.div
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.35 }}
-            className="flex flex-col sm:flex-row items-center justify-between gap-4 rounded-2xl p-5"
-            style={{ backgroundColor: C.surface, border: `1px solid ${C.border}`, boxShadow: "0 1px 3px rgba(0,0,0,0.07)" }}
-          >
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ backgroundColor: C.tealDim }}>
-                <Zap size={18} style={{ color: C.teal }} />
-              </div>
-              <div>
-                <p className="text-sm font-semibold" style={{ color: C.text }}>Start a new patient assessment</p>
-                <p className="text-xs" style={{ color: C.text2 }}>Upload gait videos to generate a new report in under 3 minutes</p>
-              </div>
-            </div>
-            <button
-              onClick={() => navigate("/upload")}
-              className="flex-shrink-0 flex items-center gap-2 font-bold px-5 py-2.5 rounded-xl text-sm text-white transition-all hover:opacity-90"
-              style={{ backgroundColor: C.teal, boxShadow: `0 4px 16px ${C.teal}40` }}
-            >
-              New Assessment
-              <ChevronRight size={15} />
-            </button>
-          </motion.div>
+          </AnimatePresence>
         </div>
       </div>
     </div>

@@ -19,6 +19,7 @@ import {
   Target, Dumbbell, Calendar, Apple, User, Clock,
   CheckCircle2, AlertCircle, Flame, Heart, Zap,
   LayoutGrid, Users, Plus, Trash2, Play, X, Camera, CameraOff, Activity,
+  Bot, ThumbsUp, ThumbsDown, Sparkles, TrendingUp, TrendingDown,
 } from "lucide-react";
 
 const C = {
@@ -1004,6 +1005,146 @@ function HipPelvicModal({ onClose }: { onClose: () => void }) {
   );
 }
 
+// ─── Agent Proposals Banner ─────────────────────────────────────────────────
+
+const AGENT_PROPOSALS = [
+  {
+    id: "p1",
+    type: "adapt",
+    title: "Increase Hip Flexor Stretch intensity",
+    rationale: "Gait speed improved +0.08 m/s over 7 days. Patient is ready to progress from 3×30s to 4×45s hold with added resistance band.",
+    impact: "Estimated +12% ROM gain over next 2 weeks",
+    trend: "up",
+    priority: "high",
+  },
+  {
+    id: "p2",
+    type: "alert",
+    title: "Reduce Balance Training frequency this week",
+    rationale: "Pain VAS reported 6/10 after Tuesday session. Agent recommends reducing balance sessions from 4×/week to 3×/week until pain resolves.",
+    impact: "Prevents overload injury risk",
+    trend: "down",
+    priority: "moderate",
+  },
+  {
+    id: "p3",
+    type: "add",
+    title: "Add Stair Climbing to Friday session",
+    rationale: "Single-leg stance time improved to 7.1s (target: 8s). Patient is functionally ready to introduce stair training as per Week 4 progression criteria.",
+    impact: "Advances functional independence milestone",
+    trend: "up",
+    priority: "moderate",
+  },
+];
+
+function AgentProposalsBanner() {
+  const [dismissed, setDismissed] = useState<string[]>([]);
+  const [approved, setApproved] = useState<string[]>([]);
+  const visible = AGENT_PROPOSALS.filter((p) => !dismissed.includes(p.id));
+
+  if (visible.length === 0) return null;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 0.08 }}
+      className="mb-6 rounded-2xl overflow-hidden"
+      style={{ border: `1.5px solid rgba(124,58,237,0.25)`, backgroundColor: "rgba(124,58,237,0.04)" }}
+    >
+      {/* Header */}
+      <div
+        className="flex items-center gap-2.5 px-5 py-3.5"
+        style={{ borderBottom: `1px solid rgba(124,58,237,0.15)`, backgroundColor: "rgba(124,58,237,0.08)" }}
+      >
+        <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ backgroundColor: "rgba(124,58,237,0.15)" }}>
+          <Bot size={14} style={{ color: C.purple }} />
+        </div>
+        <div>
+          <span className="text-sm font-bold" style={{ color: C.purple }}>AxonAI Agent — Plan Adaptation Proposals</span>
+          <span className="ml-2 text-xs px-2 py-0.5 rounded-full font-medium" style={{ backgroundColor: "rgba(124,58,237,0.15)", color: C.purple }}>{visible.length} pending review</span>
+        </div>
+        <div className="ml-auto flex items-center gap-1.5 text-xs" style={{ color: C.text3 }}>
+          <Sparkles size={11} />
+          <span>Based on last 7 days of patient data</span>
+        </div>
+      </div>
+
+      {/* Proposals */}
+      <div className="p-4 space-y-3">
+        {visible.map((p) => {
+          const isApproved = approved.includes(p.id);
+          return (
+            <motion.div
+              key={p.id}
+              layout
+              className="rounded-xl p-4"
+              style={{
+                backgroundColor: isApproved ? "rgba(5,150,105,0.06)" : C.surface,
+                border: `1px solid ${isApproved ? "rgba(5,150,105,0.3)" : C.border}`,
+              }}
+            >
+              <div className="flex items-start gap-3">
+                <div
+                  className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5"
+                  style={{
+                    backgroundColor: p.priority === "high" ? C.red + "15" : C.amber + "15",
+                  }}
+                >
+                  {p.trend === "up" ? (
+                    <TrendingUp size={13} style={{ color: p.priority === "high" ? C.red : C.amber }} />
+                  ) : (
+                    <TrendingDown size={13} style={{ color: p.priority === "high" ? C.red : C.amber }} />
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1 flex-wrap">
+                    <span className="text-sm font-semibold" style={{ color: C.text }}>{p.title}</span>
+                    <span
+                      className="text-xs px-2 py-0.5 rounded-full font-medium flex-shrink-0"
+                      style={{
+                        backgroundColor: p.priority === "high" ? C.red + "12" : C.amber + "12",
+                        color: p.priority === "high" ? C.red : C.amber,
+                      }}
+                    >
+                      {p.priority === "high" ? "High priority" : "Moderate"}
+                    </span>
+                    {isApproved && (
+                      <span className="text-xs px-2 py-0.5 rounded-full font-medium flex-shrink-0" style={{ backgroundColor: C.green + "15", color: C.green }}>
+                        ✓ Approved
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs mb-1.5 leading-relaxed" style={{ color: C.text2 }}>{p.rationale}</p>
+                  <p className="text-xs font-medium" style={{ color: C.purple }}>→ {p.impact}</p>
+                </div>
+                {!isApproved && (
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <button
+                      onClick={() => setApproved((a) => [...a, p.id])}
+                      className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg font-semibold transition-all hover:opacity-80"
+                      style={{ backgroundColor: C.green + "15", color: C.green, border: `1px solid ${C.green}30` }}
+                    >
+                      <ThumbsUp size={11} /> Approve
+                    </button>
+                    <button
+                      onClick={() => setDismissed((d) => [...d, p.id])}
+                      className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg font-semibold transition-all hover:opacity-80"
+                      style={{ backgroundColor: C.red + "10", color: C.red, border: `1px solid ${C.red}25` }}
+                    >
+                      <ThumbsDown size={11} /> Dismiss
+                    </button>
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          );
+        })}
+      </div>
+    </motion.div>
+  );
+}
+
 // ─── Progressive Training Plan (derived from weekly schedule) ─────────────────
 
 function DerivedTrainingPlan({ schedule, onOpenHipPelvic }: { schedule: DaySchedule[]; onOpenHipPelvic: () => void }) {
@@ -1238,6 +1379,9 @@ export default function RehabPlanPage() {
             Based on current gait data, the most prominent abnormal feature is reduced walking speed (0.65 m/s), indicating impaired gait efficiency and stability. Significant compensatory strategies are observed. The following progressive plan focuses on restoring gait rhythm, lower limb control, balance, and walking ability.
           </p>
         </motion.div>
+
+        {/* Agent Proposals Banner */}
+        <AgentProposalsBanner />
 
         {/* Expandable modules */}
         <div className="space-y-3">
