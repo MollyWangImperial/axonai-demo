@@ -4,8 +4,9 @@ export interface User {
   id: string;
   name: string;
   email: string;
-  role: "therapist" | "clinician" | "admin";
+  role: "therapist" | "clinician" | "admin" | "patient";
   institution: string;
+  patientId?: string; // only for patient role
 }
 
 interface AuthContextType {
@@ -34,6 +35,25 @@ const MOCK_USERS: (User & { password: string })[] = [
     password: "demo123",
     role: "clinician",
     institution: "Imperial College Healthcare NHS Trust",
+  },
+  // Patient demo accounts
+  {
+    id: "p1",
+    name: "James Thornton",
+    email: "james.thornton@patient.axonai.com",
+    password: "patient123",
+    role: "patient",
+    institution: "King's College Hospital NHS",
+    patientId: "PT-001",
+  },
+  {
+    id: "p2",
+    name: "Margaret Ellis",
+    email: "margaret.ellis@patient.axonai.com",
+    password: "patient123",
+    role: "patient",
+    institution: "King's College Hospital NHS",
+    patientId: "PT-002",
   },
 ];
 

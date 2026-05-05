@@ -16,6 +16,9 @@ import RehabPlanPage from "./pages/RehabPlanPage";
 import DashboardPage from "./pages/DashboardPage";
 import PatientTimelinePage from "./pages/PatientTimelinePage";
 import DecisionLogPage from "./pages/DecisionLogPage";
+import PatientHomePage from "./pages/PatientHomePage";
+import PatientUploadPage from "./pages/PatientUploadPage";
+import PatientMessagesPage from "./pages/PatientMessagesPage";
 
 // Chinese pages
 import HomeZh from "./pages/zh/HomeZh";
@@ -37,6 +40,11 @@ function Router() {
       <Route path="/dashboard" component={DashboardPage} />
       <Route path="/patient/:id" component={PatientTimelinePage} />
       <Route path="/decision-log" component={DecisionLogPage} />
+
+      {/* Patient workspace routes */}
+      <Route path="/patient-home" component={PatientHomePage} />
+      <Route path="/patient-upload" component={PatientUploadPage} />
+      <Route path="/patient-messages" component={PatientMessagesPage} />
 
       {/* Chinese routes */}
       <Route path="/zh" component={HomeZh} />

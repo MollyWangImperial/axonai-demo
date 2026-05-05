@@ -23,7 +23,7 @@ const C = {
 
 export default function LoginPage() {
   const [, navigate] = useLocation();
-  const { login } = useAuth();
+  const { login, user } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPw, setShowPw] = useState(false);
@@ -37,14 +37,21 @@ export default function LoginPage() {
     const ok = await login(email, password);
     setLoading(false);
     if (ok) {
-      navigate("/upload");
+      // Role-based redirect: patients go to patient workspace, therapists/clinicians go to dashboard
+      const stored = sessionStorage.getItem("axonai_user");
+      const u = stored ? JSON.parse(stored) : null;
+      if (u?.role === "patient") {
+        navigate("/patient-home");
+      } else {
+        navigate("/dashboard");
+      }
     } else {
-      setError("Invalid credentials. Use the demo account below.");
+      setError("Incorrect email or password. Please try again.");
     }
   };
 
   const fillDemo = () => {
-    setEmail("sarah.mitchell@nhs.uk");
+    setEmail("erisa@axonai.com");
     setPassword("demo123");
     setError("");
   };
