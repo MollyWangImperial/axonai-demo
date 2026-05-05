@@ -40,8 +40,8 @@ const MOCK_USERS: (User & { password: string })[] = [
   {
     id: "p1",
     name: "James Thornton",
-    email: "james.thornton@patient.axonai.com",
-    password: "patient123",
+    email: "james@axonai.com",
+    password: "demo123",
     role: "patient",
     institution: "King's College Hospital NHS",
     patientId: "PT-001",
@@ -49,8 +49,8 @@ const MOCK_USERS: (User & { password: string })[] = [
   {
     id: "p2",
     name: "Margaret Ellis",
-    email: "margaret.ellis@patient.axonai.com",
-    password: "patient123",
+    email: "margaret@axonai.com",
+    password: "demo123",
     role: "patient",
     institution: "King's College Hospital NHS",
     patientId: "PT-002",
