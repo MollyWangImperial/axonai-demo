@@ -471,7 +471,7 @@ function AutoMetricsModule() {
         number={2}
         icon={BarChart2}
         title="Kinematic & Spatiotemporal Metrics"
-        subtitle="Automatically derived from walking video via OpenPose + OpenCap — no additional input required"
+        subtitle="Objective movement parameters that quantify how a patient walks, moves, and maintains balance — forming the clinical foundation for diagnosis and progress tracking"
         color="#2563EB"
       />
       <div className="space-y-3">
@@ -550,58 +550,93 @@ const YOUTUBE_IDS: Record<string, string> = {
 
 function VideoThumb({ type, label }: { type: string; label: string }) {
   const ytId = YOUTUBE_IDS[type];
+  const [expanded, setExpanded] = useState(false);
 
   if (ytId) {
     const thumbUrl = `https://img.youtube.com/vi/${ytId}/hqdefault.jpg`;
     const watchUrl = `https://www.youtube.com/watch?v=${ytId}`;
     return (
-      <div className="w-full rounded-xl overflow-hidden" style={{ border: `1px solid ${C.border}` }}>
-        {/* Thumbnail with play overlay */}
-        <div className="relative w-full" style={{ paddingBottom: "56.25%" }}>
-          <img
-            src={thumbUrl}
-            alt={label}
-            className="absolute inset-0 w-full h-full object-cover"
-          />
-          {/* Dark gradient overlay */}
-          <div className="absolute inset-0" style={{ background: "linear-gradient(to top, rgba(0,0,0,0.55) 0%, transparent 60%)" }} />
-          {/* Play button */}
-          <div className="absolute inset-0 flex items-center justify-center">
-            <div
-              className="w-14 h-14 rounded-full flex items-center justify-center shadow-lg"
-              style={{ backgroundColor: "rgba(255,255,255,0.92)" }}
-            >
-              <Play size={22} style={{ color: C.blue, marginLeft: 3 }} />
-            </div>
-          </div>
-          {/* Duration badge */}
-          <div
-            className="absolute bottom-2 right-2 text-xs font-semibold px-2 py-0.5 rounded"
-            style={{ backgroundColor: "rgba(0,0,0,0.75)", color: "#fff" }}
-          >
-            0:54
-          </div>
-        </div>
-        {/* Footer */}
-        <div
-          className="flex items-center justify-between px-3 py-2.5"
-          style={{ backgroundColor: C.surface }}
+      <div className="w-full">
+        {/* Expandable toggle button */}
+        <button
+          onClick={() => setExpanded((v) => !v)}
+          className="flex items-center gap-2 text-xs font-medium px-3 py-1.5 rounded-lg transition-all hover:opacity-80"
+          style={{
+            backgroundColor: expanded ? C.blue + "12" : C.bg,
+            border: `1px solid ${expanded ? C.blue + "40" : C.border}`,
+            color: expanded ? C.blue : C.text2,
+          }}
         >
-          <div>
-            <div className="text-xs font-semibold" style={{ color: C.text }}>Single-Leg Stance – Post-stroke</div>
-            <div className="text-xs" style={{ color: C.text3 }}>American Heart Association · 25K views</div>
-          </div>
-          <a
-            href={watchUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg transition-all hover:opacity-80"
-            style={{ backgroundColor: C.blue, color: "#fff" }}
-          >
-            <Play size={11} style={{ marginLeft: 1 }} />
-            Watch
-          </a>
-        </div>
+          <Play size={11} style={{ color: expanded ? C.blue : C.text3 }} />
+          {expanded ? "Hide Instruction Video" : "Watch Instruction Video"}
+          <ChevronDown
+            size={12}
+            style={{
+              color: expanded ? C.blue : C.text3,
+              transform: expanded ? "rotate(180deg)" : "rotate(0deg)",
+              transition: "transform 0.2s",
+            }}
+          />
+        </button>
+
+        {/* Collapsible video panel */}
+        <AnimatePresence>
+          {expanded && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.22, ease: "easeInOut" }}
+              className="overflow-hidden"
+            >
+              <div className="mt-2 rounded-xl overflow-hidden" style={{ border: `1px solid ${C.border}` }}>
+                {/* Thumbnail with play overlay */}
+                <div className="relative w-full" style={{ paddingBottom: "56.25%" }}>
+                  <img
+                    src={thumbUrl}
+                    alt={label}
+                    className="absolute inset-0 w-full h-full object-cover"
+                  />
+                  <div className="absolute inset-0" style={{ background: "linear-gradient(to top, rgba(0,0,0,0.55) 0%, transparent 60%)" }} />
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <div
+                      className="w-14 h-14 rounded-full flex items-center justify-center shadow-lg"
+                      style={{ backgroundColor: "rgba(255,255,255,0.92)" }}
+                    >
+                      <Play size={22} style={{ color: C.blue, marginLeft: 3 }} />
+                    </div>
+                  </div>
+                  <div
+                    className="absolute bottom-2 right-2 text-xs font-semibold px-2 py-0.5 rounded"
+                    style={{ backgroundColor: "rgba(0,0,0,0.75)", color: "#fff" }}
+                  >
+                    0:54
+                  </div>
+                </div>
+                {/* Footer */}
+                <div
+                  className="flex items-center justify-between px-3 py-2.5"
+                  style={{ backgroundColor: C.surface }}
+                >
+                  <div>
+                    <div className="text-xs font-semibold" style={{ color: C.text }}>Single-Leg Stance – Post-stroke</div>
+                    <div className="text-xs" style={{ color: C.text3 }}>American Heart Association · 25K views</div>
+                  </div>
+                  <a
+                    href={watchUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg transition-all hover:opacity-80"
+                    style={{ backgroundColor: C.blue, color: "#fff" }}
+                  >
+                    <Play size={11} style={{ marginLeft: 1 }} />
+                    Watch on YouTube
+                  </a>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     );
   }
@@ -609,11 +644,11 @@ function VideoThumb({ type, label }: { type: string; label: string }) {
   // No video yet — coming soon placeholder
   return (
     <div
-      className="w-full h-16 rounded-lg flex items-center justify-center gap-2"
-      style={{ backgroundColor: "#F1F5F9", border: `1px dashed ${C.border}` }}
+      className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg"
+      style={{ backgroundColor: "#F1F5F9", border: `1px dashed ${C.border}`, color: C.text3 }}
     >
-      <Play size={14} style={{ color: C.text3 }} />
-      <span className="text-xs" style={{ color: C.text3 }}>Instruction video coming soon</span>
+      <Play size={11} style={{ color: C.text3 }} />
+      Instruction video coming soon
     </div>
   );
 }
