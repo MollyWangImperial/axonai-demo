@@ -98,10 +98,10 @@ export default function Navbar() {
               Book a Demo
             </button>
             <button
-              onClick={() => scrollTo("cta")}
+              onClick={() => window.location.href = "/login"}
               className="text-sm font-semibold px-4 py-2 rounded-lg btn-primary-teal"
             >
-              Get Started
+              Sign in
             </button>
           </div>
 
