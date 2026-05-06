@@ -1040,9 +1040,8 @@ const AGENT_PROPOSALS = [
 function AgentProposalsBanner() {
   const [dismissed, setDismissed] = useState<string[]>([]);
   const [approved, setApproved] = useState<string[]>([]);
+  const [aiEnabled, setAiEnabled] = useState(true);
   const visible = AGENT_PROPOSALS.filter((p) => !dismissed.includes(p.id));
-
-  if (visible.length === 0) return null;
 
   return (
     <motion.div
@@ -1064,14 +1063,32 @@ function AgentProposalsBanner() {
           <span className="text-sm font-bold" style={{ color: C.purple }}>AxonAI Agent — Plan Adaptation Proposals</span>
           <span className="ml-2 text-xs px-2 py-0.5 rounded-full font-medium" style={{ backgroundColor: "rgba(124,58,237,0.15)", color: C.purple }}>{visible.length} pending review</span>
         </div>
-        <div className="ml-auto flex items-center gap-1.5 text-xs" style={{ color: C.text3 }}>
-          <Sparkles size={11} />
-          <span>Based on last 7 days of patient data</span>
+        <div className="ml-auto flex items-center gap-3">
+          <span className="text-xs" style={{ color: C.text3 }}>
+            {aiEnabled ? "AI Adaptation: On" : "AI Adaptation: Off"}
+          </span>
+          {/* Toggle switch */}
+          <button
+            onClick={() => setAiEnabled(!aiEnabled)}
+            className="relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none"
+            style={{ backgroundColor: aiEnabled ? C.purple : C.border }}
+            title={aiEnabled ? "Turn off AI adaptation" : "Turn on AI adaptation"}
+          >
+            <span
+              className="inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform"
+              style={{ transform: aiEnabled ? "translateX(18px)" : "translateX(2px)" }}
+            />
+          </button>
         </div>
       </div>
 
-      {/* Proposals */}
-      <div className="p-4 space-y-3">
+      {/* Proposals — only shown when AI adaptation is enabled */}
+      {!aiEnabled && (
+        <div className="px-5 py-4 text-sm" style={{ color: C.text3 }}>
+          AI adaptation is currently <strong>disabled</strong>. The rehabilitation plan will not be automatically updated. Turn on AI adaptation to receive evidence-based plan adjustment proposals.
+        </div>
+      )}
+      {aiEnabled && <div className="p-4 space-y-3">
         {visible.map((p) => {
           const isApproved = approved.includes(p.id);
           return (
@@ -1140,7 +1157,7 @@ function AgentProposalsBanner() {
             </motion.div>
           );
         })}
-      </div>
+      </div>}
     </motion.div>
   );
 }
