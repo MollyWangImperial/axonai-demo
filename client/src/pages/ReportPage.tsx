@@ -460,6 +460,688 @@ function OverviewModule({ metrics }: { metrics: any }) {
   );
 }
 
+// ─── Biomechanics Module A: Muscle Strength Heatmap ─────────────────────────
+
+const muscleData = [
+  { id: "gluteusMaximus", name: "Gluteus Maximus",  affected: 52, healthy: 100, cx: 120, cy: 148, r: 22 },
+  { id: "gluteusMedius",  name: "Gluteus Medius",   affected: 61, healthy: 100, cx: 100, cy: 132, r: 14 },
+  { id: "quadriceps",    name: "Quadriceps",        affected: 44, healthy: 100, cx: 118, cy: 210, r: 20 },
+  { id: "gastrocnemius", name: "Gastrocnemius",     affected: 58, healthy: 100, cx: 118, cy: 310, r: 16 },
+  { id: "tibialisAnt",   name: "Tibialis Anterior", affected: 67, healthy: 100, cx: 112, cy: 340, r: 12 },
+];
+
+function muscleColor(pct: number): string {
+  if (pct > 85) return "#22c55e";
+  if (pct > 70) return "#a3e635";
+  if (pct > 50) return "#f59e0b";
+  return "#ef4444";
+}
+
+function MuscleStrengthModule() {
+  const [hovered, setHovered] = useState<string | null>(null);
+  const [side, setSide] = useState<"affected" | "healthy">("affected");
+
+  const hoveredMuscle = muscleData.find((m) => m.id === hovered);
+
+  return (
+    <ModuleCard>
+      <ModuleHeader
+        number={2}
+        icon={Activity}
+        title="Muscle Strength Heatmap"
+        subtitle="Affected-side muscle activation relative to healthy-side reference (100 = healthy). Hover over each muscle group to see details."
+        color="#00B89A"
+      />
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Left: SVG body heatmap */}
+        <div className="flex flex-col items-center gap-3">
+          {/* Side toggle */}
+          <div className="flex items-center gap-1 rounded-xl p-1" style={{ backgroundColor: C.bg, border: `1px solid ${C.border}` }}>
+            {(["affected", "healthy"] as const).map((s) => (
+              <button
+                key={s}
+                onClick={() => setSide(s)}
+                className="px-4 py-1.5 rounded-lg text-xs font-semibold transition-all"
+                style={{
+                  backgroundColor: side === s ? C.teal : "transparent",
+                  color: side === s ? "#fff" : C.text2,
+                }}
+              >
+                {s === "affected" ? "Affected Side (L)" : "Healthy Side (R)"}
+              </button>
+            ))}
+          </div>
+
+          {/* SVG posterior leg figure */}
+          <div className="relative" style={{ width: 240, height: 420 }}>
+            <svg viewBox="0 0 240 420" width="240" height="420">
+              {/* Torso */}
+              <ellipse cx="120" cy="80" rx="42" ry="50" fill="#e2e8f0" stroke="#cbd5e1" strokeWidth="1.5" />
+              {/* Pelvis */}
+              <ellipse cx="120" cy="130" rx="48" ry="22" fill="#e2e8f0" stroke="#cbd5e1" strokeWidth="1.5" />
+              {/* Left thigh */}
+              <rect x="96" y="148" width="36" height="90" rx="18" fill="#e2e8f0" stroke="#cbd5e1" strokeWidth="1.5" />
+              {/* Left knee */}
+              <ellipse cx="114" cy="245" rx="18" ry="12" fill="#e2e8f0" stroke="#cbd5e1" strokeWidth="1.5" />
+              {/* Left lower leg */}
+              <rect x="100" y="255" width="28" height="90" rx="14" fill="#e2e8f0" stroke="#cbd5e1" strokeWidth="1.5" />
+              {/* Left foot */}
+              <ellipse cx="112" cy="355" rx="20" ry="9" fill="#e2e8f0" stroke="#cbd5e1" strokeWidth="1.5" />
+
+              {/* Right thigh */}
+              <rect x="108" y="148" width="36" height="90" rx="18" fill="#e2e8f0" stroke="#cbd5e1" strokeWidth="1.5" />
+              {/* Right knee */}
+              <ellipse cx="126" cy="245" rx="18" ry="12" fill="#e2e8f0" stroke="#cbd5e1" strokeWidth="1.5" />
+              {/* Right lower leg */}
+              <rect x="112" y="255" width="28" height="90" rx="14" fill="#e2e8f0" stroke="#cbd5e1" strokeWidth="1.5" />
+              {/* Right foot */}
+              <ellipse cx="128" cy="355" rx="20" ry="9" fill="#e2e8f0" stroke="#cbd5e1" strokeWidth="1.5" />
+
+              {/* Muscle overlays */}
+              {muscleData.map((m) => {
+                const val = side === "affected" ? m.affected : m.healthy;
+                const col = side === "healthy" ? "#22c55e" : muscleColor(val);
+                const isHov = hovered === m.id;
+                return (
+                  <g key={m.id}>
+                    <circle
+                      cx={m.cx}
+                      cy={m.cy}
+                      r={isHov ? m.r + 4 : m.r}
+                      fill={col}
+                      fillOpacity={isHov ? 0.9 : 0.7}
+                      stroke={isHov ? col : "transparent"}
+                      strokeWidth={2}
+                      style={{ cursor: "pointer", transition: "all 0.2s" }}
+                      onMouseEnter={() => setHovered(m.id)}
+                      onMouseLeave={() => setHovered(null)}
+                    />
+                    <text
+                      x={m.cx}
+                      y={m.cy + 1}
+                      textAnchor="middle"
+                      dominantBaseline="middle"
+                      fontSize="9"
+                      fontWeight="700"
+                      fill="#fff"
+                      style={{ pointerEvents: "none" }}
+                    >
+                      {val}%
+                    </text>
+                  </g>
+                );
+              })}
+
+              {/* Labels */}
+              {muscleData.map((m) => (
+                <text
+                  key={m.id + "_lbl"}
+                  x={m.cx - m.r - 6}
+                  y={m.cy}
+                  textAnchor="end"
+                  dominantBaseline="middle"
+                  fontSize="9"
+                  fill={hovered === m.id ? C.teal : "#64748b"}
+                  fontWeight={hovered === m.id ? "700" : "400"}
+                  style={{ transition: "fill 0.2s" }}
+                >
+                  {m.name}
+                </text>
+              ))}
+            </svg>
+
+            {/* Hover tooltip */}
+            {hoveredMuscle && (
+              <div
+                className="absolute left-full ml-3 top-1/2 -translate-y-1/2 rounded-xl p-3 text-xs shadow-lg z-10"
+                style={{ backgroundColor: C.surface, border: `1px solid ${C.border}`, minWidth: 160 }}
+              >
+                <div className="font-bold mb-1" style={{ color: C.text }}>{hoveredMuscle.name}</div>
+                <div className="flex items-center justify-between gap-4 mb-1">
+                  <span style={{ color: C.text3 }}>Affected</span>
+                  <span className="font-bold" style={{ color: muscleColor(hoveredMuscle.affected) }}>{hoveredMuscle.affected}%</span>
+                </div>
+                <div className="flex items-center justify-between gap-4 mb-2">
+                  <span style={{ color: C.text3 }}>Healthy</span>
+                  <span className="font-bold" style={{ color: C.green }}>100%</span>
+                </div>
+                <div className="w-full h-1.5 rounded-full" style={{ backgroundColor: C.border }}>
+                  <div className="h-1.5 rounded-full" style={{ width: `${hoveredMuscle.affected}%`, backgroundColor: muscleColor(hoveredMuscle.affected) }} />
+                </div>
+                <div className="mt-1.5 text-center" style={{ color: C.text3 }}>
+                  {hoveredMuscle.affected > 85 ? "No significant deficit" :
+                   hoveredMuscle.affected > 70 ? "Mild deficit" :
+                   hoveredMuscle.affected > 50 ? "Moderate deficit" : "Severe deficit"}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Legend */}
+          <div className="flex items-center gap-3 flex-wrap justify-center">
+            {[
+              { label: "No deficit (>85%)",    color: "#22c55e" },
+              { label: "Mild (70–85%)",         color: "#a3e635" },
+              { label: "Moderate (50–70%)",     color: "#f59e0b" },
+              { label: "Severe (<50%)",         color: "#ef4444" },
+            ].map((l) => (
+              <div key={l.label} className="flex items-center gap-1.5">
+                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: l.color }} />
+                <span className="text-xs" style={{ color: C.text3 }}>{l.label}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Right: Clinical insights */}
+        <div className="flex flex-col gap-3">
+          <div className="flex items-center gap-2 mb-1">
+            <div className="w-5 h-5 rounded-full flex items-center justify-center" style={{ backgroundColor: C.tealDim }}>
+              <Activity size={11} style={{ color: C.teal }} />
+            </div>
+            <span className="text-sm font-semibold" style={{ color: C.text }}>Clinical Insights</span>
+          </div>
+          {[
+            {
+              n: "01", icon: "🎯", title: "Weak Muscle Localisation",
+              body: "Affected-side gluteus maximus, quadriceps, and tibialis anterior show insufficient activation, indicating impaired balance support, knee extension, and ankle dorsiflexion capacity.",
+            },
+            {
+              n: "02", icon: "🚶", title: "Functional Consequences",
+              body: "Likely manifests as single-leg stance instability, insufficient sit-to-stand force, and difficulty clearing the foot during swing phase.",
+            },
+            {
+              n: "03", icon: "📈", title: "Training Priority",
+              body: "Prioritise hip abductor stabilisation, knee extension strengthening, and ankle dorsiflexion control as early intervention targets.",
+            },
+            {
+              n: "04", icon: "📋", title: "Rehabilitation Decision Value",
+              body: "Enables the therapist to progress from 'which muscle is weak' to 'which joint control is impaired' and 'which movements should be prioritised'.",
+            },
+          ].map((ins) => (
+            <div
+              key={ins.n}
+              className="rounded-xl p-4 flex items-start gap-3"
+              style={{ backgroundColor: C.bg, border: `1px solid ${C.border}` }}
+            >
+              <div className="flex-shrink-0 flex flex-col items-center gap-1">
+                <span className="text-lg">{ins.icon}</span>
+                <span className="text-xs font-bold" style={{ color: C.teal }}>{ins.n}</span>
+              </div>
+              <div>
+                <div className="text-sm font-semibold mb-1" style={{ color: C.text }}>{ins.title}</div>
+                <div className="text-xs leading-relaxed" style={{ color: C.text2 }}>{ins.body}</div>
+              </div>
+            </div>
+          ))}
+          {/* Conclusion */}
+          <div
+            className="rounded-xl p-4 flex items-start gap-3"
+            style={{ backgroundColor: "rgba(0,184,154,0.06)", border: `1.5px solid ${C.teal}` }}
+          >
+            <CheckCircle2 size={16} style={{ color: C.teal, flexShrink: 0, marginTop: 2 }} />
+            <p className="text-xs leading-relaxed" style={{ color: C.text }}>
+              <strong>Conclusion:</strong> Muscle strength analysis not only identifies weak sites, but directly points to impaired joint control and training targets.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Per-muscle bar chart */}
+      <div className="mt-6">
+        <div className="text-xs font-semibold mb-3" style={{ color: C.text2 }}>Affected vs Healthy Side Comparison</div>
+        <div className="space-y-2">
+          {muscleData.map((m) => (
+            <div key={m.id} className="grid grid-cols-12 items-center gap-3">
+              <div className="col-span-3 text-xs font-medium" style={{ color: C.text2 }}>{m.name}</div>
+              <div className="col-span-7">
+                <div className="relative h-4 rounded-full overflow-hidden" style={{ backgroundColor: C.border }}>
+                  {/* Healthy reference */}
+                  <div className="absolute inset-0 rounded-full" style={{ width: "100%", backgroundColor: "#e2e8f0" }} />
+                  {/* Affected */}
+                  <div
+                    className="absolute inset-y-0 left-0 rounded-full"
+                    style={{ width: `${m.affected}%`, backgroundColor: muscleColor(m.affected), transition: "width 0.8s ease" }}
+                  />
+                </div>
+              </div>
+              <div className="col-span-2 text-right">
+                <span className="text-xs font-bold" style={{ color: muscleColor(m.affected) }}>{m.affected}%</span>
+                <span className="text-xs" style={{ color: C.text3 }}> / 100</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </ModuleCard>
+  );
+}
+
+// ─── Biomechanics Module B: Plantar Pressure ──────────────────────────────────
+
+function FootHeatmap({ side, peakPressure }: { side: "left" | "right"; peakPressure: number }) {
+  const isLeft = side === "left";
+  const isAffected = isLeft;
+  // Pressure zones: heel, midfoot, forefoot, toes
+  const zones = isAffected
+    ? [
+        { id: "heel",     cx: 50,  cy: 200, rx: 32, ry: 28, intensity: 0.35 },
+        { id: "midfoot",  cx: 46,  cy: 148, rx: 18, ry: 30, intensity: 0.15 },
+        { id: "forefoot", cx: 52,  cy: 90,  rx: 30, ry: 28, intensity: 0.25 },
+        { id: "toes",     cx: 52,  cy: 48,  rx: 24, ry: 18, intensity: 0.20 },
+        { id: "bigToe",   cx: 38,  cy: 30,  rx: 12, ry: 10, intensity: 0.18 },
+      ]
+    : [
+        { id: "heel",     cx: 50,  cy: 200, rx: 32, ry: 28, intensity: 0.80 },
+        { id: "midfoot",  cx: 46,  cy: 148, rx: 18, ry: 30, intensity: 0.40 },
+        { id: "forefoot", cx: 52,  cy: 90,  rx: 30, ry: 28, intensity: 0.75 },
+        { id: "toes",     cx: 52,  cy: 48,  rx: 24, ry: 18, intensity: 0.65 },
+        { id: "bigToe",   cx: 38,  cy: 30,  rx: 12, ry: 10, intensity: 0.70 },
+      ];
+
+  function pressureColor(intensity: number): string {
+    if (intensity > 0.7) return "#ef4444";
+    if (intensity > 0.5) return "#f97316";
+    if (intensity > 0.3) return "#f59e0b";
+    if (intensity > 0.15) return "#22d3ee";
+    return "#1e40af";
+  }
+
+  return (
+    <div className="flex flex-col items-center gap-2">
+      <div className="text-xs font-semibold" style={{ color: isAffected ? C.red : C.green }}>
+        {isAffected ? "Affected (Left)" : "Healthy (Right)"}
+      </div>
+      <svg viewBox="0 0 100 240" width="90" height="216" style={{ overflow: "visible" }}>
+        <defs>
+          {zones.map((z) => (
+            <radialGradient key={z.id} id={`grad_${side}_${z.id}`} cx="50%" cy="50%" r="50%">
+              <stop offset="0%" stopColor={pressureColor(z.intensity)} stopOpacity="0.95" />
+              <stop offset="100%" stopColor={pressureColor(z.intensity)} stopOpacity="0" />
+            </radialGradient>
+          ))}
+        </defs>
+        {/* Foot outline */}
+        <path
+          d="M 30 220 Q 10 200 12 160 Q 14 120 20 90 Q 26 60 32 40 Q 36 20 44 12 Q 52 4 62 10 Q 72 16 70 30 Q 68 44 60 50 Q 72 52 76 64 Q 80 76 74 86 Q 80 96 80 110 Q 82 130 78 160 Q 74 190 70 210 Q 60 230 50 232 Q 38 234 30 220 Z"
+          fill="#f1f5f9"
+          stroke="#cbd5e1"
+          strokeWidth="1.5"
+        />
+        {/* Pressure zones */}
+        {zones.map((z) => (
+          <ellipse
+            key={z.id}
+            cx={z.cx}
+            cy={z.cy}
+            rx={z.rx}
+            ry={z.ry}
+            fill={`url(#grad_${side}_${z.id})`}
+          />
+        ))}
+      </svg>
+      <div className="text-center">
+        <div
+          className="text-2xl font-black"
+          style={{ color: isAffected ? C.red : C.green }}
+        >
+          {peakPressure}
+        </div>
+        <div className="text-xs" style={{ color: C.text3 }}>N/cm² peak</div>
+        {isAffected && (
+          <div className="text-xs font-semibold mt-0.5" style={{ color: C.red }}>↓ 53% vs healthy</div>
+        )}
+        {!isAffected && (
+          <div className="text-xs mt-0.5" style={{ color: C.text3 }}>Ref: ≥ 70 N/cm²</div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function PlantarPressureModule() {
+  return (
+    <ModuleCard>
+      <ModuleHeader
+        number={3}
+        icon={Activity}
+        title="Plantar Pressure Analysis"
+        subtitle="Foot pressure distribution mapped from force-plate data. Compares affected vs healthy side to identify weight-bearing asymmetry and push-off deficits."
+        color="#2563EB"
+      />
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Left: Foot heatmaps */}
+        <div className="flex flex-col gap-4">
+          <div className="flex items-center justify-center gap-10">
+            <FootHeatmap side="left" peakPressure={42} />
+            <div className="flex flex-col items-center gap-2">
+              <span className="text-xs font-bold px-3 py-1 rounded-full" style={{ backgroundColor: C.border, color: C.text2 }}>VS</span>
+              <div className="flex flex-col gap-1.5">
+                {[
+                  { dot: "#ef4444", text: "Affected side insufficient weight-bearing — peak pressure markedly reduced" },
+                  { dot: "#f97316", text: "Reduced push-off — forefoot pressure insufficient" },
+                  { dot: "#f59e0b", text: "Support stability decreased — arch contact area reduced" },
+                ].map((item, i) => (
+                  <div key={i} className="flex items-start gap-2">
+                    <div className="w-2 h-2 rounded-full mt-1 flex-shrink-0" style={{ backgroundColor: item.dot }} />
+                    <span className="text-xs" style={{ color: C.text2 }}>{item.text}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <FootHeatmap side="right" peakPressure={89} />
+          </div>
+
+          {/* Pressure gradient legend */}
+          <div className="flex flex-col gap-1">
+            <div className="flex items-center justify-between text-xs" style={{ color: C.text3 }}>
+              <span>Low</span>
+              <span>Pressure Intensity</span>
+              <span>High</span>
+            </div>
+            <div
+              className="h-3 rounded-full"
+              style={{ background: "linear-gradient(to right, #1e40af, #22d3ee, #f59e0b, #f97316, #ef4444)" }}
+            />
+          </div>
+        </div>
+
+        {/* Right: Clinical insights */}
+        <div className="flex flex-col gap-3">
+          <div className="flex items-center gap-2 mb-1">
+            <div className="w-5 h-5 rounded-full flex items-center justify-center" style={{ backgroundColor: "rgba(37,99,235,0.1)" }}>
+              <Activity size={11} style={{ color: C.blue }} />
+            </div>
+            <span className="text-sm font-semibold" style={{ color: C.text }}>Clinical Insights</span>
+          </div>
+          {[
+            {
+              n: "01", icon: "⚖️", title: "Affected-Side Weight-Bearing Capacity",
+              body: "Affected-side peak pressure is significantly lower than the healthy side, indicating the patient is reluctant to fully load the affected foot, with insufficient weight-bearing participation.",
+            },
+            {
+              n: "02", icon: "🚶", title: "Functional Consequences",
+              body: "Likely manifests as centre-of-mass shift towards the healthy side during standing, insufficient gait propulsion, asymmetric gait pattern, and increased fall risk.",
+            },
+            {
+              n: "03", icon: "📈", title: "Training Priority",
+              body: "Prioritise affected-side weight-bearing training, centre-of-mass transfer control, plantar push-off capacity, and standing balance training as early intervention targets.",
+            },
+            {
+              n: "04", icon: "📋", title: "Rehabilitation Decision Value",
+              body: "Enables the therapist to progress from 'which foot avoids weight-bearing' to 'whether affected-side avoidance, insufficient propulsion, and support stability issues exist'.",
+            },
+          ].map((ins) => (
+            <div
+              key={ins.n}
+              className="rounded-xl p-4 flex items-start gap-3"
+              style={{ backgroundColor: C.bg, border: `1px solid ${C.border}` }}
+            >
+              <div className="flex-shrink-0 flex flex-col items-center gap-1">
+                <span className="text-lg">{ins.icon}</span>
+                <span className="text-xs font-bold" style={{ color: C.blue }}>{ins.n}</span>
+              </div>
+              <div>
+                <div className="text-sm font-semibold mb-1" style={{ color: C.text }}>{ins.title}</div>
+                <div className="text-xs leading-relaxed" style={{ color: C.text2 }}>{ins.body}</div>
+              </div>
+            </div>
+          ))}
+          <div
+            className="rounded-xl p-4 flex items-start gap-3"
+            style={{ backgroundColor: "rgba(37,99,235,0.06)", border: `1.5px solid ${C.blue}` }}
+          >
+            <CheckCircle2 size={16} style={{ color: C.blue, flexShrink: 0, marginTop: 2 }} />
+            <p className="text-xs leading-relaxed" style={{ color: C.text }}>
+              <strong>Conclusion:</strong> Plantar pressure analysis not only reveals left-right weight-bearing asymmetry, but directly uncovers affected-side avoidance, insufficient propulsion, and support stability issues.
+            </p>
+          </div>
+        </div>
+      </div>
+    </ModuleCard>
+  );
+}
+
+// ─── Biomechanics Module C: Compensatory Analysis ────────────────────────────
+
+const compensationNodes = [
+  {
+    id: "pelvis",
+    label: "Pelvic Anterior Tilt",
+    description: "Excessive lumbar anterior tilt (12°, ref 4–8°) — insufficient core stability",
+    severity: "high" as const,
+    cx: 120, cy: 155,
+  },
+  {
+    id: "hip",
+    label: "Hip Abduction / Hip Extension",
+    description: "Insufficient hip abduction control — quadriceps compensation substitution",
+    severity: "medium" as const,
+    cx: 105, cy: 185,
+  },
+  {
+    id: "ankle",
+    label: "Insufficient Ankle Dorsiflexion",
+    description: "Foot drag during swing phase — gastrocnemius compensation (toe walking)",
+    severity: "high" as const,
+    cx: 110, cy: 330,
+  },
+];
+
+function SkeletonFigure({ activeNode, onNodeClick }: { activeNode: string | null; onNodeClick: (id: string) => void }) {
+  const nodeColor = (sev: "high" | "medium" | "low") =>
+    sev === "high" ? C.red : sev === "medium" ? C.amber : C.green;
+
+  return (
+    <svg viewBox="0 0 240 420" width="200" height="350" style={{ overflow: "visible" }}>
+      {/* Skeleton lines */}
+      {/* Spine */}
+      <line x1="120" y1="40" x2="120" y2="155" stroke="#94a3b8" strokeWidth="3" strokeLinecap="round" />
+      {/* Shoulders */}
+      <line x1="80" y1="75" x2="160" y2="75" stroke="#94a3b8" strokeWidth="3" strokeLinecap="round" />
+      {/* Left arm */}
+      <line x1="80" y1="75" x2="60" y2="130" stroke="#94a3b8" strokeWidth="2.5" strokeLinecap="round" />
+      <line x1="60" y1="130" x2="50" y2="185" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" />
+      {/* Right arm */}
+      <line x1="160" y1="75" x2="180" y2="130" stroke="#94a3b8" strokeWidth="2.5" strokeLinecap="round" />
+      <line x1="180" y1="130" x2="190" y2="185" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" />
+      {/* Pelvis */}
+      <line x1="95" y1="155" x2="145" y2="155" stroke="#94a3b8" strokeWidth="3" strokeLinecap="round" />
+      {/* Left leg */}
+      <line x1="105" y1="155" x2="100" y2="245" stroke="#94a3b8" strokeWidth="3" strokeLinecap="round" />
+      <line x1="100" y1="245" x2="110" y2="335" stroke="#94a3b8" strokeWidth="2.5" strokeLinecap="round" />
+      <line x1="110" y1="335" x2="95" y2="355" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" />
+      {/* Right leg */}
+      <line x1="135" y1="155" x2="140" y2="245" stroke="#94a3b8" strokeWidth="3" strokeLinecap="round" />
+      <line x1="140" y1="245" x2="130" y2="335" stroke="#94a3b8" strokeWidth="2.5" strokeLinecap="round" />
+      <line x1="130" y1="335" x2="145" y2="355" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" />
+
+      {/* Skeleton joints */}
+      {[
+        { cx: 120, cy: 40, r: 12 },   // head
+        { cx: 120, cy: 65, r: 5 },    // neck
+        { cx: 80,  cy: 75, r: 5 },    // L shoulder
+        { cx: 160, cy: 75, r: 5 },    // R shoulder
+        { cx: 60,  cy: 130, r: 4 },   // L elbow
+        { cx: 180, cy: 130, r: 4 },   // R elbow
+        { cx: 50,  cy: 185, r: 4 },   // L wrist
+        { cx: 190, cy: 185, r: 4 },   // R wrist
+        { cx: 120, cy: 155, r: 6 },   // pelvis center
+        { cx: 100, cy: 245, r: 5 },   // L knee
+        { cx: 140, cy: 245, r: 5 },   // R knee
+        { cx: 110, cy: 335, r: 4 },   // L ankle
+        { cx: 130, cy: 335, r: 4 },   // R ankle
+      ].map((j, i) => (
+        <circle key={i} cx={j.cx} cy={j.cy} r={j.r} fill="#e2e8f0" stroke="#94a3b8" strokeWidth="1.5" />
+      ))}
+
+      {/* Compensation annotation nodes */}
+      {compensationNodes.map((node) => {
+        const isActive = activeNode === node.id;
+        const col = nodeColor(node.severity);
+        return (
+          <g key={node.id} style={{ cursor: "pointer" }} onClick={() => onNodeClick(node.id)}>
+            {/* Pulse ring */}
+            {isActive && (
+              <circle
+                cx={node.cx}
+                cy={node.cy}
+                r={18}
+                fill={col}
+                fillOpacity={0.15}
+                stroke={col}
+                strokeWidth={1.5}
+                strokeDasharray="4 3"
+              />
+            )}
+            <circle
+              cx={node.cx}
+              cy={node.cy}
+              r={10}
+              fill={isActive ? col : col + "33"}
+              stroke={col}
+              strokeWidth={2}
+              style={{ transition: "all 0.2s" }}
+            />
+            <text
+              x={node.cx}
+              y={node.cy + 1}
+              textAnchor="middle"
+              dominantBaseline="middle"
+              fontSize="8"
+              fontWeight="700"
+              fill={isActive ? "#fff" : col}
+            >
+              !
+            </text>
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
+function CompensatoryAnalysisModule() {
+  const [activeNode, setActiveNode] = useState<string | null>("pelvis");
+
+  const activeComp = compensationNodes.find((n) => n.id === activeNode);
+  const sevColor = (sev: "high" | "medium" | "low") =>
+    sev === "high" ? C.red : sev === "medium" ? C.amber : C.green;
+
+  return (
+    <ModuleCard>
+      <ModuleHeader
+        number={4}
+        icon={Brain}
+        title="Compensatory Movement Analysis"
+        subtitle="Identifies abnormal movement patterns adopted to compensate for distal weakness or joint limitation. Click each annotated node on the skeleton to explore details."
+        color="#7C3AED"
+      />
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Left: Skeleton + node list */}
+        <div className="flex gap-6 items-start">
+          <div className="flex-shrink-0">
+            <SkeletonFigure activeNode={activeNode} onNodeClick={(id) => setActiveNode(id === activeNode ? null : id)} />
+          </div>
+          <div className="flex flex-col gap-2 flex-1 pt-4">
+            <div className="text-xs font-semibold mb-1" style={{ color: C.text2 }}>Detected Compensations</div>
+            {compensationNodes.map((node) => (
+              <button
+                key={node.id}
+                onClick={() => setActiveNode(node.id === activeNode ? null : node.id)}
+                className="text-left rounded-xl px-3 py-2.5 transition-all"
+                style={{
+                  backgroundColor: activeNode === node.id ? sevColor(node.severity) + "12" : C.bg,
+                  border: `1.5px solid ${activeNode === node.id ? sevColor(node.severity) : C.border}`,
+                }}
+              >
+                <div className="flex items-center gap-2 mb-0.5">
+                  <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: sevColor(node.severity) }} />
+                  <span className="text-xs font-semibold" style={{ color: C.text }}>{node.label}</span>
+                </div>
+                <p className="text-xs pl-4" style={{ color: C.text3 }}>{node.description}</p>
+              </button>
+            ))}
+
+            {/* Analysis summary */}
+            <div
+              className="mt-2 rounded-xl p-3"
+              style={{ backgroundColor: C.bg, border: `1px solid ${C.border}` }}
+            >
+              <div className="text-xs font-semibold mb-2" style={{ color: C.text2 }}>Analysis Summary</div>
+              {[
+                { icon: "📊", label: "Movement Deviation", val: "Pelvic anterior tilt, hip abduction, ankle dorsiflexion deficit" },
+                { icon: "🔗", label: "Compensation Chain", val: "Lower limb kinetic chain imbalance → reduced movement stability" },
+                { icon: "🎯", label: "Rehab Target", val: "Correct pelvis–hip–ankle kinetic chain, improve gait stability" },
+              ].map((row) => (
+                <div key={row.label} className="flex items-start gap-2 mb-1.5">
+                  <span className="text-sm">{row.icon}</span>
+                  <div>
+                    <span className="text-xs font-semibold" style={{ color: C.text }}>{row.label}: </span>
+                    <span className="text-xs" style={{ color: C.text2 }}>{row.val}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Right: Clinical insights */}
+        <div className="flex flex-col gap-3">
+          <div className="flex items-center gap-2 mb-1">
+            <div className="w-5 h-5 rounded-full flex items-center justify-center" style={{ backgroundColor: "rgba(124,58,237,0.1)" }}>
+              <Brain size={11} style={{ color: C.purple }} />
+            </div>
+            <span className="text-sm font-semibold" style={{ color: C.text }}>Clinical Insights</span>
+          </div>
+          {[
+            {
+              n: "01", icon: "📊", title: "Movement Deviation Identification",
+              body: "Identifies pelvic anterior tilt, hip lateral flexion, and insufficient ankle dorsiflexion abnormal patterns, indicating the patient is using compensatory rather than normal joint coordination to complete gait.",
+            },
+            {
+              n: "02", icon: "🚶", title: "Functional Consequences",
+              body: "Suggests insufficient hip stability, impaired knee extension control, and limited ankle dorsiflexion — may manifest as unstable gait, difficulty clearing the foot, and reduced support-phase stability.",
+            },
+            {
+              n: "03", icon: "📈", title: "Training Priority",
+              body: "Prioritise pre-swing pelvis–hip stability control, affected-side weight-bearing and propulsion capacity, and strengthen hip abduction, knee extension, and ankle dorsiflexion coordination training.",
+            },
+            {
+              n: "04", icon: "📋", title: "Rehabilitation Decision Value",
+              body: "Enables the therapist to progress from 'movement completed without further assessment' to 'whether movement relies on compensation' — more precisely locating training targets.",
+            },
+          ].map((ins) => (
+            <div
+              key={ins.n}
+              className="rounded-xl p-4 flex items-start gap-3"
+              style={{ backgroundColor: C.bg, border: `1px solid ${C.border}` }}
+            >
+              <div className="flex-shrink-0 flex flex-col items-center gap-1">
+                <span className="text-lg">{ins.icon}</span>
+                <span className="text-xs font-bold" style={{ color: C.purple }}>{ins.n}</span>
+              </div>
+              <div>
+                <div className="text-sm font-semibold mb-1" style={{ color: C.text }}>{ins.title}</div>
+                <div className="text-xs leading-relaxed" style={{ color: C.text2 }}>{ins.body}</div>
+              </div>
+            </div>
+          ))}
+          <div
+            className="rounded-xl p-4 flex items-start gap-3"
+            style={{ backgroundColor: "rgba(124,58,237,0.06)", border: `1.5px solid ${C.purple}` }}
+          >
+            <CheckCircle2 size={16} style={{ color: C.purple, flexShrink: 0, marginTop: 2 }} />
+            <p className="text-xs leading-relaxed" style={{ color: C.text }}>
+              <strong>Conclusion:</strong> Compensatory analysis not only identifies abnormal movements, but directly reveals the source of functional imbalance and training targets.
+            </p>
+          </div>
+        </div>
+      </div>
+    </ModuleCard>
+  );
+}
+
 // ─── Module 2: Auto Metrics ───────────────────────────────────────────────────
 
 function AutoMetricsModule() {
@@ -1213,20 +1895,29 @@ export default function ReportPage() {
           </div>
         </motion.div>
 
-        {/* 5 Modules */}
+        {/* Modules */}
         <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}>
           <OverviewModule metrics={metrics} />
         </motion.div>
-        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.10 }}>
+        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08 }}>
+          <MuscleStrengthModule />
+        </motion.div>
+        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.11 }}>
+          <PlantarPressureModule />
+        </motion.div>
+        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.14 }}>
+          <CompensatoryAnalysisModule />
+        </motion.div>
+        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.17 }}>
           <AutoMetricsModule />
         </motion.div>
-        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
+        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.20 }}>
           <GuidedVideoModule />
         </motion.div>
-        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.20 }}>
+        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.23 }}>
           <AIModelModule />
         </motion.div>
-        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}>
+        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.26 }}>
           <ManualInputModule />
         </motion.div>
 
