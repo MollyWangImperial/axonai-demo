@@ -512,91 +512,211 @@ function MuscleStrengthModule() {
             ))}
           </div>
 
-          {/* SVG posterior leg figure */}
-          <div className="relative" style={{ width: 240, height: 420 }}>
-            <svg viewBox="0 0 240 420" width="240" height="420">
+          {/* SVG anatomical posterior body heatmap */}
+          <div className="relative flex justify-center">
+            <svg viewBox="0 0 280 500" width="260" height="460" style={{ overflow: "visible" }}>
+              <defs>
+                {muscleData.map((m) => {
+                  const val = side === "affected" ? m.affected : m.healthy;
+                  const col = side === "healthy" ? "#22c55e" : muscleColor(val);
+                  return (
+                    <radialGradient key={m.id} id={`mg_${m.id}`} cx="50%" cy="50%" r="50%">
+                      <stop offset="0%" stopColor={col} stopOpacity="0.92" />
+                      <stop offset="70%" stopColor={col} stopOpacity="0.55" />
+                      <stop offset="100%" stopColor={col} stopOpacity="0" />
+                    </radialGradient>
+                  );
+                })}
+              </defs>
+
+              {/* ── Body silhouette (posterior view) ── */}
+              {/* Head */}
+              <ellipse cx="140" cy="32" rx="22" ry="26" fill="#dde4ef" stroke="#b0bdd0" strokeWidth="1.2" />
+              {/* Neck */}
+              <rect x="132" y="55" width="16" height="18" rx="6" fill="#dde4ef" stroke="#b0bdd0" strokeWidth="1" />
               {/* Torso */}
-              <ellipse cx="120" cy="80" rx="42" ry="50" fill="#e2e8f0" stroke="#cbd5e1" strokeWidth="1.5" />
-              {/* Pelvis */}
-              <ellipse cx="120" cy="130" rx="48" ry="22" fill="#e2e8f0" stroke="#cbd5e1" strokeWidth="1.5" />
+              <path d="M 100 72 Q 88 80 86 110 Q 84 140 90 158 Q 100 168 140 170 Q 180 168 190 158 Q 196 140 194 110 Q 192 80 180 72 Q 165 64 140 62 Q 115 64 100 72 Z" fill="#dde4ef" stroke="#b0bdd0" strokeWidth="1.2" />
+              {/* Left upper arm */}
+              <path d="M 90 76 Q 74 84 68 108 Q 64 128 68 148 Q 72 158 80 160 Q 88 158 92 148 Q 96 128 94 108 Q 92 88 90 76 Z" fill="#dde4ef" stroke="#b0bdd0" strokeWidth="1" />
+              {/* Left forearm */}
+              <path d="M 70 158 Q 60 168 58 190 Q 56 210 60 228 Q 64 240 70 242 Q 76 240 78 228 Q 80 210 78 190 Q 76 170 70 158 Z" fill="#dde4ef" stroke="#b0bdd0" strokeWidth="1" />
+              {/* Left hand */}
+              <ellipse cx="68" cy="252" rx="10" ry="14" fill="#dde4ef" stroke="#b0bdd0" strokeWidth="1" />
+              {/* Right upper arm */}
+              <path d="M 190 76 Q 206 84 212 108 Q 216 128 212 148 Q 208 158 200 160 Q 192 158 188 148 Q 184 128 186 108 Q 188 88 190 76 Z" fill="#dde4ef" stroke="#b0bdd0" strokeWidth="1" />
+              {/* Right forearm */}
+              <path d="M 210 158 Q 220 168 222 190 Q 224 210 220 228 Q 216 240 210 242 Q 204 240 202 228 Q 200 210 202 190 Q 204 170 210 158 Z" fill="#dde4ef" stroke="#b0bdd0" strokeWidth="1" />
+              {/* Right hand */}
+              <ellipse cx="212" cy="252" rx="10" ry="14" fill="#dde4ef" stroke="#b0bdd0" strokeWidth="1" />
+              {/* Pelvis / glutes */}
+              <path d="M 90 168 Q 86 178 88 198 Q 90 214 100 222 Q 116 230 140 230 Q 164 230 180 222 Q 190 214 192 198 Q 194 178 190 168 Q 172 162 140 162 Q 108 162 90 168 Z" fill="#dde4ef" stroke="#b0bdd0" strokeWidth="1.2" />
               {/* Left thigh */}
-              <rect x="96" y="148" width="36" height="90" rx="18" fill="#e2e8f0" stroke="#cbd5e1" strokeWidth="1.5" />
-              {/* Left knee */}
-              <ellipse cx="114" cy="245" rx="18" ry="12" fill="#e2e8f0" stroke="#cbd5e1" strokeWidth="1.5" />
-              {/* Left lower leg */}
-              <rect x="100" y="255" width="28" height="90" rx="14" fill="#e2e8f0" stroke="#cbd5e1" strokeWidth="1.5" />
-              {/* Left foot */}
-              <ellipse cx="112" cy="355" rx="20" ry="9" fill="#e2e8f0" stroke="#cbd5e1" strokeWidth="1.5" />
-
+              <path d="M 100 228 Q 90 240 88 268 Q 86 296 90 318 Q 94 334 104 338 Q 114 340 120 330 Q 126 318 124 296 Q 122 268 118 240 Q 112 228 100 228 Z" fill="#dde4ef" stroke="#b0bdd0" strokeWidth="1" />
               {/* Right thigh */}
-              <rect x="108" y="148" width="36" height="90" rx="18" fill="#e2e8f0" stroke="#cbd5e1" strokeWidth="1.5" />
+              <path d="M 180 228 Q 190 240 192 268 Q 194 296 190 318 Q 186 334 176 338 Q 166 340 160 330 Q 154 318 156 296 Q 158 268 162 240 Q 168 228 180 228 Z" fill="#dde4ef" stroke="#b0bdd0" strokeWidth="1" />
+              {/* Left knee */}
+              <ellipse cx="106" cy="344" rx="16" ry="12" fill="#dde4ef" stroke="#b0bdd0" strokeWidth="1" />
               {/* Right knee */}
-              <ellipse cx="126" cy="245" rx="18" ry="12" fill="#e2e8f0" stroke="#cbd5e1" strokeWidth="1.5" />
+              <ellipse cx="174" cy="344" rx="16" ry="12" fill="#dde4ef" stroke="#b0bdd0" strokeWidth="1" />
+              {/* Left lower leg (gastroc shape) */}
+              <path d="M 92 354 Q 86 368 88 392 Q 90 412 96 426 Q 102 436 110 436 Q 118 434 120 422 Q 122 408 118 388 Q 114 366 108 354 Q 102 348 92 354 Z" fill="#dde4ef" stroke="#b0bdd0" strokeWidth="1" />
               {/* Right lower leg */}
-              <rect x="112" y="255" width="28" height="90" rx="14" fill="#e2e8f0" stroke="#cbd5e1" strokeWidth="1.5" />
+              <path d="M 188 354 Q 194 368 192 392 Q 190 412 184 426 Q 178 436 170 436 Q 162 434 160 422 Q 158 408 162 388 Q 166 366 172 354 Q 178 348 188 354 Z" fill="#dde4ef" stroke="#b0bdd0" strokeWidth="1" />
+              {/* Left foot */}
+              <path d="M 88 434 Q 82 440 84 450 Q 86 458 96 460 Q 108 462 116 456 Q 122 450 120 442 Q 118 436 110 434 Z" fill="#dde4ef" stroke="#b0bdd0" strokeWidth="1" />
               {/* Right foot */}
-              <ellipse cx="128" cy="355" rx="20" ry="9" fill="#e2e8f0" stroke="#cbd5e1" strokeWidth="1.5" />
+              <path d="M 192 434 Q 198 440 196 450 Q 194 458 184 460 Q 172 462 164 456 Q 158 450 160 442 Q 162 436 170 434 Z" fill="#dde4ef" stroke="#b0bdd0" strokeWidth="1" />
 
-              {/* Muscle overlays */}
-              {muscleData.map((m) => {
+              {/* ── Muscle heatmap overlays ── */}
+              {/* Gluteus Maximus — large rounded shape over glutes */}
+              <ellipse
+                cx="140" cy="196"
+                rx={hovered === "gluteusMaximus" ? 46 : 42}
+                ry={hovered === "gluteusMaximus" ? 30 : 26}
+                fill={`url(#mg_gluteusMaximus)`}
+                style={{ cursor: "pointer", transition: "all 0.25s" }}
+                onMouseEnter={() => setHovered("gluteusMaximus")}
+                onMouseLeave={() => setHovered(null)}
+              />
+              {/* Gluteus Medius — upper outer glute */}
+              <ellipse
+                cx="116" cy="178"
+                rx={hovered === "gluteusMedius" ? 22 : 18}
+                ry={hovered === "gluteusMedius" ? 16 : 13}
+                fill={`url(#mg_gluteusMedius)`}
+                style={{ cursor: "pointer", transition: "all 0.25s" }}
+                onMouseEnter={() => setHovered("gluteusMedius")}
+                onMouseLeave={() => setHovered(null)}
+              />
+              <ellipse
+                cx="164" cy="178"
+                rx={hovered === "gluteusMedius" ? 22 : 18}
+                ry={hovered === "gluteusMedius" ? 16 : 13}
+                fill={`url(#mg_gluteusMedius)`}
+                style={{ cursor: "pointer", transition: "all 0.25s" }}
+                onMouseEnter={() => setHovered("gluteusMedius")}
+                onMouseLeave={() => setHovered(null)}
+              />
+              {/* Quadriceps — covers both thighs */}
+              <ellipse
+                cx="106" cy="278"
+                rx={hovered === "quadriceps" ? 20 : 16}
+                ry={hovered === "quadriceps" ? 52 : 46}
+                fill={`url(#mg_quadriceps)`}
+                style={{ cursor: "pointer", transition: "all 0.25s" }}
+                onMouseEnter={() => setHovered("quadriceps")}
+                onMouseLeave={() => setHovered(null)}
+              />
+              <ellipse
+                cx="174" cy="278"
+                rx={hovered === "quadriceps" ? 20 : 16}
+                ry={hovered === "quadriceps" ? 52 : 46}
+                fill={`url(#mg_quadriceps)`}
+                style={{ cursor: "pointer", transition: "all 0.25s" }}
+                onMouseEnter={() => setHovered("quadriceps")}
+                onMouseLeave={() => setHovered(null)}
+              />
+              {/* Gastrocnemius — calf bulge */}
+              <ellipse
+                cx="102" cy="394"
+                rx={hovered === "gastrocnemius" ? 16 : 13}
+                ry={hovered === "gastrocnemius" ? 36 : 30}
+                fill={`url(#mg_gastrocnemius)`}
+                style={{ cursor: "pointer", transition: "all 0.25s" }}
+                onMouseEnter={() => setHovered("gastrocnemius")}
+                onMouseLeave={() => setHovered(null)}
+              />
+              <ellipse
+                cx="178" cy="394"
+                rx={hovered === "gastrocnemius" ? 16 : 13}
+                ry={hovered === "gastrocnemius" ? 36 : 30}
+                fill={`url(#mg_gastrocnemius)`}
+                style={{ cursor: "pointer", transition: "all 0.25s" }}
+                onMouseEnter={() => setHovered("gastrocnemius")}
+                onMouseLeave={() => setHovered(null)}
+              />
+              {/* Tibialis Anterior — shin */}
+              <ellipse
+                cx="96" cy="400"
+                rx={hovered === "tibialisAnt" ? 10 : 8}
+                ry={hovered === "tibialisAnt" ? 26 : 22}
+                fill={`url(#mg_tibialisAnt)`}
+                style={{ cursor: "pointer", transition: "all 0.25s" }}
+                onMouseEnter={() => setHovered("tibialisAnt")}
+                onMouseLeave={() => setHovered(null)}
+              />
+              <ellipse
+                cx="184" cy="400"
+                rx={hovered === "tibialisAnt" ? 10 : 8}
+                ry={hovered === "tibialisAnt" ? 26 : 22}
+                fill={`url(#mg_tibialisAnt)`}
+                style={{ cursor: "pointer", transition: "all 0.25s" }}
+                onMouseEnter={() => setHovered("tibialisAnt")}
+                onMouseLeave={() => setHovered(null)}
+              />
+
+              {/* ── Labels with leader lines ── */}
+              {/* Gluteus Maximus */}
+              <line x1="98" y1="196" x2="56" y2="196" stroke={hovered === "gluteusMaximus" ? C.teal : "#94a3b8"} strokeWidth="1" strokeDasharray="3 2" />
+              <text x="54" y="196" textAnchor="end" dominantBaseline="middle" fontSize="10" fill={hovered === "gluteusMaximus" ? C.teal : "#64748b"} fontWeight={hovered === "gluteusMaximus" ? "700" : "400"}>Gluteus Maximus</text>
+              {/* Gluteus Medius */}
+              <line x1="98" y1="178" x2="56" y2="168" stroke={hovered === "gluteusMedius" ? C.teal : "#94a3b8"} strokeWidth="1" strokeDasharray="3 2" />
+              <text x="54" y="168" textAnchor="end" dominantBaseline="middle" fontSize="10" fill={hovered === "gluteusMedius" ? C.teal : "#64748b"} fontWeight={hovered === "gluteusMedius" ? "700" : "400"}>Gluteus Medius</text>
+              {/* Quadriceps */}
+              <line x1="90" y1="278" x2="56" y2="278" stroke={hovered === "quadriceps" ? C.teal : "#94a3b8"} strokeWidth="1" strokeDasharray="3 2" />
+              <text x="54" y="278" textAnchor="end" dominantBaseline="middle" fontSize="10" fill={hovered === "quadriceps" ? C.teal : "#64748b"} fontWeight={hovered === "quadriceps" ? "700" : "400"}>Quadriceps</text>
+              {/* Gastrocnemius */}
+              <line x1="89" y1="394" x2="56" y2="394" stroke={hovered === "gastrocnemius" ? C.teal : "#94a3b8"} strokeWidth="1" strokeDasharray="3 2" />
+              <text x="54" y="394" textAnchor="end" dominantBaseline="middle" fontSize="10" fill={hovered === "gastrocnemius" ? C.teal : "#64748b"} fontWeight={hovered === "gastrocnemius" ? "700" : "400"}>Gastrocnemius</text>
+              {/* Tibialis Anterior */}
+              <line x1="88" y1="412" x2="56" y2="420" stroke={hovered === "tibialisAnt" ? C.teal : "#94a3b8"} strokeWidth="1" strokeDasharray="3 2" />
+              <text x="54" y="420" textAnchor="end" dominantBaseline="middle" fontSize="10" fill={hovered === "tibialisAnt" ? C.teal : "#64748b"} fontWeight={hovered === "tibialisAnt" ? "700" : "400"}>Tibialis Anterior</text>
+
+              {/* ── Percentage badges ── */}
+              {[
+                { id: "gluteusMaximus", cx: 140, cy: 196 },
+                { id: "gluteusMedius",  cx: 116, cy: 178 },
+                { id: "quadriceps",    cx: 106, cy: 278 },
+                { id: "gastrocnemius", cx: 102, cy: 394 },
+                { id: "tibialisAnt",   cx: 96,  cy: 400 },
+              ].map((badge) => {
+                const m = muscleData.find((x) => x.id === badge.id)!;
                 const val = side === "affected" ? m.affected : m.healthy;
                 const col = side === "healthy" ? "#22c55e" : muscleColor(val);
-                const isHov = hovered === m.id;
                 return (
-                  <g key={m.id}>
-                    <circle
-                      cx={m.cx}
-                      cy={m.cy}
-                      r={isHov ? m.r + 4 : m.r}
+                  <g key={badge.id} style={{ pointerEvents: "none" }}>
+                    <rect
+                      x={badge.cx - 14}
+                      y={badge.cy - 9}
+                      width={28}
+                      height={18}
+                      rx={9}
                       fill={col}
-                      fillOpacity={isHov ? 0.9 : 0.7}
-                      stroke={isHov ? col : "transparent"}
-                      strokeWidth={2}
-                      style={{ cursor: "pointer", transition: "all 0.2s" }}
-                      onMouseEnter={() => setHovered(m.id)}
-                      onMouseLeave={() => setHovered(null)}
+                      fillOpacity={hovered === badge.id ? 1 : 0.85}
                     />
                     <text
-                      x={m.cx}
-                      y={m.cy + 1}
+                      x={badge.cx}
+                      y={badge.cy + 1}
                       textAnchor="middle"
                       dominantBaseline="middle"
                       fontSize="9"
-                      fontWeight="700"
+                      fontWeight="800"
                       fill="#fff"
-                      style={{ pointerEvents: "none" }}
                     >
                       {val}%
                     </text>
                   </g>
                 );
               })}
-
-              {/* Labels */}
-              {muscleData.map((m) => (
-                <text
-                  key={m.id + "_lbl"}
-                  x={m.cx - m.r - 6}
-                  y={m.cy}
-                  textAnchor="end"
-                  dominantBaseline="middle"
-                  fontSize="9"
-                  fill={hovered === m.id ? C.teal : "#64748b"}
-                  fontWeight={hovered === m.id ? "700" : "400"}
-                  style={{ transition: "fill 0.2s" }}
-                >
-                  {m.name}
-                </text>
-              ))}
             </svg>
 
             {/* Hover tooltip */}
             {hoveredMuscle && (
               <div
-                className="absolute left-full ml-3 top-1/2 -translate-y-1/2 rounded-xl p-3 text-xs shadow-lg z-10"
-                style={{ backgroundColor: C.surface, border: `1px solid ${C.border}`, minWidth: 160 }}
+                className="absolute right-0 top-4 rounded-xl p-3 text-xs shadow-lg z-10"
+                style={{ backgroundColor: C.surface, border: `1px solid ${C.border}`, minWidth: 170 }}
               >
-                <div className="font-bold mb-1" style={{ color: C.text }}>{hoveredMuscle.name}</div>
+                <div className="font-bold mb-1.5" style={{ color: C.text }}>{hoveredMuscle.name}</div>
                 <div className="flex items-center justify-between gap-4 mb-1">
                   <span style={{ color: C.text3 }}>Affected</span>
                   <span className="font-bold" style={{ color: muscleColor(hoveredMuscle.affected) }}>{hoveredMuscle.affected}%</span>
@@ -605,10 +725,10 @@ function MuscleStrengthModule() {
                   <span style={{ color: C.text3 }}>Healthy</span>
                   <span className="font-bold" style={{ color: C.green }}>100%</span>
                 </div>
-                <div className="w-full h-1.5 rounded-full" style={{ backgroundColor: C.border }}>
-                  <div className="h-1.5 rounded-full" style={{ width: `${hoveredMuscle.affected}%`, backgroundColor: muscleColor(hoveredMuscle.affected) }} />
+                <div className="w-full h-2 rounded-full" style={{ backgroundColor: C.border }}>
+                  <div className="h-2 rounded-full transition-all" style={{ width: `${hoveredMuscle.affected}%`, backgroundColor: muscleColor(hoveredMuscle.affected) }} />
                 </div>
-                <div className="mt-1.5 text-center" style={{ color: C.text3 }}>
+                <div className="mt-1.5 text-center font-medium" style={{ color: C.text3 }}>
                   {hoveredMuscle.affected > 85 ? "No significant deficit" :
                    hoveredMuscle.affected > 70 ? "Mild deficit" :
                    hoveredMuscle.affected > 50 ? "Moderate deficit" : "Severe deficit"}
@@ -723,20 +843,21 @@ function FootHeatmap({ side, peakPressure }: { side: "left" | "right"; peakPress
   const isLeft = side === "left";
   const isAffected = isLeft;
   // Pressure zones: heel, midfoot, forefoot, toes
+  // Coordinates tuned to the new anatomical foot path (viewBox 0 0 110 280, toes at top)
   const zones = isAffected
     ? [
-        { id: "heel",     cx: 50,  cy: 200, rx: 32, ry: 28, intensity: 0.35 },
-        { id: "midfoot",  cx: 46,  cy: 148, rx: 18, ry: 30, intensity: 0.15 },
-        { id: "forefoot", cx: 52,  cy: 90,  rx: 30, ry: 28, intensity: 0.25 },
-        { id: "toes",     cx: 52,  cy: 48,  rx: 24, ry: 18, intensity: 0.20 },
-        { id: "bigToe",   cx: 38,  cy: 30,  rx: 12, ry: 10, intensity: 0.18 },
+        { id: "heel",     cx: 42,  cy: 248, rx: 26, ry: 18, intensity: 0.35 },
+        { id: "midfoot",  cx: 36,  cy: 180, rx: 12, ry: 28, intensity: 0.12 },
+        { id: "forefoot", cx: 55,  cy: 110, rx: 28, ry: 22, intensity: 0.22 },
+        { id: "toes",     cx: 65,  cy: 52,  rx: 22, ry: 14, intensity: 0.18 },
+        { id: "bigToe",   cx: 56,  cy: 30,  rx: 10, ry:  9, intensity: 0.16 },
       ]
     : [
-        { id: "heel",     cx: 50,  cy: 200, rx: 32, ry: 28, intensity: 0.80 },
-        { id: "midfoot",  cx: 46,  cy: 148, rx: 18, ry: 30, intensity: 0.40 },
-        { id: "forefoot", cx: 52,  cy: 90,  rx: 30, ry: 28, intensity: 0.75 },
-        { id: "toes",     cx: 52,  cy: 48,  rx: 24, ry: 18, intensity: 0.65 },
-        { id: "bigToe",   cx: 38,  cy: 30,  rx: 12, ry: 10, intensity: 0.70 },
+        { id: "heel",     cx: 42,  cy: 248, rx: 26, ry: 18, intensity: 0.82 },
+        { id: "midfoot",  cx: 36,  cy: 180, rx: 12, ry: 28, intensity: 0.38 },
+        { id: "forefoot", cx: 55,  cy: 110, rx: 28, ry: 22, intensity: 0.78 },
+        { id: "toes",     cx: 65,  cy: 52,  rx: 22, ry: 14, intensity: 0.65 },
+        { id: "bigToe",   cx: 56,  cy: 30,  rx: 10, ry:  9, intensity: 0.72 },
       ];
 
   function pressureColor(intensity: number): string {
@@ -752,33 +873,111 @@ function FootHeatmap({ side, peakPressure }: { side: "left" | "right"; peakPress
       <div className="text-xs font-semibold" style={{ color: isAffected ? C.red : C.green }}>
         {isAffected ? "Affected (Left)" : "Healthy (Right)"}
       </div>
-      <svg viewBox="0 0 100 240" width="90" height="216" style={{ overflow: "visible" }}>
+      {/* Realistic foot shape: viewBox 0 0 110 280, oriented toes-up */}
+      <svg viewBox="0 0 110 280" width="88" height="224" style={{ overflow: "visible" }}>
         <defs>
           {zones.map((z) => (
             <radialGradient key={z.id} id={`grad_${side}_${z.id}`} cx="50%" cy="50%" r="50%">
               <stop offset="0%" stopColor={pressureColor(z.intensity)} stopOpacity="0.95" />
+              <stop offset="60%" stopColor={pressureColor(z.intensity)} stopOpacity="0.55" />
               <stop offset="100%" stopColor={pressureColor(z.intensity)} stopOpacity="0" />
             </radialGradient>
           ))}
+          <clipPath id={`footClip_${side}`}>
+            {/* Anatomical foot outline for clipping */}
+            <path d="
+              M 55 268
+              C 30 268 18 252 16 236
+              C 14 220 20 206 22 192
+              C 24 178 22 164 24 148
+              C 26 132 28 116 32 102
+              C 36 88 40 76 44 66
+              C 48 56 52 46 56 38
+              C 58 32 60 26 62 22
+              C 64 18 68 14 72 14
+              C 76 14 78 18 78 22
+              C 78 28 74 34 72 40
+              C 70 46 70 52 72 56
+              C 74 60 78 62 82 62
+              C 86 62 90 60 92 56
+              C 94 52 94 46 92 42
+              C 90 38 88 34 88 28
+              C 88 22 90 16 94 14
+              C 98 12 102 14 104 18
+              C 106 22 106 28 104 34
+              C 102 40 98 46 96 52
+              C 94 58 94 64 96 70
+              C 98 76 102 80 104 86
+              C 106 92 106 100 104 108
+              C 102 116 96 122 92 130
+              C 88 138 86 148 86 160
+              C 86 172 88 184 88 196
+              C 88 210 86 224 82 238
+              C 78 252 70 264 55 268
+              Z
+            " />
+          </clipPath>
         </defs>
-        {/* Foot outline */}
+
+        {/* Foot base fill */}
         <path
-          d="M 30 220 Q 10 200 12 160 Q 14 120 20 90 Q 26 60 32 40 Q 36 20 44 12 Q 52 4 62 10 Q 72 16 70 30 Q 68 44 60 50 Q 72 52 76 64 Q 80 76 74 86 Q 80 96 80 110 Q 82 130 78 160 Q 74 190 70 210 Q 60 230 50 232 Q 38 234 30 220 Z"
+          d="
+            M 55 268
+            C 30 268 18 252 16 236
+            C 14 220 20 206 22 192
+            C 24 178 22 164 24 148
+            C 26 132 28 116 32 102
+            C 36 88 40 76 44 66
+            C 48 56 52 46 56 38
+            C 58 32 60 26 62 22
+            C 64 18 68 14 72 14
+            C 76 14 78 18 78 22
+            C 78 28 74 34 72 40
+            C 70 46 70 52 72 56
+            C 74 60 78 62 82 62
+            C 86 62 90 60 92 56
+            C 94 52 94 46 92 42
+            C 90 38 88 34 88 28
+            C 88 22 90 16 94 14
+            C 98 12 102 14 104 18
+            C 106 22 106 28 104 34
+            C 102 40 98 46 96 52
+            C 94 58 94 64 96 70
+            C 98 76 102 80 104 86
+            C 106 92 106 100 104 108
+            C 102 116 96 122 92 130
+            C 88 138 86 148 86 160
+            C 86 172 88 184 88 196
+            C 88 210 86 224 82 238
+            C 78 252 70 264 55 268
+            Z
+          "
           fill="#f1f5f9"
-          stroke="#cbd5e1"
+          stroke="#b0bdd0"
           strokeWidth="1.5"
         />
-        {/* Pressure zones */}
-        {zones.map((z) => (
-          <ellipse
-            key={z.id}
-            cx={z.cx}
-            cy={z.cy}
-            rx={z.rx}
-            ry={z.ry}
-            fill={`url(#grad_${side}_${z.id})`}
-          />
-        ))}
+
+        {/* Pressure zones clipped to foot shape */}
+        <g clipPath={`url(#footClip_${side})`}>
+          {zones.map((z) => (
+            <ellipse
+              key={z.id}
+              cx={z.cx}
+              cy={z.cy}
+              rx={z.rx}
+              ry={z.ry}
+              fill={`url(#grad_${side}_${z.id})`}
+            />
+          ))}
+        </g>
+
+        {/* Toe separators */}
+        <line x1="72" y1="56" x2="72" y2="14" stroke="#b0bdd0" strokeWidth="0.8" strokeDasharray="2 2" />
+        <line x1="82" y1="62" x2="88" y2="14" stroke="#b0bdd0" strokeWidth="0.8" strokeDasharray="2 2" />
+        <line x1="92" y1="56" x2="96" y2="14" stroke="#b0bdd0" strokeWidth="0.8" strokeDasharray="2 2" />
+
+        {/* Arch indicator */}
+        <path d="M 24 160 Q 28 148 36 152 Q 44 156 46 168" fill="none" stroke="#b0bdd0" strokeWidth="0.8" strokeDasharray="3 2" />
       </svg>
       <div className="text-center">
         <div
@@ -910,21 +1109,21 @@ const compensationNodes = [
     label: "Pelvic Anterior Tilt",
     description: "Excessive lumbar anterior tilt (12°, ref 4–8°) — insufficient core stability",
     severity: "high" as const,
-    cx: 120, cy: 155,
+    cx: 100, cy: 175,  // pelvis centre on new humanoid body
   },
   {
     id: "hip",
     label: "Hip Abduction / Hip Extension",
     description: "Insufficient hip abduction control — quadriceps compensation substitution",
     severity: "medium" as const,
-    cx: 105, cy: 185,
+    cx: 70, cy: 220,   // left hip on new humanoid body
   },
   {
     id: "ankle",
     label: "Insufficient Ankle Dorsiflexion",
     description: "Foot drag during swing phase — gastrocnemius compensation (toe walking)",
     severity: "high" as const,
-    cx: 110, cy: 330,
+    cx: 72, cy: 400,   // left ankle on new humanoid body
   },
 ];
 
@@ -933,84 +1132,82 @@ function SkeletonFigure({ activeNode, onNodeClick }: { activeNode: string | null
     sev === "high" ? C.red : sev === "medium" ? C.amber : C.green;
 
   return (
-    <svg viewBox="0 0 240 420" width="200" height="350" style={{ overflow: "visible" }}>
-      {/* Skeleton lines */}
-      {/* Spine */}
-      <line x1="120" y1="40" x2="120" y2="155" stroke="#94a3b8" strokeWidth="3" strokeLinecap="round" />
-      {/* Shoulders */}
-      <line x1="80" y1="75" x2="160" y2="75" stroke="#94a3b8" strokeWidth="3" strokeLinecap="round" />
-      {/* Left arm */}
-      <line x1="80" y1="75" x2="60" y2="130" stroke="#94a3b8" strokeWidth="2.5" strokeLinecap="round" />
-      <line x1="60" y1="130" x2="50" y2="185" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" />
-      {/* Right arm */}
-      <line x1="160" y1="75" x2="180" y2="130" stroke="#94a3b8" strokeWidth="2.5" strokeLinecap="round" />
-      <line x1="180" y1="130" x2="190" y2="185" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" />
+    <svg viewBox="0 0 200 440" width="160" height="352" style={{ overflow: "visible" }}>
+      {/* ── Humanoid body silhouette ── */}
+      {/* Head */}
+      <ellipse cx="100" cy="28" rx="20" ry="24" fill="#dde4ef" stroke="#94a3b8" strokeWidth="1.5" />
+      {/* Neck */}
+      <rect x="93" y="50" width="14" height="14" rx="5" fill="#dde4ef" stroke="#94a3b8" strokeWidth="1" />
+      {/* Torso */}
+      <path d="M 68 63 Q 56 72 54 100 Q 52 128 56 148 Q 60 162 100 164 Q 140 162 144 148 Q 148 128 146 100 Q 144 72 132 63 Q 118 56 100 54 Q 82 56 68 63 Z" fill="#dde4ef" stroke="#94a3b8" strokeWidth="1.5" />
+      {/* Left upper arm */}
+      <path d="M 58 68 Q 44 76 40 100 Q 36 120 40 138 Q 44 150 52 152 Q 60 150 62 138 Q 64 120 62 100 Q 60 80 58 68 Z" fill="#dde4ef" stroke="#94a3b8" strokeWidth="1" />
+      {/* Left forearm */}
+      <path d="M 42 150 Q 32 160 30 180 Q 28 200 32 216 Q 36 226 42 228 Q 48 226 50 216 Q 52 200 50 180 Q 48 162 42 150 Z" fill="#dde4ef" stroke="#94a3b8" strokeWidth="1" />
+      {/* Left hand */}
+      <ellipse cx="40" cy="238" rx="9" ry="12" fill="#dde4ef" stroke="#94a3b8" strokeWidth="1" />
+      {/* Right upper arm */}
+      <path d="M 142 68 Q 156 76 160 100 Q 164 120 160 138 Q 156 150 148 152 Q 140 150 138 138 Q 136 120 138 100 Q 140 80 142 68 Z" fill="#dde4ef" stroke="#94a3b8" strokeWidth="1" />
+      {/* Right forearm */}
+      <path d="M 158 150 Q 168 160 170 180 Q 172 200 168 216 Q 164 226 158 228 Q 152 226 150 216 Q 148 200 150 180 Q 152 162 158 150 Z" fill="#dde4ef" stroke="#94a3b8" strokeWidth="1" />
+      {/* Right hand */}
+      <ellipse cx="160" cy="238" rx="9" ry="12" fill="#dde4ef" stroke="#94a3b8" strokeWidth="1" />
       {/* Pelvis */}
-      <line x1="95" y1="155" x2="145" y2="155" stroke="#94a3b8" strokeWidth="3" strokeLinecap="round" />
-      {/* Left leg */}
-      <line x1="105" y1="155" x2="100" y2="245" stroke="#94a3b8" strokeWidth="3" strokeLinecap="round" />
-      <line x1="100" y1="245" x2="110" y2="335" stroke="#94a3b8" strokeWidth="2.5" strokeLinecap="round" />
-      <line x1="110" y1="335" x2="95" y2="355" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" />
-      {/* Right leg */}
-      <line x1="135" y1="155" x2="140" y2="245" stroke="#94a3b8" strokeWidth="3" strokeLinecap="round" />
-      <line x1="140" y1="245" x2="130" y2="335" stroke="#94a3b8" strokeWidth="2.5" strokeLinecap="round" />
-      <line x1="130" y1="335" x2="145" y2="355" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" />
+      <path d="M 58 162 Q 54 172 56 188 Q 58 202 68 208 Q 82 214 100 214 Q 118 214 132 208 Q 142 202 144 188 Q 146 172 142 162 Q 124 156 100 156 Q 76 156 58 162 Z" fill="#dde4ef" stroke="#94a3b8" strokeWidth="1.2" />
+      {/* Left thigh */}
+      <path d="M 68 212 Q 58 224 56 250 Q 54 276 58 296 Q 62 310 70 314 Q 78 316 84 306 Q 90 294 88 270 Q 86 246 82 224 Q 76 212 68 212 Z" fill="#dde4ef" stroke="#94a3b8" strokeWidth="1" />
+      {/* Right thigh */}
+      <path d="M 132 212 Q 142 224 144 250 Q 146 276 142 296 Q 138 310 130 314 Q 122 316 116 306 Q 110 294 112 270 Q 114 246 118 224 Q 124 212 132 212 Z" fill="#dde4ef" stroke="#94a3b8" strokeWidth="1" />
+      {/* Left knee cap */}
+      <ellipse cx="72" cy="320" rx="14" ry="10" fill="#dde4ef" stroke="#94a3b8" strokeWidth="1" />
+      {/* Right knee cap */}
+      <ellipse cx="128" cy="320" rx="14" ry="10" fill="#dde4ef" stroke="#94a3b8" strokeWidth="1" />
+      {/* Left lower leg */}
+      <path d="M 60 328 Q 54 342 56 364 Q 58 382 62 396 Q 66 408 72 410 Q 78 408 80 396 Q 82 382 80 364 Q 78 344 72 330 Q 68 324 60 328 Z" fill="#dde4ef" stroke="#94a3b8" strokeWidth="1" />
+      {/* Right lower leg */}
+      <path d="M 140 328 Q 146 342 144 364 Q 142 382 138 396 Q 134 408 128 410 Q 122 408 120 396 Q 118 382 120 364 Q 122 344 128 330 Q 132 324 140 328 Z" fill="#dde4ef" stroke="#94a3b8" strokeWidth="1" />
+      {/* Left foot */}
+      <path d="M 56 408 Q 48 416 50 424 Q 52 430 60 432 Q 72 434 80 428 Q 86 422 84 414 Q 82 408 72 408 Z" fill="#dde4ef" stroke="#94a3b8" strokeWidth="1" />
+      {/* Right foot */}
+      <path d="M 144 408 Q 152 416 150 424 Q 148 430 140 432 Q 128 434 120 428 Q 114 422 116 414 Q 118 408 128 408 Z" fill="#dde4ef" stroke="#94a3b8" strokeWidth="1" />
 
-      {/* Skeleton joints */}
-      {[
-        { cx: 120, cy: 40, r: 12 },   // head
-        { cx: 120, cy: 65, r: 5 },    // neck
-        { cx: 80,  cy: 75, r: 5 },    // L shoulder
-        { cx: 160, cy: 75, r: 5 },    // R shoulder
-        { cx: 60,  cy: 130, r: 4 },   // L elbow
-        { cx: 180, cy: 130, r: 4 },   // R elbow
-        { cx: 50,  cy: 185, r: 4 },   // L wrist
-        { cx: 190, cy: 185, r: 4 },   // R wrist
-        { cx: 120, cy: 155, r: 6 },   // pelvis center
-        { cx: 100, cy: 245, r: 5 },   // L knee
-        { cx: 140, cy: 245, r: 5 },   // R knee
-        { cx: 110, cy: 335, r: 4 },   // L ankle
-        { cx: 130, cy: 335, r: 4 },   // R ankle
-      ].map((j, i) => (
-        <circle key={i} cx={j.cx} cy={j.cy} r={j.r} fill="#e2e8f0" stroke="#94a3b8" strokeWidth="1.5" />
-      ))}
-
-      {/* Compensation annotation nodes */}
+      {/* ── Compensation annotation nodes ── */}
       {compensationNodes.map((node) => {
         const isActive = activeNode === node.id;
         const col = nodeColor(node.severity);
         return (
           <g key={node.id} style={{ cursor: "pointer" }} onClick={() => onNodeClick(node.id)}>
-            {/* Pulse ring */}
-            {isActive && (
-              <circle
-                cx={node.cx}
-                cy={node.cy}
-                r={18}
-                fill={col}
-                fillOpacity={0.15}
-                stroke={col}
-                strokeWidth={1.5}
-                strokeDasharray="4 3"
-              />
-            )}
+            {/* Outer pulse ring */}
             <circle
               cx={node.cx}
               cy={node.cy}
-              r={10}
-              fill={isActive ? col : col + "33"}
+              r={isActive ? 20 : 14}
+              fill={col}
+              fillOpacity={isActive ? 0.18 : 0.1}
+              stroke={col}
+              strokeWidth={isActive ? 2 : 1.5}
+              strokeDasharray={isActive ? "none" : "4 3"}
+              style={{ transition: "all 0.25s" }}
+            />
+            {/* Inner filled node */}
+            <circle
+              cx={node.cx}
+              cy={node.cy}
+              r={isActive ? 11 : 8}
+              fill={isActive ? col : "#fff"}
               stroke={col}
               strokeWidth={2}
-              style={{ transition: "all 0.2s" }}
+              style={{ transition: "all 0.25s" }}
             />
             <text
               x={node.cx}
               y={node.cy + 1}
               textAnchor="middle"
               dominantBaseline="middle"
-              fontSize="8"
-              fontWeight="700"
+              fontSize="9"
+              fontWeight="800"
               fill={isActive ? "#fff" : col}
+              style={{ pointerEvents: "none" }}
             >
               !
             </text>
