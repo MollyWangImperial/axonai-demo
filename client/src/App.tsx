@@ -27,6 +27,11 @@ import UploadPageZh from "./pages/zh/UploadPageZh";
 import ReportPageZh from "./pages/zh/ReportPageZh";
 import RehabPlanPageZh from "./pages/zh/RehabPlanPageZh";
 import DashboardPageZh from "./pages/zh/DashboardPageZh";
+import AssessPageZh from "./pages/zh/AssessPageZh";
+import AssessCollectZh from "./pages/zh/AssessCollectZh";
+import AssessQualityZh from "./pages/zh/AssessQualityZh";
+import AssessAnalysisZh from "./pages/zh/AssessAnalysisZh";
+import AssessPlanZh from "./pages/zh/AssessPlanZh";
 
 function Router() {
   return (
@@ -53,6 +58,11 @@ function Router() {
       <Route path="/zh/report" component={ReportPageZh} />
       <Route path="/zh/rehab-plan" component={RehabPlanPageZh} />
       <Route path="/zh/dashboard" component={DashboardPageZh} />
+      <Route path="/zh/assess" component={AssessPageZh} />
+      <Route path="/zh/assess/collect" component={AssessCollectZh} />
+      <Route path="/zh/assess/quality" component={AssessQualityZh} />
+      <Route path="/zh/assess/analysis" component={AssessAnalysisZh} />
+      <Route path="/zh/assess/plan" component={AssessPlanZh} />
 
       <Route path="/404" component={NotFound} />
       <Route component={NotFound} />

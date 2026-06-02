@@ -25,7 +25,7 @@ export default function LoginPage() {
     const ok = await login(email, password);
     setLoading(false);
     if (ok) {
-      navigate("/zh/upload");
+      navigate("/zh/assess");
     } else {
       setError("登录凭证无效，请检查您的邮箱和密码。");
     }
