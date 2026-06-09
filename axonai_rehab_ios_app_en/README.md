@@ -14,7 +14,7 @@ This is a separate Expo / React Native iPhone app prototype:
   - Balance Package
   - Trunk Control Package
 - Only the Upper Limb Package is fully active in this demo.
-- Patient and therapist account entry flows save to the backend SQLite database.
+- Patient and therapist account entry flows save to the backend database.
 - The upper-limb flow includes:
   - patient onboarding
   - therapist onboarding
@@ -31,15 +31,15 @@ This is a separate Expo / React Native iPhone app prototype:
 ## Not Included Yet
 
 - Production authentication.
-- Cloud upload.
+- Production auth provider and role-based access control.
 - Encrypted clinical data storage and audit logs.
 - Production therapist verification.
 
 The app calls the backend upper-limb endpoint when generating a plan. The backend supports the deterministic rehab reasoning algorithm plus first-pass MediaPipe/OpenCV metric extraction for all upper-limb package videos. The backend also persists patient accounts, therapist accounts, profiles, upper-limb analysis results, and match requests.
 
-## Local Database
+## Database And Video Storage
 
-The backend creates a SQLite database at:
+Local development falls back to SQLite:
 
 ```text
 E:\AxonAIRepo\axonai_vps\axonai_rehab_runtime\axonai_rehab.sqlite3
@@ -50,6 +50,26 @@ Override the path with:
 ```powershell
 $env:AXONAI_REHAB_DB_PATH="D:\AxonAIData\axonai_rehab.sqlite3"
 ```
+
+Production should set Supabase/Postgres:
+
+```text
+DATABASE_URL=postgresql://...
+```
+
+For S3-compatible video storage, including Supabase Storage S3, set:
+
+```text
+AXONAI_OBJECT_STORAGE_BUCKET=...
+AXONAI_OBJECT_STORAGE_ENDPOINT_URL=...
+AXONAI_OBJECT_STORAGE_REGION=...
+AXONAI_OBJECT_STORAGE_ACCESS_KEY_ID=...
+AXONAI_OBJECT_STORAGE_SECRET_ACCESS_KEY=...
+AXONAI_OBJECT_STORAGE_PUBLIC_BASE_URL=...
+AXONAI_KEEP_UPLOADED_VIDEOS=false
+```
+
+Uploaded videos are still temporarily written to local disk for OpenCV/MediaPipe analysis, then deleted unless `AXONAI_KEEP_UPLOADED_VIDEOS=true`. If object storage is configured, the original upload is archived to the bucket before local cleanup.
 
 Database-backed endpoints:
 

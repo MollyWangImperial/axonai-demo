@@ -16,9 +16,6 @@ from __future__ import annotations
 from typing import Any
 
 import json
-import os
-import shutil
-import uuid
 from pathlib import Path
 
 from fastapi import APIRouter, FastAPI, File, Form, HTTPException, UploadFile
@@ -28,10 +25,7 @@ from pydantic import BaseModel, Field
 from upper_limb_rehab_algorithm import ACTION_IDS, evaluate_upper_limb_collection, sample_manifest
 from upper_limb_video_metrics import analyze_upper_limb_action_video
 from patient_shoulder_flexion_api import analyze_shoulder_flexion_video
-
-UPLOAD_ROOT = Path(os.getenv("AXONAI_UPLOAD_ROOT", Path(__file__).resolve().parent / "axonai_rehab_runtime" / "uploads" / "upper_limb_package"))
-KEEP_UPLOADED_VIDEOS = os.getenv("AXONAI_KEEP_UPLOADED_VIDEOS", "false").strip().lower() in {"1", "true", "yes"}
-VALID_VIDEO_EXTENSIONS = {".mp4", ".mov", ".m4v", ".webm", ".avi", ".mkv"}
+from axonai_video_storage import cleanup_analysis_file, save_upload_for_analysis
 
 class UpperLimbVideoRecord(BaseModel):
     path: str | None = None
@@ -85,16 +79,7 @@ def analyze_upper_limb(payload: UpperLimbAnalyzeRequest) -> dict[str, Any]:
 
 
 def _save_optional_upload(upload_file: UploadFile | None, action_id: str) -> str | None:
-    if upload_file is None:
-        return None
-    suffix = Path(upload_file.filename or "").suffix.lower() or ".mp4"
-    if suffix not in VALID_VIDEO_EXTENSIONS:
-        raise HTTPException(status_code=400, detail=f"Unsupported extension for {action_id}: {suffix}")
-    UPLOAD_ROOT.mkdir(parents=True, exist_ok=True)
-    destination = UPLOAD_ROOT / f"{action_id}_{uuid.uuid4().hex}{suffix}"
-    with destination.open("wb") as buffer:
-        shutil.copyfileobj(upload_file.file, buffer)
-    return str(destination)
+    return save_upload_for_analysis(upload_file, action_id)["path"]
 
 
 def _metrics_from_shoulder_flexion_result(result: dict[str, Any]) -> dict[str, Any]:
@@ -164,9 +149,12 @@ async def analyze_upper_limb_videos(
             if action_id in uploads:
                 uploads[action_id] = upload_file
     actions: dict[str, Any] = {}
+    stored_videos: dict[str, Any] = {}
     for action_id, upload_file in uploads.items():
-        saved_path = _save_optional_upload(upload_file, action_id)
-        actions[action_id] = {"path": saved_path, "measuredMetrics": {}}
+        saved = save_upload_for_analysis(upload_file, action_id)
+        actions[action_id] = {"path": saved["path"], "measuredMetrics": {}, "storage": saved["storage"]}
+        if saved["storage"]:
+            stored_videos[action_id] = saved["storage"]
 
     if actions["shoulder_flexion"]["path"]:
         try:
@@ -193,15 +181,9 @@ async def analyze_upper_limb_videos(
             record["metricExtractionError"] = str(exc)
 
     result = evaluate_upper_limb_collection({"patientProfile": patient_profile, "actions": actions})
-    if not KEEP_UPLOADED_VIDEOS:
-        for record in actions.values():
-            path_value = record.get("path")
-            if not path_value:
-                continue
-            try:
-                Path(path_value).unlink(missing_ok=True)
-            except OSError:
-                pass
+    result["storedVideos"] = stored_videos
+    for record in actions.values():
+        cleanup_analysis_file(record.get("path"))
     return result
 
 

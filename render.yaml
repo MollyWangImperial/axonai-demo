@@ -7,14 +7,21 @@ services:
     startCommand: uvicorn axonai_rehab_cloud_app:app --host 0.0.0.0 --port $PORT
     healthCheckPath: /health
     envVars:
-      - key: AXONAI_REHAB_DB_PATH
-        value: /var/data/axonai_rehab.sqlite3
+      - key: DATABASE_URL
+        sync: false
       - key: AXONAI_UPLOAD_ROOT
-        value: /var/data/uploads/upper_limb_package
+        value: /tmp/axonai/uploads/upper_limb_package
       - key: AXONAI_KEEP_UPLOADED_VIDEOS
         value: "false"
-    disk:
-      name: axonai-rehab-data
-      mountPath: /var/data
-      sizeGB: 5
-
+      - key: AXONAI_OBJECT_STORAGE_BUCKET
+        sync: false
+      - key: AXONAI_OBJECT_STORAGE_ENDPOINT_URL
+        sync: false
+      - key: AXONAI_OBJECT_STORAGE_REGION
+        sync: false
+      - key: AXONAI_OBJECT_STORAGE_ACCESS_KEY_ID
+        sync: false
+      - key: AXONAI_OBJECT_STORAGE_SECRET_ACCESS_KEY
+        sync: false
+      - key: AXONAI_OBJECT_STORAGE_PUBLIC_BASE_URL
+        sync: false

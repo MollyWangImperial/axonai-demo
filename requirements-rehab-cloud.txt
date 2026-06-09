@@ -9,4 +9,5 @@ opencv-contrib-python>=4.13.0
 mediapipe==0.10.14
 opensim==4.6
 python-decouple>=3.8
-
+psycopg[binary]>=3.2.0
+boto3>=1.34.0

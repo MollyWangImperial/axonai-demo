@@ -9,8 +9,8 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
 from axonai_rehab_db import (
-    DB_PATH,
     create_user,
+    database_status,
     get_profile,
     init_db,
     list_therapists,
@@ -57,7 +57,7 @@ router = APIRouter(prefix="/api/rehab", tags=["rehab-persistence"])
 @router.get("/health")
 def health() -> dict[str, Any]:
     init_db()
-    return {"status": "ok", "database": str(DB_PATH)}
+    return {"status": "ok", "database": database_status()}
 
 
 @router.post("/accounts")
@@ -105,4 +105,3 @@ def create_upper_limb_analysis(payload: AnalysisPayload) -> dict[str, Any]:
 @router.post("/matches")
 def create_match(payload: MatchPayload) -> dict[str, Any]:
     return save_match(payload.patientUserId, payload.therapistUserId, payload.analysisId, payload.matchedPerson, payload.status)
-
