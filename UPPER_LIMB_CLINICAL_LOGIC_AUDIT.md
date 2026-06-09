@@ -65,4 +65,3 @@ It should not describe outputs as:
   functional problem -> possible cause -> training goal -> exercise plan.
 - Add therapist dashboard review and plan approval before production use.
 - Add explicit consent, privacy, audit log, and safety escalation flows.
-
