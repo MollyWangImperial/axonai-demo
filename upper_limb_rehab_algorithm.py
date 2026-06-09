@@ -82,6 +82,66 @@ SOURCES = {
     },
 }
 
+CLINICAL_LOGIC_AUDIT = {
+    "source_backed_domains": [
+        {
+            "area": "Upper-limb impairment domains",
+            "code_usage": "Shoulder/elbow/forearm, wrist/hand, and coordination groupings.",
+            "source_basis": ["fma_ue"],
+            "note": "The domains follow standardized post-stroke upper-extremity assessment structure; the app does not calculate an official FMA-UE score.",
+        },
+        {
+            "area": "Activity-capacity domains",
+            "code_usage": "Reach, grasp/release, hand-to-mouth/gross arm movement, and object-related training targets.",
+            "source_basis": ["arat", "wmft"],
+            "note": "The collected actions are inspired by ARAT/WMFT-style functional domains; the app does not calculate official ARAT or WMFT scores.",
+        },
+        {
+            "area": "Training principle",
+            "code_usage": "Task-specific, repetitive, functional upper-limb practice with safe progression.",
+            "source_basis": ["nice_ng236", "canadian_stroke_best_practices", "aha_asa_stroke_rehab"],
+            "note": "The plan selection follows guideline-level principles rather than a validated prescription engine.",
+        },
+        {
+            "area": "Home practice dose anchor",
+            "code_usage": "Most exercises use small sets/reps across multiple days, with low-intensity precautions when uncertainty is high.",
+            "source_basis": ["canadian_stroke_best_practices", "therapeutic_exercise"],
+            "note": "GRASP-style programs support higher total practice time when therapist-supervised; this prototype gives conservative starter doses.",
+        },
+    ],
+    "engineering_proxy_rules": [
+        {
+            "area": "Phone-video metrics",
+            "code_usage": "ROM, reach ratio, smoothness, endpoint spread, shoulder hike, and trunk lean estimated from MediaPipe/OpenCV landmarks.",
+            "reasonableness": "Reasonable for screening and triage because these are observable movement-quality features, but not equivalent to goniometry, dynamometry, EMG, or therapist-scored standardized tests.",
+            "must_flag": True,
+        },
+        {
+            "area": "Numeric thresholds",
+            "code_usage": "Examples: shoulder flexion <90 deg, shoulder abduction <80 deg, trunk lean >12 deg, wrist extension <25 deg, endpoint error >8 cm.",
+            "reasonableness": "Chosen as conservative task-target heuristics for the capture protocol and not as published diagnostic cutoffs.",
+            "must_flag": True,
+        },
+        {
+            "area": "Cause hypotheses",
+            "code_usage": "Maps functional problems to possible causes such as reduced selective control, compensation, tone, pain, or proprioceptive/coordination issues.",
+            "reasonableness": "Clinically plausible differential reasoning, but video alone cannot confirm muscle force, spasticity, passive ROM, pain source, or sensation.",
+            "must_flag": True,
+        },
+        {
+            "area": "OpenSim trigger logic",
+            "code_usage": "Triggers retake/OpenSim/therapist review when confidence is low, cross-action evidence conflicts, compensation is large, or safety flags exist.",
+            "reasonableness": "Reasonable engineering escalation rule; it is a safety/uncertainty gate, not a validated clinical decision rule.",
+            "must_flag": True,
+        },
+    ],
+    "requires_clinical_validation": [
+        "Validate phone-video metric thresholds against therapist-rated FMA-UE/ARAT/WMFT and goniometry/dynamometry where available.",
+        "Validate exercise selection and dose with licensed stroke rehabilitation clinicians before production patient use.",
+        "Add therapist override and approval before labeling any plan as clinically prescribed.",
+    ],
+}
+
 
 @dataclass
 class VideoQuality:
@@ -822,6 +882,7 @@ def evaluate_upper_limb_collection(manifest: dict[str, Any]) -> dict[str, Any]:
         "algorithmVersion": "upper-limb-v1.0",
         "scope": "patient-facing decision support, not diagnosis",
         "sources": SOURCES,
+        "clinicalLogicAudit": CLINICAL_LOGIC_AUDIT,
         "qualitySummary": quality_summary,
         "actionAnalyses": [asdict(action) for action in actions],
         "functionalProblems": [asdict(problem) for problem in problems],
@@ -832,7 +893,7 @@ def evaluate_upper_limb_collection(manifest: dict[str, Any]) -> dict[str, Any]:
             "title": "Your upper-limb training priorities",
             "problems": [problem.patient_summary for problem in problems],
             "trainingFocus": [item.name for item in plan],
-            "reviewNote": "A therapist should review pain, severe spasticity, unclear results, or any high-risk safety flag.",
+            "reviewNote": "A therapist should review pain, severe spasticity, unclear results, or any high-risk safety flag. Phone-video findings are screening estimates, not formal FMA-UE, ARAT, WMFT, goniometry, dynamometry, or diagnosis.",
         },
     }
 
