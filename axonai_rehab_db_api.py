@@ -17,6 +17,7 @@ from axonai_rehab_db import (
     login_user,
     save_analysis,
     save_match,
+    save_package_analysis,
     save_profile,
 )
 
@@ -41,6 +42,10 @@ class AnalysisPayload(BaseModel):
     patientProfile: dict[str, Any] = Field(default_factory=dict)
     recordedVideos: dict[str, Any] = Field(default_factory=dict)
     result: dict[str, Any] = Field(default_factory=dict)
+
+
+class PackageAnalysisPayload(AnalysisPayload):
+    packageKey: str
 
 
 class MatchPayload(BaseModel):
@@ -100,6 +105,11 @@ def therapists() -> dict[str, Any]:
 @router.post("/upper-limb-analyses")
 def create_upper_limb_analysis(payload: AnalysisPayload) -> dict[str, Any]:
     return save_analysis(payload.patientUserId, payload.patientProfile, payload.recordedVideos, payload.result)
+
+
+@router.post("/package-analyses")
+def create_package_analysis(payload: PackageAnalysisPayload) -> dict[str, Any]:
+    return save_package_analysis(payload.packageKey, payload.patientUserId, payload.patientProfile, payload.recordedVideos, payload.result)
 
 
 @router.post("/matches")

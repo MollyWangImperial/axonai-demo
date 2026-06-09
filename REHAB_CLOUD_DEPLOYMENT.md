@@ -57,10 +57,43 @@ the API still analyzes videos but does not retain them after analysis unless
 GET /health
 GET /api/rehab/health
 GET /api/upper-limb/health
+GET /api/rehab-packages/health
 ```
 
 `/api/rehab/health` reports whether the backend is using `sqlite` or
 `postgres`.
+
+## Rehab Package APIs
+
+Upper limb video analysis remains available at:
+
+```text
+POST /api/upper-limb/analyze-videos
+POST /api/upper-limb/analyze
+GET /api/upper-limb/sample
+```
+
+The additional package algorithms are exposed through:
+
+```text
+GET /api/rehab-packages/{packageKey}/sample
+POST /api/rehab-packages/{packageKey}/analyze
+POST /api/rehab/package-analyses
+```
+
+Supported `packageKey` values:
+
+```text
+hand
+gait
+balance
+trunk
+```
+
+For these packages, the current stable input is a measured-metrics manifest from
+the app/video pipeline. Package-specific video extractors should be connected
+behind the same API shape before opening these flows as real patient-facing
+video analysis.
 
 ## App Configuration
 

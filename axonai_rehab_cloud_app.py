@@ -16,6 +16,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from axonai_rehab_db_api import router as rehab_db_router
+from rehab_packages_api import router as rehab_packages_router
 from upper_limb_rehab_api import router as upper_limb_rehab_router
 
 
@@ -29,9 +30,9 @@ app.add_middleware(
 )
 app.include_router(rehab_db_router)
 app.include_router(upper_limb_rehab_router)
+app.include_router(rehab_packages_router)
 
 
 @app.get("/health")
 def health() -> dict[str, str]:
     return {"status": "ok", "service": "axonai-rehab-cloud-api"}
-

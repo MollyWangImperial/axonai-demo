@@ -65,6 +65,18 @@ SCHEMA_STATEMENTS = [
     )
     """,
     """
+    CREATE TABLE IF NOT EXISTS package_analyses (
+        id TEXT PRIMARY KEY,
+        package_key TEXT NOT NULL,
+        patient_user_id TEXT,
+        patient_profile_json TEXT NOT NULL,
+        recorded_videos_json TEXT NOT NULL,
+        result_json TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        FOREIGN KEY(patient_user_id) REFERENCES users(id) ON DELETE SET NULL
+    )
+    """,
+    """
     CREATE TABLE IF NOT EXISTS care_matches (
         id TEXT PRIMARY KEY,
         patient_user_id TEXT,
@@ -225,6 +237,37 @@ def save_analysis(patient_user_id: str | None, patient_profile: dict[str, Any], 
             ),
         )
     return {"analysisId": analysis_id, "createdAt": timestamp}
+
+
+def save_package_analysis(
+    package_key: str,
+    patient_user_id: str | None,
+    patient_profile: dict[str, Any],
+    recorded_videos: dict[str, Any],
+    result: dict[str, Any],
+) -> dict[str, Any]:
+    init_db()
+    analysis_id = str(uuid.uuid4())
+    timestamp = now_iso()
+    ph = placeholder()
+    with connect() as conn:
+        conn.execute(
+            f"""
+            INSERT INTO package_analyses
+                (id, package_key, patient_user_id, patient_profile_json, recorded_videos_json, result_json, created_at)
+            VALUES ({ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph})
+            """,
+            (
+                analysis_id,
+                package_key,
+                patient_user_id or None,
+                json.dumps(patient_profile, ensure_ascii=False),
+                json.dumps(recorded_videos, ensure_ascii=False),
+                json.dumps(result, ensure_ascii=False),
+                timestamp,
+            ),
+        )
+    return {"analysisId": analysis_id, "packageKey": package_key, "createdAt": timestamp}
 
 
 def save_match(
