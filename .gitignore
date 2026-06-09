@@ -9,3 +9,30 @@ uploaded_calibration_videos/
 plots/
 **.pdf
 **.ipynb
+
+# Local rehab app database and uploaded/runtime data
+axonai_rehab_runtime/
+
+# Runtime uploads, generated OpenSim/OpenCap data, and local demo media
+.web/
+Data/
+OpenCapData_experiment/
+CameraIntrinsics/*.pickle
+uploaded_files/
+axonai_website/uploaded_files/
+*.mp4
+*.mov
+*.webm
+*.avi
+*.mkv
+*.zip
+*.log
+gait_output.json
+
+# Expo / React Native local dependencies and build artifacts
+node_modules/
+.expo/
+dist/
+build/
+ios/
+android/
