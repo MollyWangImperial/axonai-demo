@@ -5,8 +5,9 @@
     "shoulder-flexion": {
       "title": "AxonAI Upper Limb Collection - Shoulder Flexion Side View",
       "videoId": "f1dfed27475e479caf145417f83924e4",
-      "status": "completed",
-      "videoUrl": "https://files2.heygen.ai/aws_pacific/avatar_tmp/1831d1c4971e4436aed5a2502f68455b/f1dfed27475e479caf145417f83924e4.mp4?Expires=1781719399&Signature=fBe9WD-o611oa9SjSGcT64J6F9ebauvp1RHzEt6q4I9DzplItDM-ioskhl9QQx-9lTMg7XzjF2GY9rnxfz6KQ7P72vbhoiF5XpQVuGSoZkYa~P0kMmaIHJ6rvSXiyVP8MbZCqeYOx1nnC4Qv2KNUK0YoA3SLkDkscgImAJJIQ1tg3PdBEwbpGNY0e-cn1wcBNm-jLy4HNU7BOae8YcopWfqCa9Rr87zg58UGiO19vi8pi30IuKhW9XKr3GR6m6wVcq8ZiAwYMewwo8sNnOlYbAGfaAQOnVV87tidPz2QKD1t7JCG9vZaCwzDHgKWXc~ynnBLWgm8HxK8ym86~7eE~A__&Key-Pair-Id=K38HBHX5LX3X2H"
+      "status": "retired",
+      "videoUrl": "https://files2.heygen.ai/aws_pacific/avatar_tmp/1831d1c4971e4436aed5a2502f68455b/f1dfed27475e479caf145417f83924e4.mp4?Expires=1781719399&Signature=fBe9WD-o611oa9SjSGcT64J6F9ebauvp1RHzEt6q4I9DzplItDM-ioskhl9QQx-9lTMg7XzjF2GY9rnxfz6KQ7P72vbhoiF5XpQVuGSoZkYa~P0kMmaIHJ6rvSXiyVP8MbZCqeYOx1nnC4Qv2KNUK0YoA3SLkDkscgImAJJIQ1tg3PdBEwbpGNY0e-cn1wcBNm-jLy4HNU7BOae8YcopWfqCa9Rr87zg58UGiO19vi8pi30IuKhW9XKr3GR6m6wVcq8ZiAwYMewwo8sNnOlYbAGfaAQOnVV87tidPz2QKD1t7JCG9vZaCwzDHgKWXc~ynnBLWgm8HxK8ym86~7eE~A__&Key-Pair-Id=K38HBHX5LX3X2H",
+      "retiredReason": "Retired from app UI: avatar did not look like a clinical rehabilitation therapist and was not acceptable for patient-facing instruction."
     },
     "shoulder-abduction": {
       "title": "AxonAI Upper Limb Collection - Shoulder Abduction Front View",
@@ -61,8 +62,9 @@
     "table-slide": {
       "title": "AxonAI Exercise Demo - Table Slide Forward Elevation",
       "videoId": "09ae08cbb3614c3ea8a2a3a6e95f3319",
-      "status": "completed",
-      "videoUrl": "https://files2.heygen.ai/aws_pacific/avatar_tmp/1831d1c4971e4436aed5a2502f68455b/09ae08cbb3614c3ea8a2a3a6e95f3319.mp4?Expires=1781721094&Signature=RlW7fbRaRL36f72honQjwbn6n2wk~rpI391XYjLd4X9OzzEonIeyXMGWQDebOFKtP3wEzJcbNB08kslv6d33WhOABVRcf70qRAC2vwJO9EGjONN5q3~3VsJ8KU-7pqrKVAd6hk6cku6bP28~4e6KZfal8ijOpIfq~eCgaFNswBzepsKhxCU-E6hxnHxU2oo~tX8UWbeBj58VcJ9-UfryiHaxtK5TMG32vM0m8f3UUfZNuFe1Wmaa7w~iXrcKVKgxCCmzcNhQVGOTnvEINAUUUYRRI4Yd-m5vnDhRfnqXSKYOAIruh5dCRJCIQQurcuZahIL2-fv6Y7kpU5vPxZI9mw__&Key-Pair-Id=K38HBHX5LX3X2H"
+      "status": "retired",
+      "videoUrl": "https://files2.heygen.ai/aws_pacific/avatar_tmp/1831d1c4971e4436aed5a2502f68455b/09ae08cbb3614c3ea8a2a3a6e95f3319.mp4?Expires=1781721094&Signature=RlW7fbRaRL36f72honQjwbn6n2wk~rpI391XYjLd4X9OzzEonIeyXMGWQDebOFKtP3wEzJcbNB08kslv6d33WhOABVRcf70qRAC2vwJO9EGjONN5q3~3VsJ8KU-7pqrKVAd6hk6cku6bP28~4e6KZfal8ijOpIfq~eCgaFNswBzepsKhxCU-E6hxnHxU2oo~tX8UWbeBj58VcJ9-UfryiHaxtK5TMG32vM0m8f3UUfZNuFe1Wmaa7w~iXrcKVKgxCCmzcNhQVGOTnvEINAUUUYRRI4Yd-m5vnDhRfnqXSKYOAIruh5dCRJCIQQurcuZahIL2-fv6Y7kpU5vPxZI9mw__&Key-Pair-Id=K38HBHX5LX3X2H",
+      "retiredReason": "Retired from app UI: avatar did not look like a clinical rehabilitation therapist and was not acceptable for patient-facing instruction."
     },
     "scapula-setting": {
       "title": "AxonAI Exercise Demo - Scapular Setting",
@@ -82,5 +84,12 @@
       "status": "failed",
       "failureReason": "AVATAR_IV_VIDEO_GENERATION_DURATION_LIMIT_REACHED: HeyGen Avatar IV monthly limit reached."
     }
+  },
+  "clinicalTherapistAvatar": {
+    "avatarId": "1050683dd8d64114a6dbf1b47b1d3334",
+    "groupId": "11433fce7f7d4c27ad0c091689b1409e",
+    "name": "AxonAI Clinical Rehab Therapist",
+    "status": "processing",
+    "intendedUse": "Patient-facing clinical recording guides and exercise demonstrations with voice."
   }
 }

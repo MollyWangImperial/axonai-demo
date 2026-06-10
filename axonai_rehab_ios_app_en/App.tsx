@@ -225,7 +225,6 @@ const upperActions: CollectionAction[] = [
     cameraView: 'Side view',
     viewInstruction: 'Record from the side of the affected arm so the shoulder, elbow, wrist, and trunk are visible.',
     guideScript: 'Sit tall in a chair. Turn your body sideways to the camera. Start with the arm relaxed, slowly lift it forward as high as comfortable, pause, then lower with control.',
-    demoVideoUrl: 'https://files2.heygen.ai/aws_pacific/avatar_tmp/1831d1c4971e4436aed5a2502f68455b/f1dfed27475e479caf145417f83924e4.mp4?Expires=1781719399&Signature=fBe9WD-o611oa9SjSGcT64J6F9ebauvp1RHzEt6q4I9DzplItDM-ioskhl9QQx-9lTMg7XzjF2GY9rnxfz6KQ7P72vbhoiF5XpQVuGSoZkYa~P0kMmaIHJ6rvSXiyVP8MbZCqeYOx1nnC4Qv2KNUK0YoA3SLkDkscgImAJJIQ1tg3PdBEwbpGNY0e-cn1wcBNm-jLy4HNU7BOae8YcopWfqCa9Rr87zg58UGiO19vi8pi30IuKhW9XKr3GR6m6wVcq8ZiAwYMewwo8sNnOlYbAGfaAQOnVV87tidPz2QKD1t7JCG9vZaCwzDHgKWXc~ynnBLWgm8HxK8ym86~7eE~A__&Key-Pair-Id=K38HBHX5LX3X2H',
   },
   {
     id: 'shoulder-abduction',
@@ -337,7 +336,6 @@ const exercises: Exercise[] = [
     dayPattern: [1, 2, 3, 4, 5, 6],
     imageTone: '#dff7ff',
     coverImage: require('./assets/exercise-covers/table-slide.png'),
-    demoVideoUrl: 'https://files2.heygen.ai/aws_pacific/avatar_tmp/1831d1c4971e4436aed5a2502f68455b/09ae08cbb3614c3ea8a2a3a6e95f3319.mp4?Expires=1781721094&Signature=RlW7fbRaRL36f72honQjwbn6n2wk~rpI391XYjLd4X9OzzEonIeyXMGWQDebOFKtP3wEzJcbNB08kslv6d33WhOABVRcf70qRAC2vwJO9EGjONN5q3~3VsJ8KU-7pqrKVAd6hk6cku6bP28~4e6KZfal8ijOpIfq~eCgaFNswBzepsKhxCU-E6hxnHxU2oo~tX8UWbeBj58VcJ9-UfryiHaxtK5TMG32vM0m8f3UUfZNuFe1Wmaa7w~iXrcKVKgxCCmzcNhQVGOTnvEINAUUUYRRI4Yd-m5vnDhRfnqXSKYOAIruh5dCRJCIQQurcuZahIL2-fv6Y7kpU5vPxZI9mw__&Key-Pair-Id=K38HBHX5LX3X2H',
     steps: [
       'Sit with the forearm placed on a towel.',
       'Keep the body upright and slowly slide the affected hand forward.',
@@ -747,9 +745,6 @@ function toneForExercise(exerciseId: string): { imageTone: string; coverImage: I
 }
 
 function demoVideoForExercise(exerciseId: string): string | undefined {
-  if (exerciseId === 'table-slide' || exerciseId === 'table_slide') {
-    return 'https://files2.heygen.ai/aws_pacific/avatar_tmp/1831d1c4971e4436aed5a2502f68455b/09ae08cbb3614c3ea8a2a3a6e95f3319.mp4?Expires=1781721094&Signature=RlW7fbRaRL36f72honQjwbn6n2wk~rpI391XYjLd4X9OzzEonIeyXMGWQDebOFKtP3wEzJcbNB08kslv6d33WhOABVRcf70qRAC2vwJO9EGjONN5q3~3VsJ8KU-7pqrKVAd6hk6cku6bP28~4e6KZfal8ijOpIfq~eCgaFNswBzepsKhxCU-E6hxnHxU2oo~tX8UWbeBj58VcJ9-UfryiHaxtK5TMG32vM0m8f3UUfZNuFe1Wmaa7w~iXrcKVKgxCCmzcNhQVGOTnvEINAUUUYRRI4Yd-m5vnDhRfnqXSKYOAIruh5dCRJCIQQurcuZahIL2-fv6Y7kpU5vPxZI9mw__&Key-Pair-Id=K38HBHX5LX3X2H';
-  }
   return undefined;
 }
 
@@ -2226,6 +2221,8 @@ function CollectionGuideScreen({
               resizeMode={ResizeMode.COVER}
               useNativeControls
               shouldPlay={isPlaying}
+              isMuted={false}
+              volume={1}
             />
           ) : (
             <LinearGradient colors={['#eaf7ff', '#dff7f3']} style={styles.demoImage}>
@@ -2233,7 +2230,7 @@ function CollectionGuideScreen({
                 <Ionicons name={action.cameraView === 'Front view' ? 'body' : 'walk'} size={92} color="#164b85" />
                 <Ionicons name="videocam" size={42} color="#0f6eff" style={styles.handIcon} />
               </View>
-              <Text style={styles.demoPlaceholderText}>HeyGen recording guide will appear here after the media asset is connected.</Text>
+              <Text style={styles.demoPlaceholderText}>Clinical therapist voice demo will appear here after the approved HeyGen asset is connected.</Text>
             </LinearGradient>
           )}
         </View>
@@ -2948,6 +2945,8 @@ function DemoScreen({ exercise, isPlaying, onBack, onTogglePlay }: { exercise: E
               resizeMode={ResizeMode.COVER}
               useNativeControls
               shouldPlay={isPlaying}
+              isMuted={false}
+              volume={1}
             />
           ) : (
             <LinearGradient colors={['#eef8ff', exercise.imageTone]} style={styles.demoImage}>
@@ -2958,7 +2957,7 @@ function DemoScreen({ exercise, isPlaying, onBack, onTogglePlay }: { exercise: E
               <Pressable style={tapStyle(styles.playButton)} onPress={onTogglePlay}>
                 <Ionicons name={isPlaying ? 'pause' : 'play'} size={34} color="#ffffff" />
               </Pressable>
-              <Text style={styles.demoPlaceholderText}>HeyGen guided video will appear here after the media asset is connected.</Text>
+              <Text style={styles.demoPlaceholderText}>Clinical therapist voice demo will appear here after the approved HeyGen asset is connected.</Text>
               <View style={styles.videoProgress}>
                 <View style={[styles.videoProgressFill, { width: isPlaying ? '56%' : '18%' }]} />
               </View>
