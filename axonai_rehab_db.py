@@ -340,6 +340,14 @@ def _uuid_or_none(value: str | None) -> str | None:
         return None
 
 
+def _json_object(value: Any) -> dict[str, Any]:
+    if isinstance(value, dict):
+        return value
+    if value is None:
+        return {}
+    return json.loads(value)
+
+
 def _profile_columns(role: str, profile: dict[str, Any]) -> dict[str, Any]:
     if role == "patient":
         return {
@@ -553,7 +561,7 @@ def get_profile(user_id: str, role: str) -> dict[str, Any] | None:
     ph = placeholder()
     with connect() as conn:
         row = conn.execute(f"SELECT profile_json FROM {table} WHERE user_id = {ph}", (user_id,)).fetchone()
-    return json.loads(row["profile_json"]) if row else None
+    return _json_object(row["profile_json"]) if row else None
 
 
 def save_analysis(patient_user_id: str | None, patient_profile: dict[str, Any], recorded_videos: dict[str, Any], result: dict[str, Any]) -> dict[str, Any]:
@@ -846,7 +854,7 @@ def list_therapists() -> list[dict[str, Any]]:
             {
                 "userId": str(row["id"]),
                 "identifier": row["email"] or row["phone"] or str(row["id"]),
-                "profile": row["profile_json"] if isinstance(row["profile_json"], dict) else json.loads(row["profile_json"]),
+                "profile": _json_object(row["profile_json"]),
             }
             for row in rows
         ]
@@ -860,7 +868,7 @@ def list_therapists() -> list[dict[str, Any]]:
             ORDER BY users.updated_at DESC
             """
         ).fetchall()
-    return [{"userId": row["id"], "identifier": row["identifier"], "profile": json.loads(row["profile_json"])} for row in rows]
+    return [{"userId": row["id"], "identifier": row["identifier"], "profile": _json_object(row["profile_json"])} for row in rows]
 
 
 def database_status() -> dict[str, Any]:
