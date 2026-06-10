@@ -1,0 +1,86 @@
+{
+  "avatarId": "f20cdc89e0ec4b61bbe453d73019a997",
+  "voiceId": "007e1378fc454a9f976db570ba6164a7",
+  "collectionGuides": {
+    "shoulder-flexion": {
+      "title": "AxonAI Upper Limb Collection - Shoulder Flexion Side View",
+      "videoId": "f1dfed27475e479caf145417f83924e4",
+      "status": "completed",
+      "videoUrl": "https://files2.heygen.ai/aws_pacific/avatar_tmp/1831d1c4971e4436aed5a2502f68455b/f1dfed27475e479caf145417f83924e4.mp4?Expires=1781719399&Signature=fBe9WD-o611oa9SjSGcT64J6F9ebauvp1RHzEt6q4I9DzplItDM-ioskhl9QQx-9lTMg7XzjF2GY9rnxfz6KQ7P72vbhoiF5XpQVuGSoZkYa~P0kMmaIHJ6rvSXiyVP8MbZCqeYOx1nnC4Qv2KNUK0YoA3SLkDkscgImAJJIQ1tg3PdBEwbpGNY0e-cn1wcBNm-jLy4HNU7BOae8YcopWfqCa9Rr87zg58UGiO19vi8pi30IuKhW9XKr3GR6m6wVcq8ZiAwYMewwo8sNnOlYbAGfaAQOnVV87tidPz2QKD1t7JCG9vZaCwzDHgKWXc~ynnBLWgm8HxK8ym86~7eE~A__&Key-Pair-Id=K38HBHX5LX3X2H"
+    },
+    "shoulder-abduction": {
+      "title": "AxonAI Upper Limb Collection - Shoulder Abduction Front View",
+      "videoId": "ead33a1bc0dd4f689db7ea26c5249cd7",
+      "status": "failed",
+      "failureReason": "AVATAR_IV_VIDEO_GENERATION_DURATION_LIMIT_REACHED: HeyGen Avatar IV monthly limit reached."
+    },
+    "hand-mouth": {
+      "title": "AxonAI Upper Limb Collection - Hand To Mouth Side View",
+      "videoId": "de54771abd3d46c08066584ee92c280b",
+      "status": "failed",
+      "failureReason": "AVATAR_IV_VIDEO_GENERATION_DURATION_LIMIT_REACHED: HeyGen Avatar IV monthly limit reached."
+    },
+    "reach": {
+      "title": "AxonAI Upper Limb Collection - Forward Reach Side View",
+      "videoId": "a800c09cad4a4291b99628d876856951",
+      "status": "failed",
+      "failureReason": "AVATAR_IV_VIDEO_GENERATION_DURATION_LIMIT_REACHED: HeyGen Avatar IV monthly limit reached."
+    },
+    "elbow": {
+      "title": "AxonAI Upper Limb Collection - Elbow Flexion Extension Side View",
+      "videoId": "eac633b2092440c4b1384c89b4925797",
+      "status": "failed",
+      "failureReason": "AVATAR_IV_VIDEO_GENERATION_DURATION_LIMIT_REACHED: HeyGen Avatar IV monthly limit reached."
+    },
+    "forearm": {
+      "title": "AxonAI Upper Limb Collection - Forearm Pronation Supination Front View",
+      "videoId": "258900cd3bb54d84924860b774f49915",
+      "status": "failed",
+      "failureReason": "AVATAR_IV_VIDEO_GENERATION_DURATION_LIMIT_REACHED: HeyGen Avatar IV monthly limit reached."
+    },
+    "wrist": {
+      "title": "AxonAI Upper Limb Collection - Wrist Extension Side View",
+      "videoId": "898c6a7bb1db48a08713e794ff37ef55",
+      "status": "failed",
+      "failureReason": "AVATAR_IV_VIDEO_GENERATION_DURATION_LIMIT_REACHED: HeyGen Avatar IV monthly limit reached."
+    },
+    "grasp": {
+      "title": "AxonAI Upper Limb Collection - Grasp Release Front View",
+      "videoId": "7c09fcf2320848efb99e6bf323210911",
+      "status": "failed",
+      "failureReason": "AVATAR_IV_VIDEO_GENERATION_DURATION_LIMIT_REACHED: HeyGen Avatar IV monthly limit reached."
+    },
+    "finger-nose": {
+      "title": "AxonAI Upper Limb Collection - Finger Nose Target Touch Front View",
+      "videoId": "673d2d81b6714b7eb76bc8d6d6239a25",
+      "status": "failed",
+      "failureReason": "AVATAR_IV_VIDEO_GENERATION_DURATION_LIMIT_REACHED: HeyGen Avatar IV monthly limit reached."
+    }
+  },
+  "exerciseDemos": {
+    "table-slide": {
+      "title": "AxonAI Exercise Demo - Table Slide Forward Elevation",
+      "videoId": "09ae08cbb3614c3ea8a2a3a6e95f3319",
+      "status": "completed",
+      "videoUrl": "https://files2.heygen.ai/aws_pacific/avatar_tmp/1831d1c4971e4436aed5a2502f68455b/09ae08cbb3614c3ea8a2a3a6e95f3319.mp4?Expires=1781721094&Signature=RlW7fbRaRL36f72honQjwbn6n2wk~rpI391XYjLd4X9OzzEonIeyXMGWQDebOFKtP3wEzJcbNB08kslv6d33WhOABVRcf70qRAC2vwJO9EGjONN5q3~3VsJ8KU-7pqrKVAd6hk6cku6bP28~4e6KZfal8ijOpIfq~eCgaFNswBzepsKhxCU-E6hxnHxU2oo~tX8UWbeBj58VcJ9-UfryiHaxtK5TMG32vM0m8f3UUfZNuFe1Wmaa7w~iXrcKVKgxCCmzcNhQVGOTnvEINAUUUYRRI4Yd-m5vnDhRfnqXSKYOAIruh5dCRJCIQQurcuZahIL2-fv6Y7kpU5vPxZI9mw__&Key-Pair-Id=K38HBHX5LX3X2H"
+    },
+    "scapula-setting": {
+      "title": "AxonAI Exercise Demo - Scapular Setting",
+      "videoId": "af3d631cbb5d49d1bf8f7e6e0756dc22",
+      "status": "failed",
+      "failureReason": "AVATAR_IV_VIDEO_GENERATION_DURATION_LIMIT_REACHED: HeyGen Avatar IV monthly limit reached."
+    },
+    "elbow-reach": {
+      "title": "AxonAI Exercise Demo - Seated Elbow Extension Reach",
+      "videoId": "8172585b471240249d24491d70ca544a",
+      "status": "failed",
+      "failureReason": "AVATAR_IV_VIDEO_GENERATION_DURATION_LIMIT_REACHED: HeyGen Avatar IV monthly limit reached."
+    },
+    "wrist-open": {
+      "title": "AxonAI Exercise Demo - Wrist Lift and Hand Opening",
+      "videoId": "4f9b72d1de194cae8bc9fcccb3fb7e47",
+      "status": "failed",
+      "failureReason": "AVATAR_IV_VIDEO_GENERATION_DURATION_LIMIT_REACHED: HeyGen Avatar IV monthly limit reached."
+    }
+  }
+}

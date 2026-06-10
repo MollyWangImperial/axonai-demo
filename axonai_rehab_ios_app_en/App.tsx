@@ -38,6 +38,7 @@ type Screen =
   | 'patientCare'
   | 'patientMe'
   | 'collect'
+  | 'collectionGuide'
   | 'analysisLoading'
   | 'metrics'
   | 'problems'
@@ -224,6 +225,7 @@ const upperActions: CollectionAction[] = [
     cameraView: 'Side view',
     viewInstruction: 'Record from the side of the affected arm so the shoulder, elbow, wrist, and trunk are visible.',
     guideScript: 'Sit tall in a chair. Turn your body sideways to the camera. Start with the arm relaxed, slowly lift it forward as high as comfortable, pause, then lower with control.',
+    demoVideoUrl: 'https://files2.heygen.ai/aws_pacific/avatar_tmp/1831d1c4971e4436aed5a2502f68455b/f1dfed27475e479caf145417f83924e4.mp4?Expires=1781719399&Signature=fBe9WD-o611oa9SjSGcT64J6F9ebauvp1RHzEt6q4I9DzplItDM-ioskhl9QQx-9lTMg7XzjF2GY9rnxfz6KQ7P72vbhoiF5XpQVuGSoZkYa~P0kMmaIHJ6rvSXiyVP8MbZCqeYOx1nnC4Qv2KNUK0YoA3SLkDkscgImAJJIQ1tg3PdBEwbpGNY0e-cn1wcBNm-jLy4HNU7BOae8YcopWfqCa9Rr87zg58UGiO19vi8pi30IuKhW9XKr3GR6m6wVcq8ZiAwYMewwo8sNnOlYbAGfaAQOnVV87tidPz2QKD1t7JCG9vZaCwzDHgKWXc~ynnBLWgm8HxK8ym86~7eE~A__&Key-Pair-Id=K38HBHX5LX3X2H',
   },
   {
     id: 'shoulder-abduction',
@@ -335,6 +337,7 @@ const exercises: Exercise[] = [
     dayPattern: [1, 2, 3, 4, 5, 6],
     imageTone: '#dff7ff',
     coverImage: require('./assets/exercise-covers/table-slide.png'),
+    demoVideoUrl: 'https://files2.heygen.ai/aws_pacific/avatar_tmp/1831d1c4971e4436aed5a2502f68455b/09ae08cbb3614c3ea8a2a3a6e95f3319.mp4?Expires=1781721094&Signature=RlW7fbRaRL36f72honQjwbn6n2wk~rpI391XYjLd4X9OzzEonIeyXMGWQDebOFKtP3wEzJcbNB08kslv6d33WhOABVRcf70qRAC2vwJO9EGjONN5q3~3VsJ8KU-7pqrKVAd6hk6cku6bP28~4e6KZfal8ijOpIfq~eCgaFNswBzepsKhxCU-E6hxnHxU2oo~tX8UWbeBj58VcJ9-UfryiHaxtK5TMG32vM0m8f3UUfZNuFe1Wmaa7w~iXrcKVKgxCCmzcNhQVGOTnvEINAUUUYRRI4Yd-m5vnDhRfnqXSKYOAIruh5dCRJCIQQurcuZahIL2-fv6Y7kpU5vPxZI9mw__&Key-Pair-Id=K38HBHX5LX3X2H',
     steps: [
       'Sit with the forearm placed on a towel.',
       'Keep the body upright and slowly slide the affected hand forward.',
@@ -712,7 +715,7 @@ function createFallbackAnalysis(): UpperLimbAnalysisResult {
     weeklyExercisePlan: exercises.map((exercise) => ({
       exercise_id: exercise.id,
       name: exercise.title,
-      improves: [exercise.improves],
+      improves: [exercise.improves.replace(/^Improves\s+/i, '').replace(/^Reduces\s+/i, '')],
       dose: exercise.dose,
       days: weekDays,
       instructions: exercise.steps,
@@ -737,10 +740,17 @@ function iconForProblem(problemId: string): keyof typeof Ionicons.glyphMap {
 }
 
 function toneForExercise(exerciseId: string): { imageTone: string; coverImage: ImageSourcePropType } {
-  if (exerciseId.includes('scapular')) return { imageTone: '#eaf2ff', coverImage: require('./assets/exercise-covers/scapula-setting.png') };
+  if (exerciseId.includes('scapular') || exerciseId.includes('scapula')) return { imageTone: '#eaf2ff', coverImage: require('./assets/exercise-covers/scapula-setting.png') };
   if (exerciseId.includes('reach') || exerciseId.includes('elbow')) return { imageTone: '#fff4db', coverImage: require('./assets/exercise-covers/elbow-reach.png') };
-  if (exerciseId.includes('wrist') || exerciseId.includes('grasp')) return { imageTone: '#ffe9df', coverImage: require('./assets/exercise-covers/wrist-open.png') };
+  if (exerciseId.includes('wrist') || exerciseId.includes('grasp') || exerciseId.includes('open')) return { imageTone: '#ffe9df', coverImage: require('./assets/exercise-covers/wrist-open.png') };
   return { imageTone: '#dff7ff', coverImage: require('./assets/exercise-covers/table-slide.png') };
+}
+
+function demoVideoForExercise(exerciseId: string): string | undefined {
+  if (exerciseId === 'table-slide' || exerciseId === 'table_slide') {
+    return 'https://files2.heygen.ai/aws_pacific/avatar_tmp/1831d1c4971e4436aed5a2502f68455b/09ae08cbb3614c3ea8a2a3a6e95f3319.mp4?Expires=1781721094&Signature=RlW7fbRaRL36f72honQjwbn6n2wk~rpI391XYjLd4X9OzzEonIeyXMGWQDebOFKtP3wEzJcbNB08kslv6d33WhOABVRcf70qRAC2vwJO9EGjONN5q3~3VsJ8KU-7pqrKVAd6hk6cku6bP28~4e6KZfal8ijOpIfq~eCgaFNswBzepsKhxCU-E6hxnHxU2oo~tX8UWbeBj58VcJ9-UfryiHaxtK5TMG32vM0m8f3UUfZNuFe1Wmaa7w~iXrcKVKgxCCmzcNhQVGOTnvEINAUUUYRRI4Yd-m5vnDhRfnqXSKYOAIruh5dCRJCIQQurcuZahIL2-fv6Y7kpU5vPxZI9mw__&Key-Pair-Id=K38HBHX5LX3X2H';
+  }
+  return undefined;
 }
 
 function mapApiExercise(item: ApiExercisePlanItem): Exercise {
@@ -755,6 +765,7 @@ function mapApiExercise(item: ApiExercisePlanItem): Exercise {
       .filter((day) => day > 0),
     imageTone: tone.imageTone,
     coverImage: tone.coverImage,
+    demoVideoUrl: demoVideoForExercise(item.exercise_id),
     steps: item.instructions,
     cautions: item.precautions,
   };
@@ -861,6 +872,7 @@ export default function App() {
   const [accountSession, setAccountSession] = useState<AccountSession | null>(null);
   const [patientOnboardingBackScreen, setPatientOnboardingBackScreen] = useState<Screen>('auth');
   const [authBusy, setAuthBusy] = useState(false);
+  const [authRestoring, setAuthRestoring] = useState(true);
   const [analysisId, setAnalysisId] = useState<string | null>(null);
   const [matchId, setMatchId] = useState<string | null>(null);
   const [selectedPackage, setSelectedPackage] = useState<PackageKey | null>(null);
@@ -874,6 +886,7 @@ export default function App() {
   const [isRecording, setRecording] = useState(false);
   const [selectedDay, setSelectedDay] = useState(1);
   const [selectedExercise, setSelectedExercise] = useState<Exercise>(exercises[0]);
+  const [selectedGuideAction, setSelectedGuideAction] = useState<CollectionAction>(upperActions[0]);
   const [showDemo, setShowDemo] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<UpperLimbAnalysisResult | null>(null);
   const [analysisReady, setAnalysisReady] = useState(false);
@@ -911,7 +924,7 @@ export default function App() {
     };
   }, [patientProfile, therapistProfile]);
   const activePatientTab = useMemo<PatientTab>(() => {
-    if (screen === 'assessment' || screen === 'collect' || screen === 'analysisLoading' || screen === 'metrics' || screen === 'problems') return 'assessment';
+    if (screen === 'assessment' || screen === 'collect' || screen === 'collectionGuide' || screen === 'analysisLoading' || screen === 'metrics' || screen === 'problems') return 'assessment';
     if (screen === 'planLoading' || screen === 'plan' || screen === 'demo' || screen === 'patientTraining') return 'training';
     if (screen === 'match' || screen === 'profile' || screen === 'waiting' || screen === 'patientCare') return 'care';
     if (screen === 'patientMe') return 'me';
@@ -919,7 +932,52 @@ export default function App() {
   }, [screen]);
   const showPatientTabs =
     accountSession?.role === 'patient'
-    && !['welcome', 'auth', 'patientOnboarding', 'therapistOnboarding', 'therapistDashboard', 'analysisLoading', 'planLoading', 'demo'].includes(screen);
+    && !['welcome', 'auth', 'patientOnboarding', 'therapistOnboarding', 'therapistDashboard', 'analysisLoading', 'planLoading', 'demo', 'collectionGuide'].includes(screen);
+
+  useEffect(() => {
+    let mounted = true;
+    async function restoreSession() {
+      if (!supabase) {
+        if (mounted) setAuthRestoring(false);
+        return;
+      }
+      try {
+        const { data } = await supabase.auth.getSession();
+        const user = data.session?.user;
+        const role = user?.user_metadata?.role as UserRole | undefined;
+        const identifier = user?.email ?? user?.phone ?? '';
+        if (!mounted || !user?.id || (role !== 'patient' && role !== 'therapist')) {
+          return;
+        }
+        const profile = await readSupabaseProfile(role, user.id);
+        if (!mounted) return;
+        setSelectedRole(role);
+        setAccountSession({ userId: user.id, role, identifier });
+        if (role === 'patient') {
+          if (profile) {
+            setPatientProfile(profile as PatientProfile);
+            setScreen('home');
+          } else {
+            setPatientOnboardingBackScreen('auth');
+            setScreen('patientOnboarding');
+          }
+        } else if (profile) {
+          setTherapistProfile(profile as TherapistProfile);
+          setScreen('therapistDashboard');
+        } else {
+          setScreen('therapistOnboarding');
+        }
+      } catch {
+        // Session restore is a convenience; manual login remains available.
+      } finally {
+        if (mounted) setAuthRestoring(false);
+      }
+    }
+    restoreSession();
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   const chooseRole = (role: UserRole) => {
     setSelectedRole(role);
@@ -1017,7 +1075,10 @@ export default function App() {
     setScreen('home');
   };
 
-  const logoutPatient = () => {
+  const logoutPatient = async () => {
+    if (supabase) {
+      await supabase.auth.signOut();
+    }
     setAccountSession(null);
     setScreen('welcome');
   };
@@ -1223,7 +1284,7 @@ export default function App() {
             onBack={() => setScreen('welcome')}
             onLogin={loginExistingAccount}
             onCreate={createAccount}
-            busy={authBusy}
+            busy={authBusy || authRestoring}
           />
         )}
         {screen === 'patientOnboarding' && (
@@ -1303,6 +1364,19 @@ export default function App() {
             onRetryAction={retryAction}
             onSelectAction={setCurrentActionIndex}
             onGeneratePlan={generatePlan}
+            onOpenGuide={(action) => {
+              setSelectedGuideAction(action);
+              setShowDemo(false);
+              setScreen('collectionGuide');
+            }}
+          />
+        )}
+        {screen === 'collectionGuide' && (
+          <CollectionGuideScreen
+            action={selectedGuideAction}
+            isPlaying={showDemo}
+            onBack={() => setScreen('collect')}
+            onTogglePlay={() => setShowDemo((value) => !value)}
           />
         )}
         {screen === 'analysisLoading' && (
@@ -1973,6 +2047,7 @@ function CollectScreen({
   onRetryAction,
   onSelectAction,
   onGeneratePlan,
+  onOpenGuide,
 }: {
   currentAction: CollectionAction;
   currentActionIndex: number;
@@ -1992,13 +2067,11 @@ function CollectScreen({
   onRetryAction: () => void;
   onSelectAction: (index: number) => void;
   onGeneratePlan: () => void;
+  onOpenGuide: (action: CollectionAction) => void;
 }) {
   const currentQuality = qualityResults[currentAction.id];
   const isCheckingQuality = qualityCheckingActionId === currentAction.id;
   const qualityPassedCurrent = qualityPassed[currentAction.id];
-  const openCollectionGuide = () => {
-    Alert.alert(`${currentAction.cameraView} Guide`, `${currentAction.viewInstruction}\n\n${currentAction.guideScript}`);
-  };
 
   return (
     <View style={styles.screen}>
@@ -2038,10 +2111,10 @@ function CollectScreen({
             <Ionicons name="mic" size={17} color="#01d4c0" />
             <Text style={styles.instructionText}>{currentAction.instruction}</Text>
           </View>
-          <Pressable style={tapStyle(styles.collectionGuideButton)} onPress={openCollectionGuide}>
-            <Ionicons name="information-circle" size={20} color="#ffffff" />
+          <Pressable style={tapStyle(styles.collectionGuideButton)} onPress={() => onOpenGuide(currentAction)}>
+            <Ionicons name={currentAction.demoVideoUrl ? 'play-circle' : 'information-circle'} size={20} color="#ffffff" />
             <View style={styles.collectionGuideCopy}>
-              <Text style={styles.collectionGuideTitle}>View Recording Guide</Text>
+              <Text style={styles.collectionGuideTitle}>{currentAction.demoVideoUrl ? 'Watch Recording Guide' : 'View Recording Guide'}</Text>
               <Text style={styles.collectionGuideSource}>{currentAction.cameraView}: {currentAction.viewInstruction}</Text>
             </View>
             <Ionicons name="chevron-forward" size={19} color="#dff8ff" />
@@ -2122,9 +2195,71 @@ function CollectScreen({
           style={({ pressed }) => [styles.generateButton, !canGeneratePlan && styles.generateButtonDisabled, pressed && styles.tapFeedbackStrong]}
           onPress={onGeneratePlan}
         >
-          <Text style={styles.generateButtonText}>Generate Personalized Rehab Plan</Text>
+          <Text style={styles.generateButtonText}>Generate My Rehab Plan</Text>
           <Ionicons name="arrow-forward" size={20} color="#031629" />
         </Pressable>
+      </ScrollView>
+    </View>
+  );
+}
+
+function CollectionGuideScreen({
+  action,
+  isPlaying,
+  onBack,
+  onTogglePlay,
+}: {
+  action: CollectionAction;
+  isPlaying: boolean;
+  onBack: () => void;
+  onTogglePlay: () => void;
+}) {
+  return (
+    <View style={styles.demoScreen}>
+      <Header title="Recording Guide" subtitle={action.title} onBack={onBack} />
+      <ScrollView contentContainerStyle={styles.demoContent} showsVerticalScrollIndicator={false}>
+        <View style={styles.videoPanel}>
+          {action.demoVideoUrl ? (
+            <Video
+              source={{ uri: action.demoVideoUrl }}
+              style={styles.demoVideo}
+              resizeMode={ResizeMode.COVER}
+              useNativeControls
+              shouldPlay={isPlaying}
+            />
+          ) : (
+            <LinearGradient colors={['#eaf7ff', '#dff7f3']} style={styles.demoImage}>
+              <View style={styles.therapistFigure}>
+                <Ionicons name={action.cameraView === 'Front view' ? 'body' : 'walk'} size={92} color="#164b85" />
+                <Ionicons name="videocam" size={42} color="#0f6eff" style={styles.handIcon} />
+              </View>
+              <Text style={styles.demoPlaceholderText}>HeyGen recording guide will appear here after the media asset is connected.</Text>
+            </LinearGradient>
+          )}
+        </View>
+        <View style={styles.demoInfo}>
+          <View style={styles.collectionViewBadge}>
+            <Ionicons name="camera" size={18} color="#0f6eff" />
+            <Text style={styles.collectionViewBadgeText}>{action.cameraView}</Text>
+          </View>
+          <Text style={styles.demoSectionTitle}>How to Record</Text>
+          <View style={styles.demoRow}>
+            <Ionicons name="checkmark-circle" size={19} color="#0f6eff" />
+            <Text style={styles.demoRowText}>{action.viewInstruction}</Text>
+          </View>
+          <View style={styles.demoRow}>
+            <Ionicons name="checkmark-circle" size={19} color="#0f6eff" />
+            <Text style={styles.demoRowText}>{action.guideScript}</Text>
+          </View>
+          <View style={styles.divider} />
+          <Text style={styles.warningTitle}>Before Recording</Text>
+          {['Keep the affected arm, shoulder, elbow, wrist, and trunk visible.', 'Use bright lighting and keep the phone steady.', 'Stop if there is pain, dizziness, or unusual discomfort.'].map((item) => (
+            <View key={item} style={styles.demoRow}>
+              <Ionicons name="warning" size={18} color="#ffb000" />
+              <Text style={styles.demoRowText}>{item}</Text>
+            </View>
+          ))}
+        </View>
       </ScrollView>
     </View>
   );
@@ -3419,6 +3554,8 @@ const styles = StyleSheet.create({
   videoProgress: { backgroundColor: 'rgba(255,255,255,0.65)', borderRadius: 99, bottom: 17, height: 6, left: 25, overflow: 'hidden', position: 'absolute', right: 25 },
   videoProgressFill: { backgroundColor: '#1267e6', height: '100%' },
   demoInfo: { backgroundColor: '#071426', padding: 20 },
+  collectionViewBadge: { alignItems: 'center', alignSelf: 'flex-start', backgroundColor: '#e8f2ff', borderRadius: 999, flexDirection: 'row', gap: 7, marginBottom: 14, paddingHorizontal: 12, paddingVertical: 8 },
+  collectionViewBadgeText: { color: '#0f4fb5', fontSize: 13, fontWeight: '900' },
   demoSectionTitle: { color: '#05e1d2', fontSize: 20, fontWeight: '900', marginBottom: 10 },
   demoRow: { alignItems: 'flex-start', flexDirection: 'row', gap: 9, marginBottom: 10 },
   demoRowText: { color: '#e6f1ff', flex: 1, fontSize: 15, lineHeight: 22 },

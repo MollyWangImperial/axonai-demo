@@ -1,0 +1,87 @@
+{
+  "avatarId": "f20cdc89e0ec4b61bbe453d73019a997",
+  "voiceId": "007e1378fc454a9f976db570ba6164a7",
+  "sampleVideoJob": {
+    "id": "f1dfed27475e479caf145417f83924e4",
+    "title": "AxonAI Upper Limb Collection - Shoulder Flexion Side View",
+    "statusAtCreation": "waiting"
+  },
+  "collectionGuides": [
+    {
+      "id": "shoulder-flexion",
+      "title": "Shoulder Flexion Collection Guide",
+      "view": "Side view",
+      "script": "Shoulder flexion collection guide. Please record this movement from the side view. Place your phone about one and a half meters away, on the side of the affected arm. Sit tall in a stable chair. Make sure your shoulder, elbow, wrist, and upper trunk are visible in the camera. Start with your arm relaxed by your side. Slowly lift the affected arm forward as high as comfortable. Pause briefly, then lower it with control. Do not lean backward or shrug your shoulder. Stop if you feel pain, dizziness, or unusual discomfort."
+    },
+    {
+      "id": "shoulder-abduction",
+      "title": "Shoulder Abduction Collection Guide",
+      "view": "Front view",
+      "script": "Shoulder abduction collection guide. Please record from the front view. Keep your phone about one and a half meters away. Sit tall and make sure both shoulders and the full affected arm are visible. Start with the arm relaxed by your side. Slowly raise the arm out to the side toward shoulder height. Pause briefly, then lower it with control. Try not to lift your shoulder toward your ear or lean your trunk."
+    },
+    {
+      "id": "hand-mouth",
+      "title": "Hand to Mouth Collection Guide",
+      "view": "Side view",
+      "script": "Hand to mouth collection guide. Please record from the side of the affected arm. Sit tall with your hand on your thigh or on a table. Bring the affected hand toward your mouth as if using a spoon. Touch lightly, then return to the starting position. Keep the movement slow and visible."
+    },
+    {
+      "id": "reach",
+      "title": "Forward Reach Collection Guide",
+      "view": "Side view",
+      "script": "Forward reach collection guide. Please record from the side view. Place a small target in front of you. Sit tall, reach forward with the affected hand to touch the target, then return. Keep the trunk as steady as possible and avoid leaning far forward."
+    },
+    {
+      "id": "elbow",
+      "title": "Elbow Flexion and Extension Collection Guide",
+      "view": "Side view",
+      "script": "Elbow flexion and extension collection guide. Please record from the side of the affected arm. Keep the upper arm close to your body. Slowly bend the elbow, then straighten it as much as comfortable. Repeat three times with control."
+    },
+    {
+      "id": "forearm",
+      "title": "Forearm Rotation Collection Guide",
+      "view": "Front view",
+      "script": "Forearm pronation and supination collection guide. Please record from the front view. Bend the elbow to about ninety degrees. Slowly turn the palm up, then turn the palm down. Keep the shoulder relaxed and avoid moving the whole arm."
+    },
+    {
+      "id": "wrist",
+      "title": "Wrist Extension Collection Guide",
+      "view": "Side view",
+      "script": "Wrist extension collection guide. Please record from the side view. Rest your forearm on a table with the hand over the edge. Slowly lift the wrist upward, hold briefly, then lower with control. Keep the forearm supported."
+    },
+    {
+      "id": "grasp",
+      "title": "Grasp and Release Collection Guide",
+      "view": "Front view",
+      "script": "Grasp and release collection guide. Please record from the front view with the hand close enough to see the fingers. Hold a soft ball or towel. Squeeze gently, then actively open the hand and release. Show both the grasp and the release clearly."
+    },
+    {
+      "id": "finger-nose",
+      "title": "Finger to Nose Collection Guide",
+      "view": "Front view",
+      "script": "Finger to nose or target touch collection guide. Please record from the front view. Use the affected index finger to touch your nose or the screen target, then return. Repeat slowly several times. Keep the trunk still and focus on accuracy."
+    }
+  ],
+  "exerciseDemos": [
+    {
+      "id": "table-slide",
+      "title": "Table Slide Forward Elevation Demo",
+      "script": "Table slide exercise. Sit at a table with your affected forearm on a towel. Keep your body upright. Slowly slide the hand forward to a comfortable range, pause for two seconds, then slide back. This exercise helps arm lifting and reaching. Do not shrug the shoulder or lean backward."
+    },
+    {
+      "id": "scapula-setting",
+      "title": "Scapular Setting Demo",
+      "script": "Scapular setting exercise. Sit with both shoulders relaxed. Gently draw the shoulder blade back and down without shrugging. Hold for three seconds, then relax. This helps keep the shoulder stable during reaching and lifting."
+    },
+    {
+      "id": "elbow-reach",
+      "title": "Seated Elbow Extension Reach Demo",
+      "script": "Seated elbow extension reach. Place a cup or target on the table. Slowly reach forward with the affected hand, touch the target, then return steadily. This helps reaching and elbow straightening. Keep sitting stable and do not lunge forward."
+    },
+    {
+      "id": "wrist-open",
+      "title": "Wrist Lift and Hand Opening Demo",
+      "script": "Wrist lift and hand opening. Place the forearm on a table with the palm facing down. Gently lift the wrist upward, then open the fingers and hold for two seconds. This helps hand opening, grasp, and object release. Reduce repetitions if finger tightness increases."
+    }
+  ]
+}
