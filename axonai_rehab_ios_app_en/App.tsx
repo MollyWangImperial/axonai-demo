@@ -700,9 +700,13 @@ function mapApiExercise(item: ApiExercisePlanItem): Exercise {
 async function requestUpperLimbAnalysis(
   patientProfile: PatientProfile,
   recordedVideos: Record<string, string>,
+  patientUserId?: string | null,
 ): Promise<UpperLimbAnalysisResult> {
   const formData = new FormData();
   formData.append('patient_profile_json', JSON.stringify(patientProfile));
+  if (patientUserId) {
+    formData.append('patient_user_id', patientUserId);
+  }
   formData.append('affected_side', patientProfile.affectedSide === 'Both/Unsure' ? 'auto' : patientProfile.affectedSide.toLowerCase());
   const uploadedActionIds: string[] = [];
 
@@ -937,7 +941,8 @@ export default function App() {
     setAnalysisId(null);
     setScreen('analysisLoading');
     try {
-      const result = await requestUpperLimbAnalysis(patientProfile, recordedVideos);
+      const patientUserId = accountSession?.role === 'patient' ? accountSession.userId : null;
+      const result = await requestUpperLimbAnalysis(patientProfile, recordedVideos, patientUserId);
       setAnalysisResult(result);
       try {
         const saved = await saveUpperLimbAnalysis(

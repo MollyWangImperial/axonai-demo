@@ -25,6 +25,7 @@ from pydantic import BaseModel, Field
 from upper_limb_rehab_algorithm import ACTION_IDS, evaluate_upper_limb_collection, sample_manifest
 from upper_limb_video_metrics import analyze_upper_limb_action_video
 from patient_shoulder_flexion_api import analyze_shoulder_flexion_video
+from axonai_rehab_db import save_uploaded_video_record
 from axonai_video_storage import cleanup_analysis_file, save_upload_for_analysis
 
 class UpperLimbVideoRecord(BaseModel):
@@ -102,6 +103,7 @@ def _metrics_from_shoulder_flexion_result(result: dict[str, Any]) -> dict[str, A
 @router.post("/analyze-videos")
 async def analyze_upper_limb_videos(
     patient_profile_json: str = Form("{}"),
+    patient_user_id: str | None = Form(None),
     affected_side: str = Form("auto"),
     action_ids_json: str = Form("[]"),
     videos: list[UploadFile] = File(default=[]),
@@ -151,10 +153,25 @@ async def analyze_upper_limb_videos(
     actions: dict[str, Any] = {}
     stored_videos: dict[str, Any] = {}
     for action_id, upload_file in uploads.items():
-        saved = save_upload_for_analysis(upload_file, action_id)
+        saved = save_upload_for_analysis(upload_file, action_id, owner_user_id=patient_user_id, package_key="upper")
         actions[action_id] = {"path": saved["path"], "measuredMetrics": {}, "storage": saved["storage"]}
         if saved["storage"]:
-            stored_videos[action_id] = saved["storage"]
+            stored_videos[action_id] = {
+                **saved["storage"],
+                "sizeBytes": saved.get("sizeBytes"),
+            }
+            if not saved["storage"].get("error"):
+                try:
+                    stored_videos[action_id]["metadata"] = save_uploaded_video_record(
+                        owner_user_id=patient_user_id,
+                        package_key="upper",
+                        action_id=action_id,
+                        storage=saved["storage"],
+                        size_bytes=saved.get("sizeBytes"),
+                        quality={},
+                    )
+                except Exception as exc:
+                    stored_videos[action_id]["metadataError"] = str(exc)
 
     if actions["shoulder_flexion"]["path"]:
         try:

@@ -77,6 +77,21 @@ SCHEMA_STATEMENTS = [
     )
     """,
     """
+    CREATE TABLE IF NOT EXISTS uploaded_videos (
+        id TEXT PRIMARY KEY,
+        owner_user_id TEXT,
+        package_key TEXT NOT NULL,
+        action_id TEXT NOT NULL,
+        bucket_id TEXT NOT NULL,
+        object_path TEXT NOT NULL,
+        mime_type TEXT,
+        size_bytes INTEGER,
+        quality_json TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        UNIQUE(bucket_id, object_path)
+    )
+    """,
+    """
     CREATE TABLE IF NOT EXISTS care_matches (
         id TEXT PRIMARY KEY,
         patient_user_id TEXT,
@@ -516,6 +531,72 @@ def save_package_analysis(
             ),
         )
     return {"analysisId": analysis_id, "packageKey": package_key, "createdAt": timestamp}
+
+
+def save_uploaded_video_record(
+    owner_user_id: str | None,
+    package_key: str,
+    action_id: str,
+    storage: dict[str, Any],
+    size_bytes: int | None = None,
+    quality: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    init_db()
+    video_id = str(uuid.uuid4())
+    timestamp = now_iso()
+    bucket = storage.get("bucket")
+    object_key = storage.get("objectKey")
+    if not bucket or not object_key:
+        raise ValueError("storage bucket and objectKey are required")
+
+    if is_postgres():
+        with connect() as conn:
+            conn.execute(
+                """
+                INSERT INTO public.uploaded_videos
+                    (id, owner_user_id, package_key, action_id, bucket_id, object_path, mime_type, size_bytes, quality_json, created_at)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, now())
+                ON CONFLICT(bucket_id, object_path) DO UPDATE SET
+                    quality_json = excluded.quality_json
+                """,
+                (
+                    video_id,
+                    _uuid_or_none(owner_user_id),
+                    package_key,
+                    action_id,
+                    bucket,
+                    object_key,
+                    storage.get("contentType"),
+                    size_bytes,
+                    json.dumps(quality or {}, ensure_ascii=False),
+                ),
+            )
+        return {"videoId": video_id, "createdAt": timestamp}
+
+    ph = placeholder()
+    with connect() as conn:
+        conn.execute(
+            f"""
+            INSERT INTO uploaded_videos
+                (id, owner_user_id, package_key, action_id, bucket_id, object_path, mime_type, size_bytes, quality_json, created_at)
+            VALUES ({ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph})
+            ON CONFLICT(bucket_id, object_path) DO UPDATE SET
+                quality_json = excluded.quality_json
+            """,
+            (
+                video_id,
+                owner_user_id,
+                package_key,
+                action_id,
+                bucket,
+                object_key,
+                storage.get("contentType"),
+                size_bytes,
+                json.dumps(quality or {}, ensure_ascii=False),
+                timestamp,
+            ),
+        )
+    return {"videoId": video_id, "createdAt": timestamp}
 
 
 def save_match(

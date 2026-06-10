@@ -62,6 +62,7 @@ Render needs at minimum:
 DATABASE_URL
 SUPABASE_URL
 SUPABASE_SERVICE_ROLE_KEY
+AXONAI_SUPABASE_VIDEO_BUCKET=axonai-rehab-videos
 AXONAI_UPLOAD_ROOT=/tmp/axonai/uploads
 AXONAI_KEEP_UPLOADED_VIDEOS=false
 ```
@@ -82,10 +83,18 @@ The bucket is private. Patients can upload/read/delete objects under their own
 user-id folder. Assigned therapists can read patient videos after a care match is
 created.
 
-If the backend uploads videos using Supabase service-role credentials, it can
-bypass RLS. That is acceptable for backend-only analysis, but the app should still
-use normal authenticated user access for direct client uploads.
+The current upper-limb flow uploads videos from the app to Render for analysis.
+Render then copies the original upload into this private Supabase bucket using
+`SUPABASE_SERVICE_ROLE_KEY`, and writes a row to `uploaded_videos`. The local
+Render copy is deleted after analysis when `AXONAI_KEEP_UPLOADED_VIDEOS=false`.
 
+Direct client uploads can be added later. The path convention is already ready:
+
+```text
+{patient_user_id}/{package_key}/{action_id}/{filename}
+```
+
+The service-role key must stay server-side in Render. Never put it in Expo.
 ## 6. What Still Needs Integration
 
 The current backend can connect to Supabase Postgres through `DATABASE_URL`.
