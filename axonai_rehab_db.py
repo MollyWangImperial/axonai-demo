@@ -169,7 +169,7 @@ def connect():
             from psycopg.rows import dict_row
         except ImportError as exc:
             raise RuntimeError("psycopg[binary] is required when DATABASE_URL is configured") from exc
-        return psycopg.connect(DATABASE_URL, row_factory=dict_row)
+        return psycopg.connect(DATABASE_URL, row_factory=dict_row, prepare_threshold=None)
 
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(DB_PATH)
