@@ -166,6 +166,16 @@ type UpperLimbAnalysisResult = {
   };
 };
 
+type VideoQualityResult = {
+  actionId: string;
+  passed: boolean;
+  status: 'pass' | 'fail' | string;
+  score: number;
+  patientMessage: string;
+  issues: string[];
+  tips: string[];
+};
+
 type MatchedPerson = {
   name: string;
   title: string;
@@ -731,6 +741,38 @@ async function requestUpperLimbAnalysis(
   return (await response.json()) as UpperLimbAnalysisResult;
 }
 
+async function requestVideoQualityCheck(
+  actionId: string,
+  uri: string,
+  affectedSide: string,
+): Promise<VideoQualityResult> {
+  const apiActionId = actionIdToApiId[actionId] ?? actionId;
+  const formData = new FormData();
+  formData.append('action_id', apiActionId);
+  formData.append('affected_side', affectedSide === 'Both/Unsure' ? 'auto' : affectedSide.toLowerCase());
+  formData.append('video', {
+    uri,
+    name: `${apiActionId}_quality.mov`,
+    type: 'video/quicktime',
+  } as any);
+
+  const response = await fetch(`${apiBaseUrl}/api/upper-limb/quality-check-video`, {
+    method: 'POST',
+    body: formData,
+  });
+  if (!response.ok) {
+    let message = `HTTP ${response.status}`;
+    try {
+      const body = await response.json();
+      message = body.detail ?? message;
+    } catch {
+      // Keep the HTTP status when the backend does not return JSON.
+    }
+    throw new Error(message);
+  }
+  return (await response.json()) as VideoQualityResult;
+}
+
 export default function App() {
   const [screen, setScreen] = useState<Screen>('welcome');
   const [selectedRole, setSelectedRole] = useState<UserRole>('patient');
@@ -743,6 +785,8 @@ export default function App() {
   const [currentActionIndex, setCurrentActionIndex] = useState(0);
   const [recordedVideos, setRecordedVideos] = useState<Record<string, string>>({});
   const [qualityPassed, setQualityPassed] = useState<Record<string, boolean>>({});
+  const [qualityResults, setQualityResults] = useState<Record<string, VideoQualityResult>>({});
+  const [qualityCheckingActionId, setQualityCheckingActionId] = useState<string | null>(null);
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
   const [isCameraOpen, setCameraOpen] = useState(false);
   const [isRecording, setRecording] = useState(false);
@@ -888,14 +932,59 @@ export default function App() {
     setCameraOpen(true);
   };
 
+  const runQualityCheck = async (action: CollectionAction, actionIndex: number, uri: string) => {
+    setQualityCheckingActionId(action.id);
+    setQualityPassed((prev) => ({ ...prev, [action.id]: false }));
+    setQualityResults((prev) => {
+      const next = { ...prev };
+      delete next[action.id];
+      return next;
+    });
+    try {
+      const result = await requestVideoQualityCheck(action.id, uri, patientProfile.affectedSide);
+      setQualityResults((prev) => ({ ...prev, [action.id]: result }));
+      if (result.passed) {
+        setQualityPassed((prev) => ({ ...prev, [action.id]: true }));
+        setTimeout(() => {
+          if (actionIndex < upperActions.length - 1) {
+            setCurrentActionIndex(actionIndex + 1);
+          } else {
+            Alert.alert('Collection Complete', 'All upper-limb movements passed quality check. You can generate your rehab plan.');
+          }
+        }, 650);
+        return;
+      }
+      setQualityPassed((prev) => ({ ...prev, [action.id]: false }));
+      Alert.alert('Please Retake This Video', `${result.patientMessage}\n\n${result.tips.join('\n')}`);
+    } catch (error) {
+      const fallback: VideoQualityResult = {
+        actionId: action.id,
+        passed: false,
+        status: 'fail',
+        score: 0,
+        patientMessage: 'The video quality check could not be completed.',
+        issues: [error instanceof Error ? error.message : 'Quality check failed.'],
+        tips: ['Check your network connection, keep the full upper body in frame, and record again.'],
+      };
+      setQualityResults((prev) => ({ ...prev, [action.id]: fallback }));
+      setQualityPassed((prev) => ({ ...prev, [action.id]: false }));
+      Alert.alert('Quality Check Failed', fallback.tips.join('\n'));
+    } finally {
+      setQualityCheckingActionId(null);
+    }
+  };
+
   const startRecording = async () => {
     if (!cameraRef.current || isRecording) return;
     setRecording(true);
+    const action = currentAction;
+    const actionIndex = currentActionIndex;
     try {
       const video = await cameraRef.current.recordAsync({ maxDuration: 12 });
       if (video?.uri) {
-        setRecordedVideos((prev) => ({ ...prev, [currentAction.id]: video.uri }));
-        setQualityPassed((prev) => ({ ...prev, [currentAction.id]: false }));
+        setRecordedVideos((prev) => ({ ...prev, [action.id]: video.uri }));
+        setRecording(false);
+        await runQualityCheck(action, actionIndex, video.uri);
       }
     } catch {
       Alert.alert('Recording Failed', 'Please reopen the camera and record again.');
@@ -910,19 +999,6 @@ export default function App() {
     }
   };
 
-  const passQuality = () => {
-    if (!recordedVideos[currentAction.id]) {
-      Alert.alert('Not Recorded Yet', 'Please record the current movement before confirming video quality.');
-      return;
-    }
-    setQualityPassed((prev) => ({ ...prev, [currentAction.id]: true }));
-    if (currentActionIndex < upperActions.length - 1) {
-      setCurrentActionIndex((value) => value + 1);
-    } else {
-      Alert.alert('Collection Complete', 'All upper-limb movements have been collected. You can generate a personalized rehab plan.');
-    }
-  };
-
   const retryAction = () => {
     setRecordedVideos((prev) => {
       const next = { ...prev };
@@ -930,6 +1006,11 @@ export default function App() {
       return next;
     });
     setQualityPassed((prev) => ({ ...prev, [currentAction.id]: false }));
+    setQualityResults((prev) => {
+      const next = { ...prev };
+      delete next[currentAction.id];
+      return next;
+    });
   };
 
   const generatePlan = async () => {
@@ -1024,6 +1105,8 @@ export default function App() {
             completedCount={completedCount}
             recordedVideos={recordedVideos}
             qualityPassed={qualityPassed}
+            qualityResults={qualityResults}
+            qualityCheckingActionId={qualityCheckingActionId}
             isCameraOpen={isCameraOpen}
             isRecording={isRecording}
             cameraRef={cameraRef}
@@ -1032,7 +1115,6 @@ export default function App() {
             onOpenCamera={openCamera}
             onStartRecording={startRecording}
             onStopRecording={stopRecording}
-            onPassQuality={passQuality}
             onRetryAction={retryAction}
             onSelectAction={setCurrentActionIndex}
             onGeneratePlan={generatePlan}
@@ -1479,6 +1561,8 @@ function CollectScreen({
   completedCount,
   recordedVideos,
   qualityPassed,
+  qualityResults,
+  qualityCheckingActionId,
   isCameraOpen,
   isRecording,
   cameraRef,
@@ -1487,7 +1571,6 @@ function CollectScreen({
   onOpenCamera,
   onStartRecording,
   onStopRecording,
-  onPassQuality,
   onRetryAction,
   onSelectAction,
   onGeneratePlan,
@@ -1497,6 +1580,8 @@ function CollectScreen({
   completedCount: number;
   recordedVideos: Record<string, string>;
   qualityPassed: Record<string, boolean>;
+  qualityResults: Record<string, VideoQualityResult>;
+  qualityCheckingActionId: string | null;
   isCameraOpen: boolean;
   isRecording: boolean;
   cameraRef: React.MutableRefObject<CameraView | null>;
@@ -1505,11 +1590,13 @@ function CollectScreen({
   onOpenCamera: () => void;
   onStartRecording: () => void;
   onStopRecording: () => void;
-  onPassQuality: () => void;
   onRetryAction: () => void;
   onSelectAction: (index: number) => void;
   onGeneratePlan: () => void;
 }) {
+  const currentQuality = qualityResults[currentAction.id];
+  const isCheckingQuality = qualityCheckingActionId === currentAction.id;
+  const qualityPassedCurrent = qualityPassed[currentAction.id];
   const openCollectionGuide = async () => {
     try {
       await Linking.openURL(currentAction.guideUrl);
@@ -1584,27 +1671,50 @@ function CollectScreen({
 
         <View style={styles.controls}>
           {!isCameraOpen && <PrimaryButton label="Open Camera" icon="camera" onPress={onOpenCamera} />}
-          {isCameraOpen && !isRecording && <PrimaryButton label="Start Recording" icon="radio-button-on" onPress={onStartRecording} />}
+          {isCameraOpen && !isRecording && !isCheckingQuality && <PrimaryButton label="Start Recording" icon="radio-button-on" onPress={onStartRecording} />}
           {isRecording && <DangerButton label="Stop and Save" icon="stop-circle" onPress={onStopRecording} />}
           <SecondaryButton label="Retake" icon="refresh" onPress={onRetryAction} />
         </View>
 
         <View style={styles.qualityCard}>
           <View style={styles.qualityCopy}>
-            <Text style={styles.qualityTitle}>Video Quality Check</Text>
+            <View style={styles.qualityTitleRow}>
+              <Ionicons
+                name={isCheckingQuality ? 'sync' : qualityPassedCurrent ? 'checkmark-circle' : currentQuality ? 'warning' : 'videocam'}
+                size={19}
+                color={isCheckingQuality ? '#05e1d2' : qualityPassedCurrent ? '#18c37e' : currentQuality ? '#ffb020' : '#a9bed7'}
+              />
+              <Text style={styles.qualityTitle}>
+                {isCheckingQuality ? 'Checking Video Quality' : qualityPassedCurrent ? 'Video Quality Passed' : currentQuality ? 'Please Retake This Video' : 'Video Quality Check'}
+              </Text>
+            </View>
             <Text style={styles.qualityText}>
-              {recordedVideos[currentAction.id]
-                ? 'Video saved. Confirm the frame is stable, the movement is complete, and the affected upper limb is visible.'
-                : 'Waiting for the current movement recording to finish.'}
+              {isCheckingQuality
+                ? 'Please wait while AxonAI checks lighting, stability, video length, and whether your arm keypoints are visible.'
+                : qualityPassedCurrent
+                  ? 'Good recording. Moving to the next movement automatically.'
+                  : currentQuality
+                    ? currentQuality.patientMessage
+                    : recordedVideos[currentAction.id]
+                      ? 'Video saved. Waiting for quality check result.'
+                      : 'After you stop recording, AxonAI will automatically check this video before you continue.'}
             </Text>
+            {currentQuality && !currentQuality.passed && (
+              <View style={styles.qualityTips}>
+                {currentQuality.tips.slice(0, 3).map((tip) => (
+                  <View key={tip} style={styles.qualityTipRow}>
+                    <Ionicons name="arrow-forward-circle" size={15} color="#ffcf66" />
+                    <Text style={styles.qualityTipText}>{tip}</Text>
+                  </View>
+                ))}
+              </View>
+            )}
           </View>
-          <Pressable
-            style={({ pressed }) => [styles.qualityButton, !recordedVideos[currentAction.id] && styles.disabledButton, pressed && styles.tapFeedback]}
-            onPress={onPassQuality}
-          >
-            <Ionicons name="checkmark-circle" size={18} color="#ffffff" />
-            <Text style={styles.qualityButtonText}>Pass</Text>
-          </Pressable>
+          {isCheckingQuality && (
+            <View style={styles.qualityBadge}>
+              <Text style={styles.qualityBadgeText}>Checking</Text>
+            </View>
+          )}
         </View>
 
         <Pressable
@@ -2421,8 +2531,14 @@ const styles = StyleSheet.create({
   dangerButtonText: { color: '#ffffff', fontSize: 15, fontWeight: '900' },
   qualityCard: { alignItems: 'center', backgroundColor: '#0e2238', borderColor: '#24415d', borderRadius: 18, borderWidth: 1, flexDirection: 'row', gap: 14, marginTop: 16, padding: 15 },
   qualityCopy: { flex: 1 },
+  qualityTitleRow: { alignItems: 'center', flexDirection: 'row', gap: 8 },
   qualityTitle: { color: '#ffffff', fontSize: 16, fontWeight: '900' },
   qualityText: { color: '#a9bed7', fontSize: 13, lineHeight: 19, marginTop: 5 },
+  qualityTips: { gap: 6, marginTop: 10 },
+  qualityTipRow: { alignItems: 'flex-start', flexDirection: 'row', gap: 7 },
+  qualityTipText: { color: '#ffe3a3', flex: 1, fontSize: 12, lineHeight: 17 },
+  qualityBadge: { backgroundColor: '#0b716e', borderRadius: 999, paddingHorizontal: 11, paddingVertical: 8 },
+  qualityBadgeText: { color: '#ffffff', fontSize: 12, fontWeight: '900' },
   qualityButton: { alignItems: 'center', backgroundColor: '#1267e6', borderRadius: 15, flexDirection: 'row', gap: 6, paddingHorizontal: 13, paddingVertical: 12 },
   disabledButton: { opacity: 0.45 },
   qualityButtonText: { color: '#ffffff', fontSize: 13, fontWeight: '900' },

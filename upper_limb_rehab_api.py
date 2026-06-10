@@ -22,7 +22,7 @@ from fastapi import APIRouter, FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
-from upper_limb_rehab_algorithm import ACTION_IDS, evaluate_upper_limb_collection, sample_manifest
+from upper_limb_rehab_algorithm import ACTION_IDS, evaluate_upper_limb_collection, inspect_video, sample_manifest
 from upper_limb_video_metrics import analyze_upper_limb_action_video
 from patient_shoulder_flexion_api import analyze_shoulder_flexion_video
 from axonai_rehab_db import save_uploaded_video_record
@@ -98,6 +98,97 @@ def _metrics_from_shoulder_flexion_result(result: dict[str, Any]) -> dict[str, A
         "landmarkMissingRatio": 1 - float(quality.get("valid_frame_ratio", 0.9) or 0.9),
         "repetitionConsistency": 0.75,
     }
+
+
+def _quality_issue_tips(issues: list[str], metric_error: str | None = None) -> list[str]:
+    tips: list[str] = []
+    issue_text = " ".join(issues).lower()
+    if "too short" in issue_text:
+        tips.append("Record the full movement from start to finish, including the return to the starting position.")
+    if "resolution" in issue_text or "landmark" in issue_text or metric_error:
+        tips.append("Move the phone farther away so the full affected arm, shoulder, elbow, wrist, and upper trunk stay in view.")
+    if "dark" in issue_text:
+        tips.append("Turn on more light or face a brighter area so the arm is clearly visible.")
+    if "blurry" in issue_text or "unstable" in issue_text:
+        tips.append("Keep the phone still on a table/tripod and move slowly.")
+    if not tips:
+        tips.append("Keep the full upper body in frame, use good lighting, and repeat the movement slowly.")
+    return tips
+
+
+def _quality_response(action_id: str, path: str, side: str) -> dict[str, Any]:
+    quality = inspect_video(path)
+    metrics: dict[str, Any] = {}
+    metric_error: str | None = None
+    try:
+        if action_id == "shoulder_flexion":
+            shoulder_result = analyze_shoulder_flexion_video(
+                video_path=Path(path),
+                side=side,
+                sample_hz=30,
+                min_detection_confidence=0.3,
+                min_tracking_confidence=0.3,
+            )
+            metrics = _metrics_from_shoulder_flexion_result(shoulder_result)
+        else:
+            metrics = analyze_upper_limb_action_video(action_id, Path(path), side=side)
+    except Exception as exc:
+        metric_error = str(exc)
+
+    mean_keypoint = float(metrics.get("meanKeypointConfidence", 0.0) or 0.0)
+    missing_ratio = float(metrics.get("landmarkMissingRatio", 1.0) or 1.0)
+    repetition = float(metrics.get("repetitionConsistency", 0.0) or 0.0)
+    keypoint_score = int(max(0, min(100, mean_keypoint * 45 + (1 - missing_ratio) * 35 + repetition * 20)))
+    combined_score = int(round(quality.score * 0.55 + keypoint_score * 0.45)) if metrics else min(quality.score, 54)
+    issues = list(quality.issues)
+
+    if metric_error:
+        issues.append("Arm keypoints were not detected reliably.")
+    if metrics and mean_keypoint < 0.55:
+        issues.append("Arm keypoint confidence is low.")
+    if metrics and missing_ratio > 0.35:
+        issues.append("Some required arm landmarks are missing.")
+
+    passed = quality.status == "pass" and metrics and combined_score >= 70 and mean_keypoint >= 0.55 and missing_ratio <= 0.35
+    status = "pass" if passed else "fail"
+    return {
+        "actionId": action_id,
+        "passed": passed,
+        "status": status,
+        "score": combined_score,
+        "videoQuality": {
+            "status": quality.status,
+            "score": quality.score,
+            "issues": quality.issues,
+            "metadata": quality.metadata,
+        },
+        "keypointQuality": {
+            "meanKeypointConfidence": mean_keypoint if metrics else None,
+            "landmarkMissingRatio": missing_ratio if metrics else None,
+            "repetitionConsistency": repetition if metrics else None,
+            "metricExtractionError": metric_error,
+        },
+        "issues": issues,
+        "patientMessage": "Video quality passed. You can continue to the next movement." if passed else "Please retake this movement video.",
+        "tips": _quality_issue_tips(issues, metric_error),
+    }
+
+
+@router.post("/quality-check-video")
+async def quality_check_upper_limb_video(
+    action_id: str = Form(...),
+    affected_side: str = Form("auto"),
+    video: UploadFile = File(...),
+) -> dict[str, Any]:
+    if action_id not in ACTION_IDS:
+        raise HTTPException(status_code=400, detail=f"Unknown upper-limb action: {action_id}")
+    saved = save_upload_for_analysis(video, action_id, package_key="upper", store_video=False)
+    try:
+        if not saved["path"]:
+            raise HTTPException(status_code=400, detail="No video uploaded.")
+        return _quality_response(action_id, saved["path"], affected_side)
+    finally:
+        cleanup_analysis_file(saved.get("path"))
 
 
 @router.post("/analyze-videos")

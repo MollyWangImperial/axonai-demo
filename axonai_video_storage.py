@@ -116,6 +116,7 @@ def save_upload_for_analysis(
     *,
     owner_user_id: str | None = None,
     package_key: str = "upper",
+    store_video: bool = True,
 ) -> dict[str, Any]:
     if upload_file is None:
         return {"path": None, "storage": None}
@@ -136,7 +137,7 @@ def save_upload_for_analysis(
     storage: dict[str, Any] | None = None
     content_type = upload_file.content_type or "application/octet-stream"
     supabase_bucket = os.getenv("AXONAI_SUPABASE_VIDEO_BUCKET") or os.getenv("SUPABASE_STORAGE_BUCKET") or DEFAULT_SUPABASE_BUCKET
-    if _supabase_storage_enabled():
+    if store_video and _supabase_storage_enabled():
         try:
             storage = _upload_to_supabase_storage(destination, supabase_bucket, object_key, content_type)
         except RuntimeError as exc:
@@ -149,7 +150,7 @@ def save_upload_for_analysis(
             }
 
     bucket = os.getenv("AXONAI_OBJECT_STORAGE_BUCKET")
-    if bucket and (storage is None or storage.get("error")):
+    if store_video and bucket and (storage is None or storage.get("error")):
         client = _storage_client()
         client.upload_file(
             str(destination),
