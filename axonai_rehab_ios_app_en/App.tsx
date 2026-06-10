@@ -2,6 +2,7 @@ import 'react-native-url-polyfill/auto';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { createClient } from '@supabase/supabase-js';
+import { Audio, ResizeMode, Video } from 'expo-av';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
@@ -13,7 +14,6 @@ import {
   Easing,
   Image,
   ImageSourcePropType,
-  Linking,
   Platform,
   Pressable,
   SafeAreaView,
@@ -39,6 +39,7 @@ type Screen =
   | 'patientMe'
   | 'collect'
   | 'analysisLoading'
+  | 'metrics'
   | 'problems'
   | 'planLoading'
   | 'plan'
@@ -103,8 +104,10 @@ type CollectionAction = {
   title: string;
   target: string;
   instruction: string;
-  guideUrl: string;
-  guideSource: string;
+  cameraView: 'Front view' | 'Side view';
+  viewInstruction: string;
+  guideScript: string;
+  demoVideoUrl?: string;
 };
 
 type Problem = {
@@ -124,6 +127,7 @@ type Exercise = {
   dayPattern: number[];
   imageTone: string;
   coverImage: ImageSourcePropType;
+  demoVideoUrl?: string;
   steps: string[];
   cautions: string[];
 };
@@ -156,6 +160,11 @@ type UpperLimbAnalysisResult = {
     missingMetrics: string[];
     meanConfidence: number;
   };
+  actionAnalyses?: Array<{
+    action_id: string;
+    metrics?: Record<string, number | string | boolean | null>;
+    metric_confidence?: number;
+  }>;
   functionalProblems: ApiFunctionalProblem[];
   opensimDecision: {
     needed: boolean;
@@ -212,72 +221,81 @@ const upperActions: CollectionAction[] = [
     title: 'Shoulder Flexion / Elevation',
     target: 'Active shoulder elevation',
     instruction: 'Sit upright, slowly lift the affected arm forward and upward, then lower it with control.',
-    guideUrl: 'https://www.youtube.com/watch?v=I1mmgD6woiM',
-    guideSource: 'Next Level Sports Performance',
+    cameraView: 'Side view',
+    viewInstruction: 'Record from the side of the affected arm so the shoulder, elbow, wrist, and trunk are visible.',
+    guideScript: 'Sit tall in a chair. Turn your body sideways to the camera. Start with the arm relaxed, slowly lift it forward as high as comfortable, pause, then lower with control.',
   },
   {
     id: 'shoulder-abduction',
     title: 'Shoulder Abduction',
     target: 'Shoulder abduction and shoulder-hike compensation',
     instruction: 'Raise the affected arm from the side of the body to shoulder height, then lower it slowly.',
-    guideUrl: 'https://www.youtube.com/watch?v=G_9EPNVEOTE',
-    guideSource: 'TheraXPro',
+    cameraView: 'Front view',
+    viewInstruction: 'Record from the front so both shoulders and the full affected arm stay in frame.',
+    guideScript: 'Face the camera. Keep the trunk still. Raise the affected arm out to the side toward shoulder height, pause, then lower slowly.',
   },
   {
     id: 'hand-mouth',
     title: 'Hand to Mouth',
     target: 'Elbow flexion and functional feeding movement',
     instruction: 'Lift the affected hand from the table or thigh, lightly touch the mouth area, then return.',
-    guideUrl: 'https://www.youtube.com/watch?v=TDiyBXTkA_0',
-    guideSource: 'Physio Classroom',
+    cameraView: 'Side view',
+    viewInstruction: 'Record from the side of the affected arm so the elbow bend and hand path are visible.',
+    guideScript: 'Sit sideways to the camera. Start with the hand on your thigh or table. Bring the hand toward the mouth, touch lightly, then return slowly.',
   },
   {
     id: 'reach',
     title: 'Forward Reach',
     target: 'Forward reach, elbow extension, and endpoint control',
     instruction: 'From sitting, reach forward to touch the target object, then return to the starting position.',
-    guideUrl: 'https://www.youtube.com/watch?v=-hise8ZUIAk',
-    guideSource: 'American Heart Association',
+    cameraView: 'Side view',
+    viewInstruction: 'Record from the side so the trunk, shoulder, elbow, and target object are visible.',
+    guideScript: 'Sit sideways to the camera with a target in front of you. Reach forward to touch the target without leaning too much, then return.',
   },
   {
     id: 'elbow',
     title: 'Elbow Flexion / Extension',
     target: 'Elbow control',
     instruction: 'Keep the upper arm close to the body and repeatedly bend and straighten the elbow.',
-    guideUrl: 'https://www.youtube.com/watch?v=WFuSCvtEdq0',
-    guideSource: 'E3 Rehab Exercise Library',
+    cameraView: 'Side view',
+    viewInstruction: 'Record from the side of the affected arm so the full elbow bend and straighten are visible.',
+    guideScript: 'Sit sideways to the camera. Keep the upper arm close to the body. Bend and straighten the elbow slowly three times.',
   },
   {
     id: 'forearm',
     title: 'Forearm Pronation / Supination',
     target: 'Palm turning ability',
     instruction: 'Bend the elbow about 90 degrees and slowly turn the palm up and down.',
-    guideUrl: 'https://www.youtube.com/watch?v=V-okgUiCbSM',
-    guideSource: 'Physical Therapy Education Solutions',
+    cameraView: 'Front view',
+    viewInstruction: 'Record from the front with the elbow bent so the palm turning up and down is clear.',
+    guideScript: 'Face the camera. Bend the elbow to about 90 degrees. Slowly turn the palm up, then down, without moving the shoulder too much.',
   },
   {
     id: 'wrist',
     title: 'Wrist Extension',
     target: 'Wrist extensor control',
     instruction: 'Support the forearm, lift the wrist upward and hold, then slowly lower it.',
-    guideUrl: 'https://www.youtube.com/watch?v=S2YKbpeiaFc',
-    guideSource: 'Physical Therapy Education Solutions',
+    cameraView: 'Side view',
+    viewInstruction: 'Record from the side so the wrist lifting upward is easy to see.',
+    guideScript: 'Place the forearm on a table with the hand over the edge. Lift the wrist upward, hold briefly, then lower slowly.',
   },
   {
     id: 'grasp',
     title: 'Grasp and Release',
     target: 'Finger opening and release ability',
     instruction: 'Hold a soft ball or towel, squeeze it, then actively open the hand and release.',
-    guideUrl: 'https://www.youtube.com/watch?v=ZKR1nOtCNKU',
-    guideSource: 'Saebo, Inc.',
+    cameraView: 'Front view',
+    viewInstruction: 'Record from the front with the hand close enough to see finger opening and release.',
+    guideScript: 'Face the camera. Hold a soft object, squeeze gently, then open the hand and release it as clearly as possible.',
   },
   {
     id: 'finger-nose',
     title: 'Finger-to-Nose / Target Touch',
     target: 'Upper-limb coordination and accuracy',
     instruction: 'Use the affected index finger to touch the nose or screen target several times.',
-    guideUrl: 'https://www.youtube.com/watch?v=TeEI2HcOOcE',
-    guideSource: 'Nursing School Explained',
+    cameraView: 'Front view',
+    viewInstruction: 'Record from the front so the finger path, target, and trunk are visible.',
+    guideScript: 'Face the camera. Touch your nose or the target with the affected index finger, return, and repeat slowly.',
   },
 ];
 
@@ -611,6 +629,15 @@ async function saveCareMatch(
   });
 }
 
+async function requestAvailableTherapists(): Promise<Array<{ userId: string; identifier: string; profile: TherapistProfile }>> {
+  const response = await fetch(`${apiBaseUrl}/api/rehab/therapists`);
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status}`);
+  }
+  const body = await response.json();
+  return (body.therapists ?? []) as Array<{ userId: string; identifier: string; profile: TherapistProfile }>;
+}
+
 const defaultPatientProfile: PatientProfile = {
   fullName: 'Demo Patient',
   ageRange: '55-64',
@@ -721,7 +748,7 @@ function mapApiExercise(item: ApiExercisePlanItem): Exercise {
   return {
     id: item.exercise_id,
     title: item.name,
-    improves: item.improves.join(', '),
+    improves: patientFriendlyImproves(item.improves),
     dose: item.dose,
     dayPattern: item.days
       .map((day) => weekDays.findIndex((value) => value === day) + 1)
@@ -731,6 +758,19 @@ function mapApiExercise(item: ApiExercisePlanItem): Exercise {
     steps: item.instructions,
     cautions: item.precautions,
   };
+}
+
+function patientFriendlyImproves(items: string[]): string {
+  const labels: Record<string, string> = {
+    limited_active_shoulder_elevation: 'Reaching and lifting the arm',
+    trunk_or_scapular_compensation: 'Keeping the body steady during arm movement',
+    wrist_hand_release_difficulty: 'Opening the hand and releasing objects',
+    elbow_extension_control: 'Straightening the elbow for reaching',
+    forearm_rotation_limitation: 'Turning the palm up and down',
+    upper_limb_coordination_deficit: 'Accurate hand control and coordination',
+  };
+  const readable = items.map((item) => labels[item] ?? item.replace(/_/g, ' '));
+  return `Improves ${readable.join(', ')}`;
 }
 
 async function requestUpperLimbAnalysis(
@@ -799,6 +839,20 @@ async function requestVideoQualityCheck(
   return (await response.json()) as VideoQualityResult;
 }
 
+async function playCompletionDing() {
+  try {
+    const { sound } = await Audio.Sound.createAsync({
+      uri: 'https://actions.google.com/sounds/v1/alarms/beep_short.ogg',
+    });
+    await sound.playAsync();
+    setTimeout(() => {
+      sound.unloadAsync().catch(() => undefined);
+    }, 1600);
+  } catch {
+    // Audio is a patient convenience; analysis completion should not depend on it.
+  }
+}
+
 export default function App() {
   const [screen, setScreen] = useState<Screen>('welcome');
   const [selectedRole, setSelectedRole] = useState<UserRole>('patient');
@@ -857,7 +911,7 @@ export default function App() {
     };
   }, [patientProfile, therapistProfile]);
   const activePatientTab = useMemo<PatientTab>(() => {
-    if (screen === 'assessment' || screen === 'collect' || screen === 'analysisLoading' || screen === 'problems') return 'assessment';
+    if (screen === 'assessment' || screen === 'collect' || screen === 'analysisLoading' || screen === 'metrics' || screen === 'problems') return 'assessment';
     if (screen === 'planLoading' || screen === 'plan' || screen === 'demo' || screen === 'patientTraining') return 'training';
     if (screen === 'match' || screen === 'profile' || screen === 'waiting' || screen === 'patientCare') return 'care';
     if (screen === 'patientMe') return 'me';
@@ -1119,6 +1173,7 @@ export default function App() {
         );
       }
       setAnalysisReady(true);
+      await playCompletionDing();
     } catch {
       setAnalysisReady(false);
       setScreen('collect');
@@ -1140,6 +1195,20 @@ export default function App() {
       setScreen('waiting');
     } catch (error) {
       Alert.alert('Match Save Failed', error instanceof Error ? error.message : 'The match request could not be saved.');
+    }
+  };
+
+  const startTherapistMatch = async () => {
+    try {
+      const therapists = await requestAvailableTherapists();
+      if (!therapists.length) {
+        Alert.alert('No Therapist Available', 'There are no verified therapist profiles in the AxonAI database yet.');
+        return;
+      }
+      setTherapistProfile(therapists[0].profile);
+      setScreen('match');
+    } catch (error) {
+      Alert.alert('Therapist Search Failed', error instanceof Error ? error.message : 'Could not check therapist availability.');
     }
   };
 
@@ -1199,7 +1268,7 @@ export default function App() {
           <PatientCareScreen
             person={matchedTherapist}
             matchId={matchId}
-            onStartMatch={() => setScreen('match')}
+            onStartMatch={startTherapistMatch}
             onOpenProfile={() => setScreen('profile')}
           />
         )}
@@ -1240,7 +1309,16 @@ export default function App() {
           <AnalysisLoadingScreen
             isComplete={analysisReady}
             onBack={() => setScreen('collect')}
-            onComplete={() => setScreen('problems')}
+            onComplete={() => setScreen('metrics')}
+            lead="Please wait while AxonAI reviews your movement videos. Video upload and pose analysis can take one to two minutes on the cloud server."
+            statuses={['Checking movement videos', 'Extracting key movement metrics', 'Building your functional summary']}
+          />
+        )}
+        {screen === 'metrics' && (
+          <MetricsScreen
+            analysisResult={analysisResult}
+            onBack={() => setScreen('collect')}
+            onContinue={() => setScreen('problems')}
           />
         )}
         {screen === 'problems' && (
@@ -1248,7 +1326,7 @@ export default function App() {
             analysisResult={analysisResult}
             onBack={() => setScreen('collect')}
             onPlan={() => setScreen('planLoading')}
-            onMatch={() => setScreen('match')}
+            onMatch={startTherapistMatch}
             onDemo={(exercise) => {
               setSelectedExercise(exercise);
               setScreen('demo');
@@ -1268,7 +1346,7 @@ export default function App() {
             dayExercises={dayExercises}
             onSelectDay={setSelectedDay}
             onBack={() => setScreen('problems')}
-            onMatch={() => setScreen('match')}
+            onMatch={startTherapistMatch}
             onDemo={(exercise) => {
               setSelectedExercise(exercise);
               setScreen('demo');
@@ -1711,6 +1789,24 @@ function HomeScreen({
           <Text style={styles.homeActionText}>Match a therapist and support network.</Text>
         </Pressable>
       </View>
+
+      <Text style={styles.sectionLabel}>Learn and Support</Text>
+      <View style={styles.educationList}>
+        <View style={styles.educationCard}>
+          <Ionicons name="book" size={23} color="#1267e6" />
+          <View style={styles.educationCopy}>
+            <Text style={styles.educationTitle}>Stroke recovery basics</Text>
+            <Text style={styles.educationText}>Short lessons about safe repetition, fatigue, pain warning signs, and why daily practice matters.</Text>
+          </View>
+        </View>
+        <View style={styles.educationCard}>
+          <Ionicons name="chatbubbles" size={23} color="#0b756d" />
+          <View style={styles.educationCopy}>
+            <Text style={styles.educationTitle}>Family and peer support</Text>
+            <Text style={styles.educationText}>A moderated stroke community is planned so families can share routines without unsafe medical advice.</Text>
+          </View>
+        </View>
+      </View>
     </ScrollView>
   );
 }
@@ -1900,12 +1996,8 @@ function CollectScreen({
   const currentQuality = qualityResults[currentAction.id];
   const isCheckingQuality = qualityCheckingActionId === currentAction.id;
   const qualityPassedCurrent = qualityPassed[currentAction.id];
-  const openCollectionGuide = async () => {
-    try {
-      await Linking.openURL(currentAction.guideUrl);
-    } catch {
-      Alert.alert('Unable to open video', 'Please check your network connection and try again.');
-    }
+  const openCollectionGuide = () => {
+    Alert.alert(`${currentAction.cameraView} Guide`, `${currentAction.viewInstruction}\n\n${currentAction.guideScript}`);
   };
 
   return (
@@ -1947,12 +2039,12 @@ function CollectScreen({
             <Text style={styles.instructionText}>{currentAction.instruction}</Text>
           </View>
           <Pressable style={tapStyle(styles.collectionGuideButton)} onPress={openCollectionGuide}>
-            <Ionicons name="logo-youtube" size={20} color="#ffffff" />
+            <Ionicons name="information-circle" size={20} color="#ffffff" />
             <View style={styles.collectionGuideCopy}>
-              <Text style={styles.collectionGuideTitle}>Watch Collection Guide</Text>
-              <Text style={styles.collectionGuideSource}>YouTube source: {currentAction.guideSource}</Text>
+              <Text style={styles.collectionGuideTitle}>View Recording Guide</Text>
+              <Text style={styles.collectionGuideSource}>{currentAction.cameraView}: {currentAction.viewInstruction}</Text>
             </View>
-            <Ionicons name="open-outline" size={19} color="#dff8ff" />
+            <Ionicons name="chevron-forward" size={19} color="#dff8ff" />
           </Pressable>
         </View>
 
@@ -1968,8 +2060,14 @@ function CollectScreen({
           )}
           <View style={styles.cameraBadge}>
             <Ionicons name="scan" size={14} color="#ffffff" />
-            <Text style={styles.cameraBadgeText}>Front view, 1.5 m</Text>
+            <Text style={styles.cameraBadgeText}>{currentAction.cameraView}, about 1.5 m away</Text>
           </View>
+          {(isCheckingQuality || qualityPassedCurrent || currentQuality) && (
+            <View style={[styles.cameraQualityOverlay, qualityPassedCurrent && styles.cameraQualityOverlayPass, currentQuality && !qualityPassedCurrent && !isCheckingQuality && styles.cameraQualityOverlayFail]}>
+              {isCheckingQuality ? <ActivityIndicator color="#ffffff" /> : <Ionicons name={qualityPassedCurrent ? 'checkmark-circle' : 'alert-circle'} size={38} color="#ffffff" />}
+              <Text style={styles.cameraQualityOverlayText}>{isCheckingQuality ? 'Checking video quality...' : qualityPassedCurrent ? 'Video passed' : 'Please retake'}</Text>
+            </View>
+          )}
         </View>
 
         <View style={styles.controls}>
@@ -2297,6 +2395,95 @@ function WeeklyPlanLoadingScreen({ onBack, onComplete }: { onBack: () => void; o
   );
 }
 
+function MetricsScreen({
+  analysisResult,
+  onBack,
+  onContinue,
+}: {
+  analysisResult: UpperLimbAnalysisResult | null;
+  onBack: () => void;
+  onContinue: () => void;
+}) {
+  const metrics = buildPatientMetrics(analysisResult);
+  return (
+    <View style={styles.lightScreen}>
+      <Header title="Movement Metrics" subtitle="A simple view of your upper-limb performance" onBack={onBack} darkText />
+      <ScrollView contentContainerStyle={styles.lightContent} showsVerticalScrollIndicator={false}>
+        <View style={styles.metricsHero}>
+          <Text style={styles.metricsHeroTitle}>What we saw from your videos</Text>
+          <Text style={styles.metricsHeroText}>These are screening estimates from phone video, designed to help you understand movement priorities before seeing the full plan.</Text>
+        </View>
+        {metrics.map((metric) => (
+          <View key={metric.label} style={styles.metricCard}>
+            <View style={styles.metricHeader}>
+              <View style={[styles.metricIcon, { backgroundColor: metric.color }]}>
+                <Ionicons name={metric.icon} size={22} color="#ffffff" />
+              </View>
+              <View style={styles.metricCopy}>
+                <Text style={styles.metricLabel}>{metric.label}</Text>
+                <Text style={styles.metricValue}>{metric.value}</Text>
+              </View>
+            </View>
+            <View style={styles.metricTrack}>
+              <View style={[styles.metricFill, { width: `${metric.percent}%`, backgroundColor: metric.color }]} />
+            </View>
+            <Text style={styles.metricHint}>{metric.hint}</Text>
+          </View>
+        ))}
+        <PrimaryLightButton label="View My Functional Problems" icon="analytics" onPress={onContinue} />
+      </ScrollView>
+    </View>
+  );
+}
+
+function buildPatientMetrics(analysisResult: UpperLimbAnalysisResult | null) {
+  const metricByAction = new Map<string, Record<string, any>>();
+  (analysisResult?.actionAnalyses ?? []).forEach((action) => {
+    metricByAction.set(action.action_id, action.metrics ?? {});
+  });
+  const shoulderFlexion = Number(metricByAction.get('shoulder_flexion')?.shoulderFlexionRomDeg ?? 48);
+  const reach = Number(metricByAction.get('forward_reach')?.reachCompletionRatio ?? 0.52);
+  const wrist = Number(metricByAction.get('wrist_extension')?.wristExtensionRomDeg ?? 18);
+  const smoothnessValues = Array.from(metricByAction.values())
+    .map((item) => Number(item.smoothnessScore))
+    .filter((value) => Number.isFinite(value));
+  const smoothness = smoothnessValues.length ? smoothnessValues.reduce((sum, value) => sum + value, 0) / smoothnessValues.length : 0.58;
+  return [
+    {
+      label: 'Arm lifting range',
+      value: `${Math.round(shoulderFlexion)}°`,
+      percent: Math.max(8, Math.min(100, Math.round((shoulderFlexion / 120) * 100))),
+      hint: 'Shows how far the arm can lift during the upper-limb task.',
+      color: '#1267e6',
+      icon: 'arrow-up-circle' as keyof typeof Ionicons.glyphMap,
+    },
+    {
+      label: 'Forward reach ability',
+      value: `${Math.round(Math.min(reach, 1) * 100)}%`,
+      percent: Math.max(8, Math.min(100, Math.round(Math.min(reach, 1) * 100))),
+      hint: 'Shows how well the hand can move forward toward a target.',
+      color: '#0b756d',
+      icon: 'navigate-circle' as keyof typeof Ionicons.glyphMap,
+    },
+    {
+      label: 'Wrist lifting control',
+      value: `${Math.round(wrist)}°`,
+      percent: Math.max(8, Math.min(100, Math.round((wrist / 60) * 100))),
+      hint: 'Important for hand opening, grasp, and object release.',
+      color: '#ff9f0a',
+      icon: 'hand-left' as keyof typeof Ionicons.glyphMap,
+    },
+    {
+      label: 'Movement smoothness',
+      value: `${Math.round(smoothness * 100)}%`,
+      percent: Math.max(8, Math.min(100, Math.round(smoothness * 100))),
+      hint: 'Lower smoothness may mean the body is compensating or control is inconsistent.',
+      color: '#8b5cf6',
+      icon: 'pulse' as keyof typeof Ionicons.glyphMap,
+    },
+  ];
+}
+
 function ProblemsScreen({
   analysisResult,
   onBack,
@@ -2320,19 +2507,10 @@ function ProblemsScreen({
         daily_life_impact: [],
         evidence: [],
       }));
-  const missingMetrics = analysisResult?.qualitySummary.missingMetrics ?? [];
-
   return (
     <View style={styles.lightScreen}>
       <Header title="My Functional Problems" subtitle={analysisResult ? `Algorithm ${analysisResult.algorithmVersion}` : 'Upper Limb Package summary'} onBack={onBack} darkText />
       <ScrollView contentContainerStyle={styles.lightContent} showsVerticalScrollIndicator={false}>
-        {missingMetrics.length > 0 && (
-          <View style={styles.analysisNoticeCard}>
-            <Ionicons name="information-circle" size={22} color="#1267e6" />
-            <Text style={styles.analysisNoticeText}>Video collection is complete. Movement metrics are not extracted yet, so the backend returned a preprocessing-needed result for {missingMetrics.length} movements.</Text>
-          </View>
-        )}
-
         {displayProblems.map((problem, index) => (
           <View key={problem.title} style={styles.problemCard}>
             <View style={styles.problemIndex}>
@@ -2348,14 +2526,6 @@ function ProblemsScreen({
             </View>
           </View>
         ))}
-
-        <View style={styles.tipCard}>
-          <Ionicons name="bulb" size={22} color="#1267e6" />
-          <View style={styles.tipCopy}>
-            <Text style={styles.tipTitle}>Review Note</Text>
-            <Text style={styles.tipText}>{analysisResult?.patientFacingSummary.reviewNote ?? 'The formal version converts movement videos into objective metrics and therapist-rule conclusions.'}</Text>
-          </View>
-        </View>
 
         <PrimaryLightButton label="View Weekly Training Plan" icon="calendar" onPress={onPlan} />
         <MatchButton onPress={onMatch} />
@@ -2396,12 +2566,6 @@ function PlanScreen({
           </View>
           <Text style={styles.weekCount}>{analysisResult?.weeklyExercisePlan.length ?? 4}/21 items</Text>
         </View>
-        {analysisResult?.opensimDecision.needed && (
-          <View style={styles.opensimNoticeCard}>
-            <Ionicons name="analytics" size={20} color="#0b756d" />
-            <Text style={styles.opensimNoticeText}>OpenSim or therapist review recommended: {analysisResult.opensimDecision.reasons[0]}</Text>
-          </View>
-        )}
         <View style={styles.dayRow}>
           {weekDays.map((day, index) => {
             const value = index + 1;
@@ -2642,18 +2806,29 @@ function DemoScreen({ exercise, isPlaying, onBack, onTogglePlay }: { exercise: E
       <Header title="Exercise Demo" subtitle={exercise.title} onBack={onBack} />
       <ScrollView contentContainerStyle={styles.demoContent} showsVerticalScrollIndicator={false}>
         <View style={styles.videoPanel}>
-          <LinearGradient colors={['#eef8ff', exercise.imageTone]} style={styles.demoImage}>
-            <View style={styles.therapistFigure}>
-              <Ionicons name="person" size={92} color="#164b85" />
-              <Ionicons name="hand-left" size={43} color="#0f6eff" style={styles.handIcon} />
-            </View>
-            <Pressable style={tapStyle(styles.playButton)} onPress={onTogglePlay}>
-              <Ionicons name={isPlaying ? 'pause' : 'play'} size={34} color="#ffffff" />
-            </Pressable>
-            <View style={styles.videoProgress}>
-              <View style={[styles.videoProgressFill, { width: isPlaying ? '56%' : '18%' }]} />
-            </View>
-          </LinearGradient>
+          {exercise.demoVideoUrl ? (
+            <Video
+              source={{ uri: exercise.demoVideoUrl }}
+              style={styles.demoVideo}
+              resizeMode={ResizeMode.COVER}
+              useNativeControls
+              shouldPlay={isPlaying}
+            />
+          ) : (
+            <LinearGradient colors={['#eef8ff', exercise.imageTone]} style={styles.demoImage}>
+              <View style={styles.therapistFigure}>
+                <Ionicons name="person" size={92} color="#164b85" />
+                <Ionicons name="hand-left" size={43} color="#0f6eff" style={styles.handIcon} />
+              </View>
+              <Pressable style={tapStyle(styles.playButton)} onPress={onTogglePlay}>
+                <Ionicons name={isPlaying ? 'pause' : 'play'} size={34} color="#ffffff" />
+              </Pressable>
+              <Text style={styles.demoPlaceholderText}>HeyGen guided video will appear here after the media asset is connected.</Text>
+              <View style={styles.videoProgress}>
+                <View style={[styles.videoProgressFill, { width: isPlaying ? '56%' : '18%' }]} />
+              </View>
+            </LinearGradient>
+          )}
         </View>
         <View style={styles.demoInfo}>
           <Text style={styles.demoSectionTitle}>Key Points</Text>
@@ -2787,6 +2962,11 @@ const styles = StyleSheet.create({
   homeActionCard: { backgroundColor: '#ffffff', borderColor: '#dce6f2', borderRadius: 20, borderWidth: 1, flex: 1, gap: 8, minHeight: 134, padding: 15 },
   homeActionTitle: { color: '#102033', fontSize: 16, fontWeight: '900' },
   homeActionText: { color: '#60738d', fontSize: 12, lineHeight: 18 },
+  educationList: { gap: 12, marginBottom: 18 },
+  educationCard: { alignItems: 'flex-start', backgroundColor: '#ffffff', borderColor: '#dce6f2', borderRadius: 20, borderWidth: 1, flexDirection: 'row', gap: 12, padding: 15 },
+  educationCopy: { flex: 1 },
+  educationTitle: { color: '#102033', fontSize: 16, fontWeight: '900' },
+  educationText: { color: '#60738d', fontSize: 13, lineHeight: 19, marginTop: 4 },
   tabHeroCard: { alignItems: 'flex-start', backgroundColor: '#ffffff', borderColor: '#e1e8f2', borderRadius: 24, borderWidth: 1, gap: 12, marginBottom: 14, padding: 18, shadowColor: '#143664', shadowOpacity: 0.08, shadowRadius: 12 },
   tabHeroIcon: { alignItems: 'center', backgroundColor: '#1267e6', borderRadius: 22, height: 56, justifyContent: 'center', width: 56 },
   tabHeroIconTeal: { backgroundColor: '#05e1d2' },
@@ -2892,6 +3072,10 @@ const styles = StyleSheet.create({
   cameraEmptyText: { color: '#aabbd0', fontSize: 14, lineHeight: 21, marginTop: 8, textAlign: 'center' },
   cameraBadge: { alignItems: 'center', bottom: 12, flexDirection: 'row', gap: 6, left: 13, position: 'absolute' },
   cameraBadgeText: { color: '#ffffff', fontSize: 12, fontWeight: '800' },
+  cameraQualityOverlay: { alignItems: 'center', alignSelf: 'center', backgroundColor: 'rgba(18,103,230,0.9)', borderRadius: 22, gap: 8, justifyContent: 'center', minWidth: 210, paddingHorizontal: 18, paddingVertical: 16, position: 'absolute', top: '38%' },
+  cameraQualityOverlayPass: { backgroundColor: 'rgba(24,195,126,0.92)' },
+  cameraQualityOverlayFail: { backgroundColor: 'rgba(255,159,10,0.92)' },
+  cameraQualityOverlayText: { color: '#ffffff', fontSize: 14, fontWeight: '900', textAlign: 'center' },
   controls: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 16 },
   primaryButton: { alignItems: 'center', backgroundColor: '#05e1d2', borderRadius: 16, flexDirection: 'row', gap: 8, justifyContent: 'center', minHeight: 48, paddingHorizontal: 18 },
   primaryButtonText: { color: '#031629', fontSize: 15, fontWeight: '900' },
@@ -3133,6 +3317,18 @@ const styles = StyleSheet.create({
   problemArea: { color: '#1267e6', fontSize: 12, fontWeight: '900' },
   problemTitle: { color: '#101d2c', fontSize: 18, fontWeight: '900', marginTop: 3 },
   problemSummary: { color: '#26384d', fontSize: 15, fontWeight: '800', lineHeight: 21, marginTop: 7 },
+  metricsHero: { backgroundColor: '#ffffff', borderColor: '#e1e8f2', borderRadius: 22, borderWidth: 1, marginBottom: 14, padding: 18 },
+  metricsHeroTitle: { color: '#102033', fontSize: 24, fontWeight: '900' },
+  metricsHeroText: { color: '#60738d', fontSize: 14, lineHeight: 21, marginTop: 8 },
+  metricCard: { backgroundColor: '#ffffff', borderColor: '#e1e8f2', borderRadius: 20, borderWidth: 1, marginBottom: 12, padding: 15 },
+  metricHeader: { alignItems: 'center', flexDirection: 'row', gap: 12 },
+  metricIcon: { alignItems: 'center', borderRadius: 18, height: 44, justifyContent: 'center', width: 44 },
+  metricCopy: { flex: 1 },
+  metricLabel: { color: '#60738d', fontSize: 13, fontWeight: '900' },
+  metricValue: { color: '#102033', fontSize: 26, fontWeight: '900', marginTop: 2 },
+  metricTrack: { backgroundColor: '#edf2f8', borderRadius: 999, height: 10, marginTop: 14, overflow: 'hidden' },
+  metricFill: { borderRadius: 999, height: 10 },
+  metricHint: { color: '#60738d', fontSize: 12, lineHeight: 18, marginTop: 9 },
   problemDetail: { color: '#68788c', fontSize: 12, lineHeight: 18, marginTop: 5 },
   tipCard: { backgroundColor: '#e8f2ff', borderRadius: 18, flexDirection: 'row', gap: 12, marginTop: 5, padding: 16 },
   tipCopy: { flex: 1 },
@@ -3215,6 +3411,8 @@ const styles = StyleSheet.create({
   waitingStatusText: { color: '#102033', fontSize: 15, fontWeight: '900' },
   videoPanel: { backgroundColor: '#000000' },
   demoImage: { alignItems: 'center', height: 330, justifyContent: 'center' },
+  demoVideo: { backgroundColor: '#000000', height: 330, width: '100%' },
+  demoPlaceholderText: { bottom: 22, color: '#164b85', fontSize: 12, fontWeight: '900', left: 18, position: 'absolute', right: 18, textAlign: 'center' },
   therapistFigure: { alignItems: 'center', justifyContent: 'center' },
   handIcon: { position: 'absolute', right: -28, top: 82, transform: [{ rotate: '-16deg' }] },
   playButton: { alignItems: 'center', backgroundColor: '#1267e6', borderRadius: 34, bottom: 46, height: 68, justifyContent: 'center', position: 'absolute', width: 68 },

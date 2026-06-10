@@ -125,7 +125,7 @@ def _quality_response(action_id: str, path: str, side: str) -> dict[str, Any]:
             shoulder_result = analyze_shoulder_flexion_video(
                 video_path=Path(path),
                 side=side,
-                sample_hz=30,
+                sample_hz=8,
                 min_detection_confidence=0.3,
                 min_tracking_confidence=0.3,
             )
@@ -269,7 +269,7 @@ async def analyze_upper_limb_videos(
             shoulder_result = analyze_shoulder_flexion_video(
                 video_path=Path(actions["shoulder_flexion"]["path"]),
                 side=affected_side,
-                sample_hz=30,
+                sample_hz=12,
                 min_detection_confidence=0.3,
                 min_tracking_confidence=0.3,
             )
