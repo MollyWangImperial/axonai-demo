@@ -93,6 +93,43 @@ SCHEMA_STATEMENTS = [
     """,
 ]
 
+POSTGRES_COMPAT_STATEMENTS = [
+    """
+    CREATE TABLE IF NOT EXISTS public.users (
+        id TEXT PRIMARY KEY,
+        role TEXT NOT NULL CHECK (role IN ('patient', 'therapist')),
+        identifier TEXT NOT NULL,
+        password_hash TEXT NOT NULL,
+        password_salt TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        last_login_at TEXT,
+        UNIQUE(role, identifier)
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS public.upper_limb_analyses (
+        id TEXT PRIMARY KEY,
+        patient_user_id TEXT,
+        patient_profile_json TEXT NOT NULL,
+        recorded_videos_json TEXT NOT NULL,
+        result_json TEXT NOT NULL,
+        created_at TEXT NOT NULL
+    )
+    """,
+]
+
+REQUIRED_POSTGRES_TABLES = [
+    "profiles",
+    "patient_profiles",
+    "therapist_profiles",
+    "uploaded_videos",
+    "package_analyses",
+    "exercise_plans",
+    "care_matches",
+    "clinician_reviews",
+]
+
 
 def now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
@@ -124,8 +161,20 @@ def connect():
 
 def init_db() -> None:
     with connect() as conn:
-        for statement in SCHEMA_STATEMENTS:
+        statements = POSTGRES_COMPAT_STATEMENTS if is_postgres() else SCHEMA_STATEMENTS
+        for statement in statements:
             conn.execute(statement)
+        if is_postgres():
+            missing = []
+            for table in REQUIRED_POSTGRES_TABLES:
+                row = conn.execute("SELECT to_regclass(%s) AS table_name", (f"public.{table}",)).fetchone()
+                if not row or not row["table_name"]:
+                    missing.append(table)
+            if missing:
+                raise RuntimeError(
+                    "Supabase schema is missing required tables. Run supabase/axonai_rehab_schema.sql. "
+                    f"Missing: {', '.join(missing)}"
+                )
 
 
 def normalize_identifier(identifier: str) -> str:
@@ -141,6 +190,48 @@ def hash_password(password: str, salt: str | None = None) -> tuple[str, str]:
     password_salt = salt or secrets.token_hex(16)
     digest = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), password_salt.encode("utf-8"), 120_000)
     return digest.hex(), password_salt
+
+
+def _uuid_or_none(value: str | None) -> str | None:
+    if not value:
+        return None
+    try:
+        return str(uuid.UUID(str(value)))
+    except (TypeError, ValueError):
+        return None
+
+
+def _profile_columns(role: str, profile: dict[str, Any]) -> dict[str, Any]:
+    if role == "patient":
+        return {
+            "full_name": profile.get("fullName") or profile.get("full_name"),
+            "age_range": profile.get("ageRange") or profile.get("age_range"),
+            "gender": profile.get("gender"),
+            "language": profile.get("language"),
+            "location": profile.get("location"),
+            "stroke_type": profile.get("strokeType") or profile.get("stroke_type"),
+            "onset_time": profile.get("onsetTime") or profile.get("onset_time"),
+            "affected_side": profile.get("affectedSide") or profile.get("affected_side"),
+            "dominant_hand": profile.get("dominantHand") or profile.get("dominant_hand"),
+            "mobility_level": profile.get("mobilityLevel") or profile.get("mobility_level"),
+            "upper_limb_ability": profile.get("upperLimbAbility") or profile.get("upper_limb_ability"),
+            "safety_flags": profile.get("safetyFlags") or profile.get("safety_flags") or [],
+            "main_goal": profile.get("mainGoal") or profile.get("main_goal"),
+            "support_mode": profile.get("supportMode") or profile.get("support_mode"),
+        }
+    return {
+        "full_name": profile.get("fullName") or profile.get("full_name"),
+        "title": profile.get("title"),
+        "profession": profile.get("profession"),
+        "location": profile.get("location"),
+        "languages": profile.get("languages"),
+        "years_experience": profile.get("yearsExperience") or profile.get("years_experience"),
+        "stroke_experience": profile.get("strokeExperience") or profile.get("stroke_experience"),
+        "specialties": profile.get("specialties") or [],
+        "assessments": profile.get("assessments") or [],
+        "support_mode": profile.get("supportMode") or profile.get("support_mode"),
+        "availability": profile.get("availability"),
+    }
 
 
 def create_user(role: str, identifier: str, password: str) -> dict[str, Any]:
@@ -159,6 +250,25 @@ def create_user(role: str, identifier: str, password: str) -> dict[str, Any]:
                 """,
                 (user_id, role, normalized, password_hash, password_salt, timestamp, timestamp),
             )
+            if is_postgres():
+                conn.execute(
+                    """
+                    INSERT INTO public.profiles (user_id, role, display_name, email, phone, created_at, updated_at)
+                    VALUES (%s, %s::public.axonai_user_role, %s, %s, %s, now(), now())
+                    ON CONFLICT(user_id) DO UPDATE SET
+                        role = excluded.role,
+                        email = excluded.email,
+                        phone = excluded.phone,
+                        updated_at = now()
+                    """,
+                    (
+                        user_id,
+                        role,
+                        normalized,
+                        normalized if "@" in normalized else None,
+                        normalized if "@" not in normalized else None,
+                    ),
+                )
     except Exception as exc:
         if "unique" not in str(exc).lower() and "duplicate" not in str(exc).lower():
             raise
@@ -192,6 +302,106 @@ def save_profile(user_id: str, role: str, profile: dict[str, Any]) -> dict[str, 
         user = conn.execute(f"SELECT id FROM users WHERE id = {ph} AND role = {ph}", (user_id, role)).fetchone()
         if user is None:
             raise ValueError("user not found for profile role")
+        if is_postgres():
+            conn.execute(
+                """
+                INSERT INTO public.profiles (user_id, role, display_name, created_at, updated_at)
+                VALUES (%s, %s::public.axonai_user_role, %s, now(), now())
+                ON CONFLICT(user_id) DO UPDATE SET
+                    role = excluded.role,
+                    display_name = coalesce(excluded.display_name, public.profiles.display_name),
+                    updated_at = now()
+                """,
+                (user_id, role, profile.get("fullName") or profile.get("full_name") or user_id),
+            )
+            values = _profile_columns(role, profile)
+            if role == "patient":
+                conn.execute(
+                    """
+                    INSERT INTO public.patient_profiles (
+                        user_id, full_name, age_range, gender, language, location, stroke_type,
+                        onset_time, affected_side, dominant_hand, mobility_level, upper_limb_ability,
+                        safety_flags, main_goal, support_mode, profile_json, created_at, updated_at
+                    )
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, now(), now())
+                    ON CONFLICT(user_id) DO UPDATE SET
+                        full_name = excluded.full_name,
+                        age_range = excluded.age_range,
+                        gender = excluded.gender,
+                        language = excluded.language,
+                        location = excluded.location,
+                        stroke_type = excluded.stroke_type,
+                        onset_time = excluded.onset_time,
+                        affected_side = excluded.affected_side,
+                        dominant_hand = excluded.dominant_hand,
+                        mobility_level = excluded.mobility_level,
+                        upper_limb_ability = excluded.upper_limb_ability,
+                        safety_flags = excluded.safety_flags,
+                        main_goal = excluded.main_goal,
+                        support_mode = excluded.support_mode,
+                        profile_json = excluded.profile_json,
+                        updated_at = now()
+                    """,
+                    (
+                        user_id,
+                        values["full_name"],
+                        values["age_range"],
+                        values["gender"],
+                        values["language"],
+                        values["location"],
+                        values["stroke_type"],
+                        values["onset_time"],
+                        values["affected_side"],
+                        values["dominant_hand"],
+                        values["mobility_level"],
+                        values["upper_limb_ability"],
+                        values["safety_flags"],
+                        values["main_goal"],
+                        values["support_mode"],
+                        payload,
+                    ),
+                )
+            else:
+                conn.execute(
+                    """
+                    INSERT INTO public.therapist_profiles (
+                        user_id, full_name, title, profession, location, languages, years_experience,
+                        stroke_experience, specialties, assessments, support_mode, availability,
+                        profile_json, created_at, updated_at
+                    )
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, now(), now())
+                    ON CONFLICT(user_id) DO UPDATE SET
+                        full_name = excluded.full_name,
+                        title = excluded.title,
+                        profession = excluded.profession,
+                        location = excluded.location,
+                        languages = excluded.languages,
+                        years_experience = excluded.years_experience,
+                        stroke_experience = excluded.stroke_experience,
+                        specialties = excluded.specialties,
+                        assessments = excluded.assessments,
+                        support_mode = excluded.support_mode,
+                        availability = excluded.availability,
+                        profile_json = excluded.profile_json,
+                        updated_at = now()
+                    """,
+                    (
+                        user_id,
+                        values["full_name"],
+                        values["title"],
+                        values["profession"],
+                        values["location"],
+                        values["languages"],
+                        values["years_experience"],
+                        values["stroke_experience"],
+                        values["specialties"],
+                        values["assessments"],
+                        values["support_mode"],
+                        values["availability"],
+                        payload,
+                    ),
+                )
+            return {"userId": user_id, "role": role, "profile": profile}
         conn.execute(
             f"""
             INSERT INTO {table} (user_id, profile_json, created_at, updated_at)
@@ -220,6 +430,25 @@ def save_analysis(patient_user_id: str | None, patient_profile: dict[str, Any], 
     analysis_id = str(uuid.uuid4())
     timestamp = now_iso()
     ph = placeholder()
+    if is_postgres():
+        with connect() as conn:
+            conn.execute(
+                """
+                INSERT INTO public.package_analyses
+                    (id, package_key, patient_user_id, recorded_videos_json, result_json, algorithm_version, status, created_at)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, now())
+                """,
+                (
+                    analysis_id,
+                    "upper",
+                    _uuid_or_none(patient_user_id),
+                    json.dumps(recorded_videos, ensure_ascii=False),
+                    json.dumps(result, ensure_ascii=False),
+                    result.get("algorithmVersion"),
+                    "generated",
+                ),
+            )
+        return {"analysisId": analysis_id, "createdAt": timestamp}
     with connect() as conn:
         conn.execute(
             f"""
@@ -250,6 +479,25 @@ def save_package_analysis(
     analysis_id = str(uuid.uuid4())
     timestamp = now_iso()
     ph = placeholder()
+    if is_postgres():
+        with connect() as conn:
+            conn.execute(
+                """
+                INSERT INTO public.package_analyses
+                    (id, package_key, patient_user_id, recorded_videos_json, result_json, algorithm_version, status, created_at)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, now())
+                """,
+                (
+                    analysis_id,
+                    package_key,
+                    _uuid_or_none(patient_user_id),
+                    json.dumps(recorded_videos, ensure_ascii=False),
+                    json.dumps(result, ensure_ascii=False),
+                    result.get("algorithmVersion"),
+                    "generated",
+                ),
+            )
+        return {"analysisId": analysis_id, "packageKey": package_key, "createdAt": timestamp}
     with connect() as conn:
         conn.execute(
             f"""
@@ -281,6 +529,24 @@ def save_match(
     match_id = str(uuid.uuid4())
     timestamp = now_iso()
     ph = placeholder()
+    if is_postgres():
+        with connect() as conn:
+            conn.execute(
+                """
+                INSERT INTO public.care_matches
+                    (id, patient_user_id, therapist_user_id, analysis_id, matched_person_json, status, created_at, updated_at)
+                VALUES (%s, %s, %s, %s, %s, %s::public.axonai_match_status, now(), now())
+                """,
+                (
+                    match_id,
+                    _uuid_or_none(patient_user_id),
+                    _uuid_or_none(therapist_user_id),
+                    _uuid_or_none(analysis_id),
+                    json.dumps(matched_person, ensure_ascii=False),
+                    status,
+                ),
+            )
+        return {"matchId": match_id, "status": status, "createdAt": timestamp}
     with connect() as conn:
         conn.execute(
             f"""
@@ -304,6 +570,24 @@ def save_match(
 
 def list_therapists() -> list[dict[str, Any]]:
     init_db()
+    if is_postgres():
+        with connect() as conn:
+            rows = conn.execute(
+                """
+                SELECT profiles.user_id AS id, profiles.email, profiles.phone, therapist_profiles.profile_json
+                FROM public.therapist_profiles
+                JOIN public.profiles ON profiles.user_id = therapist_profiles.user_id
+                ORDER BY therapist_profiles.updated_at DESC
+                """
+            ).fetchall()
+        return [
+            {
+                "userId": str(row["id"]),
+                "identifier": row["email"] or row["phone"] or str(row["id"]),
+                "profile": row["profile_json"] if isinstance(row["profile_json"], dict) else json.loads(row["profile_json"]),
+            }
+            for row in rows
+        ]
     with connect() as conn:
         rows = conn.execute(
             """
@@ -317,7 +601,22 @@ def list_therapists() -> list[dict[str, Any]]:
     return [{"userId": row["id"], "identifier": row["identifier"], "profile": json.loads(row["profile_json"])} for row in rows]
 
 
-def database_status() -> dict[str, str]:
+def database_status() -> dict[str, Any]:
     if is_postgres():
-        return {"provider": "postgres", "target": "DATABASE_URL"}
+        with connect() as conn:
+            row = conn.execute(
+                """
+                SELECT
+                    current_database() AS database,
+                    current_schema() AS schema,
+                    to_regclass('public.package_analyses') AS package_analyses_table
+                """
+            ).fetchone()
+        return {
+            "provider": "postgres",
+            "target": "DATABASE_URL",
+            "database": row["database"],
+            "schema": row["schema"],
+            "packageAnalysesTable": str(row["package_analyses_table"]),
+        }
     return {"provider": "sqlite", "target": str(DB_PATH)}

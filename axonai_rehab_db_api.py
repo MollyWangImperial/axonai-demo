@@ -61,8 +61,11 @@ router = APIRouter(prefix="/api/rehab", tags=["rehab-persistence"])
 
 @router.get("/health")
 def health() -> dict[str, Any]:
-    init_db()
-    return {"status": "ok", "database": database_status()}
+    try:
+        init_db()
+        return {"status": "ok", "database": database_status()}
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Database health check failed: {exc}") from exc
 
 
 @router.post("/accounts")
