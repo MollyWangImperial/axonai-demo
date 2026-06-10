@@ -233,8 +233,13 @@ def _create_supabase_auth_user(role: str, identifier: str, password: str) -> str
             "user_metadata": metadata,
         }
 
+    supabase_project_url = SUPABASE_URL.rstrip("/")
+    for suffix in ("/rest/v1", "/auth/v1"):
+        if supabase_project_url.endswith(suffix):
+            supabase_project_url = supabase_project_url[: -len(suffix)]
+
     request = urllib.request.Request(
-        f"{SUPABASE_URL.rstrip('/')}/auth/v1/admin/users",
+        f"{supabase_project_url}/auth/v1/admin/users",
         data=json.dumps(payload).encode("utf-8"),
         headers={
             "apikey": SUPABASE_SERVICE_ROLE_KEY,
