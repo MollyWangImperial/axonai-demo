@@ -572,6 +572,26 @@ async function saveUpperLimbAnalysis(
   });
 }
 
+async function saveExercisePlan(
+  patientUserId: string | null,
+  analysisId: string | null,
+  packageKey: string,
+  result: UpperLimbAnalysisResult,
+): Promise<{ planId: string; status: string; createdAt: string }> {
+  return postJson<{ planId: string; status: string; createdAt: string }>('/api/rehab/exercise-plans', {
+    patientUserId,
+    analysisId,
+    packageKey,
+    plan: {
+      algorithmVersion: result.algorithmVersion,
+      weeklyExercisePlan: result.weeklyExercisePlan,
+      functionalProblems: result.functionalProblems,
+      patientFacingSummary: result.patientFacingSummary,
+    },
+    status: 'pending_therapist_review',
+  });
+}
+
 async function saveCareMatch(
   patientUserId: string | null,
   analysisId: string | null,
@@ -1033,6 +1053,12 @@ export default function App() {
           result,
         );
         setAnalysisId(saved.analysisId);
+        await saveExercisePlan(
+          accountSession?.role === 'patient' ? accountSession.userId : null,
+          saved.analysisId,
+          'upper',
+          result,
+        );
       } catch (saveError) {
         Alert.alert(
           'Analysis Saved Locally Only',

@@ -599,6 +599,71 @@ def save_uploaded_video_record(
     return {"videoId": video_id, "createdAt": timestamp}
 
 
+def save_exercise_plan(
+    patient_user_id: str | None,
+    analysis_id: str | None,
+    package_key: str,
+    plan: dict[str, Any],
+    status: str = "pending_therapist_review",
+) -> dict[str, Any]:
+    init_db()
+    plan_id = str(uuid.uuid4())
+    timestamp = now_iso()
+    if is_postgres():
+        with connect() as conn:
+            conn.execute(
+                """
+                INSERT INTO public.exercise_plans
+                    (id, patient_user_id, analysis_id, package_key, plan_json, status, created_at, updated_at)
+                VALUES (%s, %s, %s, %s, %s, %s, now(), now())
+                """,
+                (
+                    plan_id,
+                    _uuid_or_none(patient_user_id),
+                    _uuid_or_none(analysis_id),
+                    package_key,
+                    json.dumps(plan, ensure_ascii=False),
+                    status,
+                ),
+            )
+        return {"planId": plan_id, "status": status, "createdAt": timestamp}
+
+    ph = placeholder()
+    with connect() as conn:
+        conn.execute(
+            f"""
+            CREATE TABLE IF NOT EXISTS exercise_plans (
+                id TEXT PRIMARY KEY,
+                patient_user_id TEXT,
+                analysis_id TEXT,
+                package_key TEXT NOT NULL,
+                plan_json TEXT NOT NULL,
+                status TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )
+            """
+        )
+        conn.execute(
+            f"""
+            INSERT INTO exercise_plans
+                (id, patient_user_id, analysis_id, package_key, plan_json, status, created_at, updated_at)
+            VALUES ({ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph})
+            """,
+            (
+                plan_id,
+                patient_user_id,
+                analysis_id,
+                package_key,
+                json.dumps(plan, ensure_ascii=False),
+                status,
+                timestamp,
+                timestamp,
+            ),
+        )
+    return {"planId": plan_id, "status": status, "createdAt": timestamp}
+
+
 def save_match(
     patient_user_id: str | None,
     therapist_user_id: str | None,

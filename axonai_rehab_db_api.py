@@ -16,6 +16,7 @@ from axonai_rehab_db import (
     list_therapists,
     login_user,
     save_analysis,
+    save_exercise_plan,
     save_match,
     save_package_analysis,
     save_profile,
@@ -54,6 +55,14 @@ class MatchPayload(BaseModel):
     analysisId: str | None = None
     matchedPerson: dict[str, Any] = Field(default_factory=dict)
     status: str = "waiting_for_therapist"
+
+
+class ExercisePlanPayload(BaseModel):
+    patientUserId: str | None = None
+    analysisId: str | None = None
+    packageKey: str
+    plan: dict[str, Any] = Field(default_factory=dict)
+    status: str = "pending_therapist_review"
 
 
 router = APIRouter(prefix="/api/rehab", tags=["rehab-persistence"])
@@ -113,6 +122,11 @@ def create_upper_limb_analysis(payload: AnalysisPayload) -> dict[str, Any]:
 @router.post("/package-analyses")
 def create_package_analysis(payload: PackageAnalysisPayload) -> dict[str, Any]:
     return save_package_analysis(payload.packageKey, payload.patientUserId, payload.patientProfile, payload.recordedVideos, payload.result)
+
+
+@router.post("/exercise-plans")
+def create_exercise_plan(payload: ExercisePlanPayload) -> dict[str, Any]:
+    return save_exercise_plan(payload.patientUserId, payload.analysisId, payload.packageKey, payload.plan, payload.status)
 
 
 @router.post("/matches")
