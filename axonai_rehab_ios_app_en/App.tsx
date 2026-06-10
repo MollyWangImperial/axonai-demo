@@ -7,6 +7,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   Animated,
   Easing,
@@ -799,6 +800,7 @@ export default function App() {
   const [patientProfile, setPatientProfile] = useState<PatientProfile>(defaultPatientProfile);
   const [therapistProfile, setTherapistProfile] = useState<TherapistProfile>(defaultTherapistProfile);
   const [accountSession, setAccountSession] = useState<AccountSession | null>(null);
+  const [authBusy, setAuthBusy] = useState(false);
   const [analysisId, setAnalysisId] = useState<string | null>(null);
   const [matchId, setMatchId] = useState<string | null>(null);
   const [selectedPackage, setSelectedPackage] = useState<PackageKey | null>(null);
@@ -866,6 +868,7 @@ export default function App() {
     if (!requireCredentials(credentials)) {
       return;
     }
+    setAuthBusy(true);
     try {
       const session = await loginRehabAccount(selectedRole, credentials);
       setAccountSession({ userId: session.userId, role: session.role, identifier: session.identifier });
@@ -886,6 +889,8 @@ export default function App() {
       }
     } catch (error) {
       Alert.alert('Login Failed', error instanceof Error ? error.message : 'Could not log in. Please check the backend and try again.');
+    } finally {
+      setAuthBusy(false);
     }
   };
 
@@ -893,12 +898,15 @@ export default function App() {
     if (!requireCredentials(credentials)) {
       return;
     }
+    setAuthBusy(true);
     try {
       const session = await createRehabAccount(selectedRole, credentials);
       setAccountSession(session);
       setScreen(selectedRole === 'patient' ? 'patientOnboarding' : 'therapistOnboarding');
     } catch (error) {
       Alert.alert('Account Creation Failed', error instanceof Error ? error.message : 'Could not create this account.');
+    } finally {
+      setAuthBusy(false);
     }
   };
 
@@ -1101,6 +1109,7 @@ export default function App() {
             onBack={() => setScreen('welcome')}
             onLogin={loginExistingAccount}
             onCreate={createAccount}
+            busy={authBusy}
           />
         )}
         {screen === 'patientOnboarding' && (
@@ -1305,11 +1314,13 @@ function AuthScreen({
   onBack,
   onLogin,
   onCreate,
+  busy,
 }: {
   role: UserRole;
   onBack: () => void;
   onLogin: (credentials: AuthCredentials) => void;
   onCreate: (credentials: AuthCredentials) => void;
+  busy: boolean;
 }) {
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
@@ -1327,16 +1338,29 @@ function AuthScreen({
           <Text style={styles.authText}>Create or log in to save your profile, analysis results, and matching requests to the AxonAI database.</Text>
           <FormField label="Email or phone" value={identifier} onChangeText={setIdentifier} placeholder="demo@axonai.app" />
           <FormField label="Password" value={password} onChangeText={setPassword} placeholder="At least 4 characters" secureTextEntry />
-          <PrimaryLightButton label={`Login as ${roleLabel}`} icon="log-in" onPress={() => onLogin(credentials)} />
+          <PrimaryLightButton
+            label={busy ? 'Connecting...' : `Login as ${roleLabel}`}
+            icon="log-in"
+            onPress={() => onLogin(credentials)}
+            disabled={busy}
+            loading={busy}
+          />
+          {busy && <Text style={styles.authStatusText}>Connecting to the secure AxonAI backend...</Text>}
         </View>
 
-        <Pressable style={tapStyle(styles.createAccountCard)} onPress={() => onCreate(credentials)}>
+        <Pressable
+          disabled={busy}
+          style={({ pressed }) => [styles.createAccountCard, pressed && styles.tapFeedback, busy && styles.disabledButton]}
+          onPress={() => onCreate(credentials)}
+        >
           <Ionicons name="add-circle" size={24} color="#1267e6" />
           <View style={styles.createAccountCopy}>
-            <Text style={styles.createAccountTitle}>Create New {roleLabel} Account</Text>
-            <Text style={styles.createAccountText}>Fill out the basic profile needed for rehab planning and matching.</Text>
+            <Text style={styles.createAccountTitle}>{busy ? 'Creating Account...' : `Create New ${roleLabel} Account`}</Text>
+            <Text style={styles.createAccountText}>
+              {busy ? 'Please wait. This can take a moment if the cloud service is waking up.' : 'Fill out the basic profile needed for rehab planning and matching.'}
+            </Text>
           </View>
-          <Ionicons name="arrow-forward" size={20} color="#1267e6" />
+          {busy ? <ActivityIndicator color="#1267e6" /> : <Ionicons name="arrow-forward" size={20} color="#1267e6" />}
         </Pressable>
       </ScrollView>
     </View>
@@ -2421,10 +2445,22 @@ function DangerButton({ label, icon, onPress }: { label: string; icon: keyof typ
   );
 }
 
-function PrimaryLightButton({ label, icon, onPress }: { label: string; icon: keyof typeof Ionicons.glyphMap; onPress: () => void }) {
+function PrimaryLightButton({
+  label,
+  icon,
+  onPress,
+  disabled = false,
+  loading = false,
+}: {
+  label: string;
+  icon: keyof typeof Ionicons.glyphMap;
+  onPress: () => void;
+  disabled?: boolean;
+  loading?: boolean;
+}) {
   return (
-    <Pressable style={tapStyle(styles.primaryLightButton)} onPress={onPress}>
-      <Ionicons name={icon} size={20} color="#ffffff" />
+    <Pressable disabled={disabled} style={({ pressed }) => [styles.primaryLightButton, pressed && styles.tapFeedback, disabled && styles.disabledButton]} onPress={onPress}>
+      {loading ? <ActivityIndicator color="#ffffff" /> : <Ionicons name={icon} size={20} color="#ffffff" />}
       <Text style={styles.primaryLightButtonText}>{label}</Text>
     </Pressable>
   );
@@ -2471,6 +2507,7 @@ const styles = StyleSheet.create({
   authIcon: { alignItems: 'center', backgroundColor: '#e8f2ff', borderRadius: 26, height: 74, justifyContent: 'center', marginBottom: 12, width: 74 },
   authTitle: { color: '#101d2c', fontSize: 24, fontWeight: '900', textAlign: 'center' },
   authText: { color: '#60738d', fontSize: 14, lineHeight: 21, marginBottom: 14, marginTop: 8, textAlign: 'center' },
+  authStatusText: { color: '#1267e6', fontSize: 13, fontWeight: '800', marginTop: 10, textAlign: 'center' },
   createAccountCard: { alignItems: 'center', backgroundColor: '#ffffff', borderColor: '#e1e8f2', borderRadius: 20, borderWidth: 1, flexDirection: 'row', gap: 12, marginTop: 14, padding: 16 },
   createAccountCopy: { flex: 1 },
   createAccountTitle: { color: '#101d2c', fontSize: 16, fontWeight: '900' },

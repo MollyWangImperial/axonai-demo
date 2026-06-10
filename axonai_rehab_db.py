@@ -12,6 +12,8 @@ import json
 import os
 import secrets
 import sqlite3
+import urllib.error
+import urllib.request
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -20,6 +22,8 @@ from typing import Any
 
 DB_PATH = Path(os.getenv("AXONAI_REHAB_DB_PATH", Path(__file__).resolve().parent / "axonai_rehab_runtime" / "axonai_rehab.sqlite3"))
 DATABASE_URL = os.getenv("AXONAI_DATABASE_URL") or os.getenv("DATABASE_URL")
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
 
 SCHEMA_STATEMENTS = [
     """
@@ -207,6 +211,53 @@ def hash_password(password: str, salt: str | None = None) -> tuple[str, str]:
     return digest.hex(), password_salt
 
 
+def _create_supabase_auth_user(role: str, identifier: str, password: str) -> str:
+    """Create the canonical Supabase Auth user needed by public.profiles FKs."""
+    if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY:
+        raise RuntimeError("SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required for account creation on Supabase.")
+
+    metadata = {"role": role, "axonai_identifier": identifier}
+    if "@" in identifier:
+        payload = {
+            "email": identifier,
+            "password": password,
+            "email_confirm": True,
+            "user_metadata": metadata,
+        }
+    else:
+        safe_identifier = "".join(ch if ch.isalnum() else "-" for ch in identifier).strip("-") or "phone-user"
+        payload = {
+            "email": f"{safe_identifier}.{uuid.uuid4().hex[:10]}@axonai.local",
+            "password": password,
+            "email_confirm": True,
+            "user_metadata": metadata,
+        }
+
+    request = urllib.request.Request(
+        f"{SUPABASE_URL.rstrip('/')}/auth/v1/admin/users",
+        data=json.dumps(payload).encode("utf-8"),
+        headers={
+            "apikey": SUPABASE_SERVICE_ROLE_KEY,
+            "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
+            "Content-Type": "application/json",
+        },
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=20) as response:
+            body = json.loads(response.read().decode("utf-8"))
+    except urllib.error.HTTPError as exc:
+        error_body = exc.read().decode("utf-8", errors="replace")
+        if exc.code == 422 and "already" in error_body.lower():
+            raise ValueError("account already exists for this email in Supabase Auth") from exc
+        raise RuntimeError(f"Supabase Auth user creation failed: HTTP {exc.code} {error_body}") from exc
+
+    user_id = body.get("id")
+    if not user_id:
+        raise RuntimeError("Supabase Auth user creation did not return a user id.")
+    return str(user_id)
+
+
 def _uuid_or_none(value: str | None) -> str | None:
     if not value:
         return None
@@ -253,9 +304,14 @@ def create_user(role: str, identifier: str, password: str) -> dict[str, Any]:
     init_db()
     normalized = normalize_identifier(identifier)
     password_hash, password_salt = hash_password(password)
-    user_id = str(uuid.uuid4())
     timestamp = now_iso()
     ph = placeholder()
+    with connect() as conn:
+        existing = conn.execute(f"SELECT id FROM users WHERE role = {ph} AND identifier = {ph}", (role, normalized)).fetchone()
+        if existing is not None:
+            raise ValueError("account already exists for this role and identifier")
+
+    user_id = _create_supabase_auth_user(role, normalized, password) if is_postgres() else str(uuid.uuid4())
     try:
         with connect() as conn:
             conn.execute(

@@ -83,6 +83,8 @@ def create_account(payload: AuthPayload) -> dict[str, Any]:
         return create_user(payload.role, payload.identifier, payload.password)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Account creation failed: {exc}") from exc
 
 
 @router.post("/login")
