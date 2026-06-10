@@ -1,4 +1,7 @@
+import 'react-native-url-polyfill/auto';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
+import { createClient } from '@supabase/supabase-js';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
@@ -367,6 +370,18 @@ const supportNames = [
 
 const weekDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const apiBaseUrl = process.env.EXPO_PUBLIC_AXONAI_API_URL ?? 'https://axonai-demo.onrender.com';
+const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
+const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+const supabase = supabaseUrl && supabaseAnonKey
+  ? createClient(supabaseUrl, supabaseAnonKey, {
+      auth: {
+        storage: AsyncStorage,
+        autoRefreshToken: true,
+        persistSession: true,
+        detectSessionInUrl: false,
+      },
+    })
+  : null;
 const actionIdToApiId: Record<string, string> = {
   'shoulder-flexion': 'shoulder_flexion',
   'shoulder-abduction': 'shoulder_abduction',
@@ -398,7 +413,91 @@ async function postJson<T>(path: string, payload: unknown): Promise<T> {
   return (await response.json()) as T;
 }
 
+function patientProfileToSupabaseRow(userId: string, profile: PatientProfile) {
+  return {
+    user_id: userId,
+    full_name: profile.fullName,
+    age_range: profile.ageRange,
+    gender: profile.gender,
+    language: profile.language,
+    location: profile.location,
+    stroke_type: profile.strokeType,
+    onset_time: profile.onsetTime,
+    affected_side: profile.affectedSide,
+    dominant_hand: profile.dominantHand,
+    mobility_level: profile.mobilityLevel,
+    upper_limb_ability: profile.upperLimbAbility,
+    safety_flags: profile.safetyFlags,
+    main_goal: profile.mainGoal,
+    support_mode: profile.supportMode,
+    profile_json: profile,
+  };
+}
+
+function therapistProfileToSupabaseRow(userId: string, profile: TherapistProfile) {
+  return {
+    user_id: userId,
+    full_name: profile.fullName,
+    title: profile.title,
+    profession: profile.profession,
+    location: profile.location,
+    languages: profile.languages,
+    years_experience: profile.yearsExperience,
+    stroke_experience: profile.strokeExperience,
+    specialties: profile.specialties,
+    assessments: profile.assessments,
+    support_mode: profile.supportMode,
+    availability: profile.availability,
+    profile_json: profile,
+  };
+}
+
+async function upsertSupabaseBaseProfile(userId: string, role: UserRole, identifier: string) {
+  if (!supabase) return;
+  const { error } = await supabase.from('profiles').upsert(
+    {
+      user_id: userId,
+      role,
+      display_name: identifier,
+      email: identifier.includes('@') ? identifier : null,
+      phone: identifier.includes('@') ? null : identifier,
+    },
+    { onConflict: 'user_id' },
+  );
+  if (error) {
+    throw new Error(error.message);
+  }
+}
+
+async function readSupabaseProfile(role: UserRole, userId: string): Promise<PatientProfile | TherapistProfile | null> {
+  if (!supabase) return null;
+  const table = role === 'patient' ? 'patient_profiles' : 'therapist_profiles';
+  const { data, error } = await supabase.from(table).select('profile_json').eq('user_id', userId).maybeSingle();
+  if (error) {
+    throw new Error(error.message);
+  }
+  return (data?.profile_json as PatientProfile | TherapistProfile | null) ?? null;
+}
+
 async function createRehabAccount(role: UserRole, credentials: AuthCredentials): Promise<AccountSession> {
+  if (supabase && credentials.identifier.includes('@')) {
+    const identifier = credentials.identifier.trim().toLowerCase();
+    const { data, error } = await supabase.auth.signUp({
+      email: identifier,
+      password: credentials.password,
+      options: {
+        data: { role },
+      },
+    });
+    if (error) {
+      throw new Error(error.message);
+    }
+    if (!data.user?.id) {
+      throw new Error('Supabase did not return a user id. Check email confirmation settings.');
+    }
+    await upsertSupabaseBaseProfile(data.user.id, role, identifier);
+    return { userId: data.user.id, role, identifier };
+  }
   return postJson<AccountSession>('/api/rehab/accounts', {
     role,
     identifier: credentials.identifier.trim(),
@@ -410,6 +509,22 @@ async function loginRehabAccount(
   role: UserRole,
   credentials: AuthCredentials,
 ): Promise<AccountSession & { profile?: PatientProfile | TherapistProfile | null }> {
+  if (supabase && credentials.identifier.includes('@')) {
+    const identifier = credentials.identifier.trim().toLowerCase();
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: identifier,
+      password: credentials.password,
+    });
+    if (error) {
+      throw new Error(error.message);
+    }
+    const userId = data.user?.id;
+    if (!userId) {
+      throw new Error('Supabase login did not return a user id.');
+    }
+    const profile = await readSupabaseProfile(role, userId);
+    return { userId, role, identifier, profile };
+  }
   return postJson<AccountSession & { profile?: PatientProfile | TherapistProfile | null }>('/api/rehab/login', {
     role,
     identifier: credentials.identifier.trim(),
@@ -418,6 +533,18 @@ async function loginRehabAccount(
 }
 
 async function saveRehabProfile(role: UserRole, userId: string, profile: PatientProfile | TherapistProfile) {
+  if (supabase) {
+    if (role === 'patient') {
+      const row = patientProfileToSupabaseRow(userId, profile as PatientProfile);
+      const { error } = await supabase.from('patient_profiles').upsert(row, { onConflict: 'user_id' });
+      if (error) throw new Error(error.message);
+      return { userId, role, profile };
+    }
+    const row = therapistProfileToSupabaseRow(userId, profile as TherapistProfile);
+    const { error } = await supabase.from('therapist_profiles').upsert(row, { onConflict: 'user_id' });
+    if (error) throw new Error(error.message);
+    return { userId, role, profile };
+  }
   return postJson('/api/rehab/profiles', { role, userId, profile });
 }
 
