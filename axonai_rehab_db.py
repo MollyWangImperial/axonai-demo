@@ -211,6 +211,79 @@ def hash_password(password: str, salt: str | None = None) -> tuple[str, str]:
     return digest.hex(), password_salt
 
 
+def _supabase_project_url() -> str:
+    if not SUPABASE_URL:
+        raise RuntimeError("SUPABASE_URL is required for Supabase Auth operations.")
+    supabase_project_url = SUPABASE_URL.rstrip("/")
+    for suffix in ("/rest/v1", "/auth/v1"):
+        if supabase_project_url.endswith(suffix):
+            supabase_project_url = supabase_project_url[: -len(suffix)]
+    return supabase_project_url
+
+
+def _link_supabase_auth_user(role: str, identifier: str, password: str) -> str:
+    """Verify an existing Supabase Auth user and return its id for local linking."""
+    if "@" not in identifier:
+        raise ValueError("account already exists in Supabase Auth; please log in with the email originally used")
+    if not SUPABASE_SERVICE_ROLE_KEY:
+        raise RuntimeError("SUPABASE_SERVICE_ROLE_KEY is required for Supabase Auth operations.")
+
+    request = urllib.request.Request(
+        f"{_supabase_project_url()}/auth/v1/token?grant_type=password",
+        data=json.dumps({"email": identifier, "password": password}).encode("utf-8"),
+        headers={
+            "apikey": SUPABASE_SERVICE_ROLE_KEY,
+            "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
+            "Content-Type": "application/json",
+        },
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=20) as response:
+            body = json.loads(response.read().decode("utf-8"))
+    except urllib.error.HTTPError as exc:
+        error_body = exc.read().decode("utf-8", errors="replace")
+        if exc.code in (400, 401):
+            raise ValueError("account exists, but the password does not match the Supabase Auth account") from exc
+        raise RuntimeError(f"Supabase Auth verification failed: HTTP {exc.code} {error_body}") from exc
+
+    user_id = body.get("user", {}).get("id")
+    if not user_id:
+        raise RuntimeError("Supabase Auth verification did not return a user id.")
+    return str(user_id)
+
+
+def _insert_local_user(role: str, identifier: str, password_hash: str, password_salt: str, user_id: str, timestamp: str) -> None:
+    ph = placeholder()
+    with connect() as conn:
+        conn.execute(
+            f"""
+            INSERT INTO users (id, role, identifier, password_hash, password_salt, created_at, updated_at)
+            VALUES ({ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph})
+            """,
+            (user_id, role, identifier, password_hash, password_salt, timestamp, timestamp),
+        )
+        if is_postgres():
+            conn.execute(
+                """
+                INSERT INTO public.profiles (user_id, role, display_name, email, phone, created_at, updated_at)
+                VALUES (%s, %s::public.axonai_user_role, %s, %s, %s, now(), now())
+                ON CONFLICT(user_id) DO UPDATE SET
+                    role = excluded.role,
+                    email = excluded.email,
+                    phone = excluded.phone,
+                    updated_at = now()
+                """,
+                (
+                    user_id,
+                    role,
+                    identifier,
+                    identifier if "@" in identifier else None,
+                    identifier if "@" not in identifier else None,
+                ),
+            )
+
+
 def _create_supabase_auth_user(role: str, identifier: str, password: str) -> str:
     """Create the canonical Supabase Auth user needed by public.profiles FKs."""
     if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY:
@@ -233,13 +306,8 @@ def _create_supabase_auth_user(role: str, identifier: str, password: str) -> str
             "user_metadata": metadata,
         }
 
-    supabase_project_url = SUPABASE_URL.rstrip("/")
-    for suffix in ("/rest/v1", "/auth/v1"):
-        if supabase_project_url.endswith(suffix):
-            supabase_project_url = supabase_project_url[: -len(suffix)]
-
     request = urllib.request.Request(
-        f"{supabase_project_url}/auth/v1/admin/users",
+        f"{_supabase_project_url()}/auth/v1/admin/users",
         data=json.dumps(payload).encode("utf-8"),
         headers={
             "apikey": SUPABASE_SERVICE_ROLE_KEY,
@@ -254,7 +322,7 @@ def _create_supabase_auth_user(role: str, identifier: str, password: str) -> str
     except urllib.error.HTTPError as exc:
         error_body = exc.read().decode("utf-8", errors="replace")
         if exc.code == 422 and "already" in error_body.lower():
-            raise ValueError("account already exists for this email in Supabase Auth") from exc
+            return _link_supabase_auth_user(role, identifier, password)
         raise RuntimeError(f"Supabase Auth user creation failed: HTTP {exc.code} {error_body}") from exc
 
     user_id = body.get("id")
@@ -318,33 +386,7 @@ def create_user(role: str, identifier: str, password: str) -> dict[str, Any]:
 
     user_id = _create_supabase_auth_user(role, normalized, password) if is_postgres() else str(uuid.uuid4())
     try:
-        with connect() as conn:
-            conn.execute(
-                f"""
-                INSERT INTO users (id, role, identifier, password_hash, password_salt, created_at, updated_at)
-                VALUES ({ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph})
-                """,
-                (user_id, role, normalized, password_hash, password_salt, timestamp, timestamp),
-            )
-            if is_postgres():
-                conn.execute(
-                    """
-                    INSERT INTO public.profiles (user_id, role, display_name, email, phone, created_at, updated_at)
-                    VALUES (%s, %s::public.axonai_user_role, %s, %s, %s, now(), now())
-                    ON CONFLICT(user_id) DO UPDATE SET
-                        role = excluded.role,
-                        email = excluded.email,
-                        phone = excluded.phone,
-                        updated_at = now()
-                    """,
-                    (
-                        user_id,
-                        role,
-                        normalized,
-                        normalized if "@" in normalized else None,
-                        normalized if "@" not in normalized else None,
-                    ),
-                )
+        _insert_local_user(role, normalized, password_hash, password_salt, user_id, timestamp)
     except Exception as exc:
         if "unique" not in str(exc).lower() and "duplicate" not in str(exc).lower():
             raise
@@ -358,8 +400,21 @@ def login_user(role: str, identifier: str, password: str) -> dict[str, Any]:
     ph = placeholder()
     with connect() as conn:
         row = conn.execute(f"SELECT * FROM users WHERE role = {ph} AND identifier = {ph}", (role, normalized)).fetchone()
+    if row is None:
+        if is_postgres() and "@" in normalized:
+            user_id = _link_supabase_auth_user(role, normalized, password)
+            password_hash, password_salt = hash_password(password)
+            timestamp = now_iso()
+            try:
+                _insert_local_user(role, normalized, password_hash, password_salt, user_id, timestamp)
+            except Exception as exc:
+                if "unique" not in str(exc).lower() and "duplicate" not in str(exc).lower():
+                    raise
+            with connect() as conn:
+                row = conn.execute(f"SELECT * FROM users WHERE role = {ph} AND identifier = {ph}", (role, normalized)).fetchone()
         if row is None:
             raise ValueError("account not found")
+    with connect() as conn:
         password_hash, _ = hash_password(password, row["password_salt"])
         if not secrets.compare_digest(password_hash, row["password_hash"]):
             raise ValueError("password is incorrect")
