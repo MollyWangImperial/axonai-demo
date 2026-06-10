@@ -366,7 +366,7 @@ const supportNames = [
 ];
 
 const weekDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-const apiBaseUrl = process.env.EXPO_PUBLIC_AXONAI_API_URL ?? 'http://127.0.0.1:8020';
+const apiBaseUrl = process.env.EXPO_PUBLIC_AXONAI_API_URL ?? 'https://axonai-demo.onrender.com';
 const actionIdToApiId: Record<string, string> = {
   'shoulder-flexion': 'shoulder_flexion',
   'shoulder-abduction': 'shoulder_abduction',
