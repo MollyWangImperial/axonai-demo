@@ -33,6 +33,10 @@ type Screen =
   | 'therapistOnboarding'
   | 'therapistDashboard'
   | 'home'
+  | 'assessment'
+  | 'patientTraining'
+  | 'patientCare'
+  | 'patientMe'
   | 'collect'
   | 'analysisLoading'
   | 'problems'
@@ -43,6 +47,7 @@ type Screen =
   | 'profile'
   | 'waiting';
 type UserRole = 'patient' | 'therapist';
+type PatientTab = 'home' | 'assessment' | 'training' | 'care' | 'me';
 type AuthCredentials = {
   identifier: string;
   password: string;
@@ -800,6 +805,7 @@ export default function App() {
   const [patientProfile, setPatientProfile] = useState<PatientProfile>(defaultPatientProfile);
   const [therapistProfile, setTherapistProfile] = useState<TherapistProfile>(defaultTherapistProfile);
   const [accountSession, setAccountSession] = useState<AccountSession | null>(null);
+  const [patientOnboardingBackScreen, setPatientOnboardingBackScreen] = useState<Screen>('auth');
   const [authBusy, setAuthBusy] = useState(false);
   const [analysisId, setAnalysisId] = useState<string | null>(null);
   const [matchId, setMatchId] = useState<string | null>(null);
@@ -850,10 +856,40 @@ export default function App() {
       focus: ['Limited active shoulder elevation', 'Scapular and trunk compensation', 'Wrist extension and grasp-release control'],
     };
   }, [patientProfile, therapistProfile]);
+  const activePatientTab = useMemo<PatientTab>(() => {
+    if (screen === 'assessment' || screen === 'collect' || screen === 'analysisLoading' || screen === 'problems') return 'assessment';
+    if (screen === 'planLoading' || screen === 'plan' || screen === 'demo' || screen === 'patientTraining') return 'training';
+    if (screen === 'match' || screen === 'profile' || screen === 'waiting' || screen === 'patientCare') return 'care';
+    if (screen === 'patientMe') return 'me';
+    return 'home';
+  }, [screen]);
+  const showPatientTabs =
+    accountSession?.role === 'patient'
+    && !['welcome', 'auth', 'patientOnboarding', 'therapistOnboarding', 'therapistDashboard', 'analysisLoading', 'planLoading', 'demo'].includes(screen);
 
   const chooseRole = (role: UserRole) => {
     setSelectedRole(role);
     setScreen('auth');
+  };
+
+  const goToPatientTab = (tab: PatientTab) => {
+    if (tab === 'home') {
+      setScreen('home');
+      return;
+    }
+    if (tab === 'assessment') {
+      setScreen('assessment');
+      return;
+    }
+    if (tab === 'training') {
+      setScreen(analysisResult ? 'plan' : 'patientTraining');
+      return;
+    }
+    if (tab === 'care') {
+      setScreen(matchId ? 'waiting' : 'patientCare');
+      return;
+    }
+    setScreen('patientMe');
   };
 
   const requireCredentials = (credentials: AuthCredentials) => {
@@ -877,6 +913,7 @@ export default function App() {
           setPatientProfile(session.profile as PatientProfile);
           setScreen('home');
         } else {
+          setPatientOnboardingBackScreen('auth');
           setScreen('patientOnboarding');
         }
         return;
@@ -902,6 +939,9 @@ export default function App() {
     try {
       const session = await createRehabAccount(selectedRole, credentials);
       setAccountSession(session);
+      if (selectedRole === 'patient') {
+        setPatientOnboardingBackScreen('auth');
+      }
       setScreen(selectedRole === 'patient' ? 'patientOnboarding' : 'therapistOnboarding');
     } catch (error) {
       Alert.alert('Account Creation Failed', error instanceof Error ? error.message : 'Could not create this account.');
@@ -921,6 +961,11 @@ export default function App() {
       }
     }
     setScreen('home');
+  };
+
+  const logoutPatient = () => {
+    setAccountSession(null);
+    setScreen('welcome');
   };
 
   const completeTherapistOnboarding = async (profile: TherapistProfile) => {
@@ -1115,7 +1160,7 @@ export default function App() {
         {screen === 'patientOnboarding' && (
           <PatientOnboardingScreen
             initialProfile={patientProfile}
-            onBack={() => setScreen('auth')}
+            onBack={() => setScreen(patientOnboardingBackScreen)}
             onComplete={completePatientOnboarding}
           />
         )}
@@ -1132,7 +1177,43 @@ export default function App() {
             onBack={() => setScreen('welcome')}
           />
         )}
-        {screen === 'home' && <HomeScreen onOpenPackage={openPackage} />}
+        {screen === 'home' && (
+          <HomeScreen
+            patientProfile={patientProfile}
+            analysisResult={analysisResult}
+            completedCount={completedCount}
+            onStartAssessment={() => setScreen('assessment')}
+            onOpenPlan={() => setScreen(analysisResult ? 'plan' : 'patientTraining')}
+            onOpenCare={() => setScreen(matchId ? 'waiting' : 'patientCare')}
+          />
+        )}
+        {screen === 'assessment' && <AssessmentScreen onOpenPackage={openPackage} />}
+        {screen === 'patientTraining' && (
+          <PatientTrainingScreen
+            hasPlan={Boolean(analysisResult)}
+            onStartAssessment={() => setScreen('assessment')}
+            onOpenPlan={() => setScreen('plan')}
+          />
+        )}
+        {screen === 'patientCare' && (
+          <PatientCareScreen
+            person={matchedTherapist}
+            matchId={matchId}
+            onStartMatch={() => setScreen('match')}
+            onOpenProfile={() => setScreen('profile')}
+          />
+        )}
+        {screen === 'patientMe' && (
+          <PatientMeScreen
+            profile={patientProfile}
+            account={accountSession}
+            onEditProfile={() => {
+              setPatientOnboardingBackScreen('patientMe');
+              setScreen('patientOnboarding');
+            }}
+            onLogout={logoutPatient}
+          />
+        )}
         {screen === 'collect' && selectedPackage === 'upper' && (
           <CollectScreen
             currentAction={currentAction}
@@ -1205,6 +1286,7 @@ export default function App() {
         {screen === 'match' && <MatchScreen onBack={() => setScreen('plan')} onMatched={() => setScreen('profile')} />}
         {screen === 'profile' && <ProfileScreen person={matchedTherapist} onBack={() => setScreen('plan')} onConfirm={confirmTherapistMatch} />}
         {screen === 'waiting' && <WaitingScreen person={matchedTherapist} matchId={matchId} onBack={() => setScreen('profile')} />}
+        {showPatientTabs && <PatientBottomTabs activeTab={activePatientTab} onSelect={goToPatientTab} />}
       </SafeAreaView>
     </LinearGradient>
   );
@@ -1567,7 +1649,22 @@ function InfoRow({ label, value }: { label: string; value: string }) {
   );
 }
 
-function HomeScreen({ onOpenPackage }: { onOpenPackage: (pkg: RehabPackage) => void }) {
+function HomeScreen({
+  patientProfile,
+  analysisResult,
+  completedCount,
+  onStartAssessment,
+  onOpenPlan,
+  onOpenCare,
+}: {
+  patientProfile: PatientProfile;
+  analysisResult: UpperLimbAnalysisResult | null;
+  completedCount: number;
+  onStartAssessment: () => void;
+  onOpenPlan: () => void;
+  onOpenCare: () => void;
+}) {
+  const topProblem = analysisResult?.functionalProblems[0]?.title ?? 'No functional problem generated yet';
   return (
     <ScrollView contentContainerStyle={styles.homeContent} showsVerticalScrollIndicator={false}>
       <View style={styles.hero}>
@@ -1580,9 +1677,52 @@ function HomeScreen({ onOpenPackage }: { onOpenPackage: (pkg: RehabPackage) => v
             <Text style={styles.brandSubtitle}>Stroke assessment and training plan</Text>
           </View>
         </View>
-        <Text style={styles.heroTitle}>Collect movements first, then understand your training priorities</Text>
+        <Text style={styles.heroTitle}>Welcome back, {patientProfile.fullName || 'Patient'}</Text>
+        <Text style={styles.heroBody}>Today starts with a clear plan: assess movement, follow safe training, and ask for support when needed.</Text>
       </View>
 
+      <View style={styles.todayPanel}>
+        <View style={styles.todayHeader}>
+          <Text style={styles.todayLabel}>Today</Text>
+          <Text style={styles.todayStatus}>{analysisResult ? 'Plan ready' : 'Assessment needed'}</Text>
+        </View>
+        <Text style={styles.todayTitle}>{analysisResult ? 'Continue your upper-limb training' : 'Start with movement collection'}</Text>
+        <Text style={styles.todayText}>
+          {analysisResult
+            ? `Main priority: ${topProblem}. Complete today's exercises and review demonstrations before training.`
+            : `Complete the Upper Limb Package first. ${completedCount}/9 recordings have passed video quality checks.`}
+        </Text>
+        <PrimaryLightButton
+          label={analysisResult ? 'View Today\'s Training' : 'Start Assessment'}
+          icon={analysisResult ? 'calendar' : 'videocam'}
+          onPress={analysisResult ? onOpenPlan : onStartAssessment}
+        />
+      </View>
+
+      <View style={styles.homeActionGrid}>
+        <Pressable style={tapStyle(styles.homeActionCard)} onPress={onStartAssessment}>
+          <Ionicons name="body" size={24} color="#1267e6" />
+          <Text style={styles.homeActionTitle}>Assessment</Text>
+          <Text style={styles.homeActionText}>Record or refresh movement packages.</Text>
+        </Pressable>
+        <Pressable style={tapStyle(styles.homeActionCard)} onPress={onOpenCare}>
+          <Ionicons name="people" size={24} color="#0b756d" />
+          <Text style={styles.homeActionTitle}>Care Team</Text>
+          <Text style={styles.homeActionText}>Match a therapist and support network.</Text>
+        </Pressable>
+      </View>
+    </ScrollView>
+  );
+}
+
+function AssessmentScreen({ onOpenPackage }: { onOpenPackage: (pkg: RehabPackage) => void }) {
+  return (
+    <ScrollView contentContainerStyle={styles.homeContent} showsVerticalScrollIndicator={false}>
+      <View style={styles.heroCompact}>
+        <Text style={styles.heroKicker}>Assessment</Text>
+        <Text style={styles.heroTitleCompact}>Choose a functional package</Text>
+        <Text style={styles.heroBody}>Collect guided videos first. AxonAI checks video quality before analysis and training-plan generation.</Text>
+      </View>
       <Text style={styles.sectionLabel}>Select a Functional Package</Text>
       <View style={styles.packageGrid}>
         {packages.map((pkg) => (
@@ -1602,6 +1742,119 @@ function HomeScreen({ onOpenPackage }: { onOpenPackage: (pkg: RehabPackage) => v
         ))}
       </View>
     </ScrollView>
+  );
+}
+
+function PatientTrainingScreen({
+  hasPlan,
+  onStartAssessment,
+  onOpenPlan,
+}: {
+  hasPlan: boolean;
+  onStartAssessment: () => void;
+  onOpenPlan: () => void;
+}) {
+  return (
+    <View style={styles.lightScreen}>
+      <ScrollView contentContainerStyle={styles.lightContent} showsVerticalScrollIndicator={false}>
+        <View style={styles.tabHeroCard}>
+          <View style={styles.tabHeroIcon}>
+            <Ionicons name="fitness" size={30} color="#ffffff" />
+          </View>
+          <Text style={styles.tabHeroTitle}>Training</Text>
+          <Text style={styles.tabHeroText}>
+            {hasPlan
+              ? 'Your weekly training plan is ready. Open it to see today\'s exercises and demonstrations.'
+              : 'Training appears after movement collection and analysis, so exercises match your functional priorities.'}
+          </Text>
+          <PrimaryLightButton label={hasPlan ? 'Open Weekly Plan' : 'Start Assessment First'} icon={hasPlan ? 'calendar' : 'videocam'} onPress={hasPlan ? onOpenPlan : onStartAssessment} />
+        </View>
+        <View style={styles.formCard}>
+          <Text style={styles.formSectionTitle}>What will appear here</Text>
+          <InfoRow label="Daily exercises" value="Dose, sets, reps" />
+          <InfoRow label="Demonstrations" value="Video guidance" />
+          <InfoRow label="Feedback" value="Pain, fatigue, completion" />
+        </View>
+      </ScrollView>
+    </View>
+  );
+}
+
+function PatientCareScreen({
+  person,
+  matchId,
+  onStartMatch,
+  onOpenProfile,
+}: {
+  person: MatchedPerson;
+  matchId: string | null;
+  onStartMatch: () => void;
+  onOpenProfile: () => void;
+}) {
+  return (
+    <View style={styles.lightScreen}>
+      <ScrollView contentContainerStyle={styles.lightContent} showsVerticalScrollIndicator={false}>
+        <View style={styles.tabHeroCard}>
+          <View style={[styles.tabHeroIcon, styles.tabHeroIconTeal]}>
+            <Ionicons name="people" size={30} color="#071b33" />
+          </View>
+          <Text style={styles.tabHeroTitle}>Care Team</Text>
+          <Text style={styles.tabHeroText}>
+            {matchId ? 'Your therapist request has been sent. You can review the matched profile while waiting for a response.' : 'Match a therapist and home-support network after your training plan is generated.'}
+          </Text>
+          <PrimaryLightButton label={matchId ? 'View Matched Therapist' : 'Match AXONAI Therapist'} icon={matchId ? 'person-circle' : 'search'} onPress={matchId ? onOpenProfile : onStartMatch} />
+        </View>
+        <View style={styles.formCard}>
+          <Text style={styles.formSectionTitle}>Suggested Match</Text>
+          <InfoRow label="Therapist" value={person.name} />
+          <InfoRow label="Specialty" value={person.tags[0]} />
+          <InfoRow label="Fit" value={person.matchScore} />
+        </View>
+      </ScrollView>
+    </View>
+  );
+}
+
+function PatientMeScreen({
+  profile,
+  account,
+  onEditProfile,
+  onLogout,
+}: {
+  profile: PatientProfile;
+  account: AccountSession | null;
+  onEditProfile: () => void;
+  onLogout: () => void;
+}) {
+  return (
+    <View style={styles.lightScreen}>
+      <ScrollView contentContainerStyle={styles.lightContent} showsVerticalScrollIndicator={false}>
+        <View style={styles.patientProfileCard}>
+          <View style={styles.patientAvatar}>
+            <Text style={styles.patientAvatarText}>{(profile.fullName || 'P').slice(0, 1).toUpperCase()}</Text>
+          </View>
+          <View style={styles.patientProfileCopy}>
+            <Text style={styles.therapistName}>{profile.fullName || 'Patient'}</Text>
+            <Text style={styles.therapistTitle}>{account?.identifier ?? 'No account identifier'}</Text>
+            <Text style={styles.therapistMeta}>{profile.location} - {profile.supportMode}</Text>
+          </View>
+        </View>
+
+        <View style={styles.formCard}>
+          <Text style={styles.formSectionTitle}>Rehab Profile</Text>
+          <InfoRow label="Affected side" value={profile.affectedSide} />
+          <InfoRow label="Stroke onset" value={profile.onsetTime} />
+          <InfoRow label="Main goal" value={profile.mainGoal} />
+          <InfoRow label="Safety flags" value={profile.safetyFlags.length ? profile.safetyFlags.join(', ') : 'None recorded'} />
+        </View>
+
+        <PrimaryLightButton label="Edit Patient Profile" icon="create" onPress={onEditProfile} />
+        <Pressable style={tapStyle(styles.logoutButton)} onPress={onLogout}>
+          <Ionicons name="log-out" size={18} color="#c62828" />
+          <Text style={styles.logoutButtonText}>Log out</Text>
+        </Pressable>
+      </ScrollView>
+    </View>
   );
 }
 
@@ -2359,6 +2612,30 @@ function WaitingScreen({ person, matchId, onBack }: { person: MatchedPerson; mat
   );
 }
 
+const patientTabs: Array<{ key: PatientTab; label: string; icon: keyof typeof Ionicons.glyphMap }> = [
+  { key: 'home', label: 'Home', icon: 'home' },
+  { key: 'assessment', label: 'Assessment', icon: 'body' },
+  { key: 'training', label: 'Training', icon: 'fitness' },
+  { key: 'care', label: 'Care Team', icon: 'people' },
+  { key: 'me', label: 'Me', icon: 'person' },
+];
+
+function PatientBottomTabs({ activeTab, onSelect }: { activeTab: PatientTab; onSelect: (tab: PatientTab) => void }) {
+  return (
+    <View style={styles.bottomTabBar}>
+      {patientTabs.map((tab) => {
+        const active = activeTab === tab.key;
+        return (
+          <Pressable key={tab.key} style={({ pressed }) => [styles.bottomTabItem, active && styles.bottomTabItemActive, pressed && styles.tapFeedback]} onPress={() => onSelect(tab.key)}>
+            <Ionicons name={tab.icon} size={21} color={active ? '#1267e6' : '#71839a'} />
+            <Text style={[styles.bottomTabText, active && styles.bottomTabTextActive]}>{tab.label}</Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
 function DemoScreen({ exercise, isPlaying, onBack, onTogglePlay }: { exercise: Exercise; isPlaying: boolean; onBack: () => void; onTogglePlay: () => void }) {
   return (
     <View style={styles.demoScreen}>
@@ -2477,7 +2754,7 @@ const styles = StyleSheet.create({
     transform: [{ scale: 0.94 }],
   },
   safe: { flex: 1 },
-  homeContent: { padding: 22, paddingBottom: 36 },
+  homeContent: { padding: 22, paddingBottom: 42 },
   hero: { paddingTop: Platform.select({ ios: 8, default: 20 }), paddingBottom: 18 },
   brandRow: { alignItems: 'center', flexDirection: 'row', gap: 12, marginBottom: 30 },
   brandMark: { alignItems: 'center', backgroundColor: '#05e1d2', borderRadius: 18, height: 42, justifyContent: 'center', width: 42 },
@@ -2496,6 +2773,31 @@ const styles = StyleSheet.create({
   packageSubtitle: { color: '#5a6c82', fontSize: 13, lineHeight: 19, marginTop: 5 },
   packageStatus: { color: '#7b8798', fontSize: 13, fontWeight: '800' },
   packageStatusActive: { color: '#1267e6' },
+  heroBody: { color: '#d9e8f8', fontSize: 15, lineHeight: 23, marginTop: 14 },
+  heroCompact: { paddingBottom: 18, paddingTop: 16 },
+  heroKicker: { color: '#05e1d2', fontSize: 15, fontWeight: '900', marginBottom: 8 },
+  heroTitleCompact: { color: '#ffffff', fontSize: 36, fontWeight: '900', lineHeight: 42 },
+  todayPanel: { backgroundColor: '#ffffff', borderColor: '#dce6f2', borderRadius: 22, borderWidth: 1, gap: 12, marginBottom: 14, padding: 18, shadowColor: '#143664', shadowOpacity: 0.08, shadowRadius: 12 },
+  todayHeader: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between' },
+  todayLabel: { color: '#1267e6', fontSize: 13, fontWeight: '900', textTransform: 'uppercase' },
+  todayStatus: { backgroundColor: '#e8f2ff', borderRadius: 13, color: '#1267e6', fontSize: 12, fontWeight: '900', overflow: 'hidden', paddingHorizontal: 10, paddingVertical: 6 },
+  todayTitle: { color: '#102033', fontSize: 22, fontWeight: '900' },
+  todayText: { color: '#4d6076', fontSize: 14, lineHeight: 21 },
+  homeActionGrid: { flexDirection: 'row', gap: 12, marginBottom: 18 },
+  homeActionCard: { backgroundColor: '#ffffff', borderColor: '#dce6f2', borderRadius: 20, borderWidth: 1, flex: 1, gap: 8, minHeight: 134, padding: 15 },
+  homeActionTitle: { color: '#102033', fontSize: 16, fontWeight: '900' },
+  homeActionText: { color: '#60738d', fontSize: 12, lineHeight: 18 },
+  tabHeroCard: { alignItems: 'flex-start', backgroundColor: '#ffffff', borderColor: '#e1e8f2', borderRadius: 24, borderWidth: 1, gap: 12, marginBottom: 14, padding: 18, shadowColor: '#143664', shadowOpacity: 0.08, shadowRadius: 12 },
+  tabHeroIcon: { alignItems: 'center', backgroundColor: '#1267e6', borderRadius: 22, height: 56, justifyContent: 'center', width: 56 },
+  tabHeroIconTeal: { backgroundColor: '#05e1d2' },
+  tabHeroTitle: { color: '#102033', fontSize: 26, fontWeight: '900' },
+  tabHeroText: { color: '#53677f', fontSize: 14, lineHeight: 22 },
+  patientProfileCard: { alignItems: 'center', backgroundColor: '#ffffff', borderColor: '#e1e8f2', borderRadius: 24, borderWidth: 1, flexDirection: 'row', gap: 15, marginBottom: 14, padding: 18 },
+  patientAvatar: { alignItems: 'center', backgroundColor: '#1267e6', borderRadius: 30, height: 64, justifyContent: 'center', width: 64 },
+  patientAvatarText: { color: '#ffffff', fontSize: 26, fontWeight: '900' },
+  patientProfileCopy: { flex: 1 },
+  logoutButton: { alignItems: 'center', alignSelf: 'center', flexDirection: 'row', gap: 8, marginTop: 16, padding: 12 },
+  logoutButtonText: { color: '#c62828', fontSize: 14, fontWeight: '900' },
   roleGrid: { gap: 13 },
   roleCard: { alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.95)', borderRadius: 22, flexDirection: 'row', gap: 14, minHeight: 112, padding: 16, shadowColor: '#002a5f', shadowOpacity: 0.16, shadowRadius: 14 },
   roleIcon: { alignItems: 'center', backgroundColor: '#1267e6', borderRadius: 22, height: 58, justifyContent: 'center', width: 58 },
@@ -2536,6 +2838,11 @@ const styles = StyleSheet.create({
   screen: { flex: 1 },
   lightScreen: { backgroundColor: '#f5f8fd', flex: 1 },
   demoScreen: { backgroundColor: '#071426', flex: 1 },
+  bottomTabBar: { alignItems: 'center', backgroundColor: '#ffffff', borderTopColor: '#dce6f2', borderTopWidth: 1, flexDirection: 'row', gap: 4, minHeight: Platform.select({ ios: 78, default: 72 }), paddingBottom: Platform.select({ ios: 12, default: 8 }), paddingHorizontal: 8, paddingTop: 8 },
+  bottomTabItem: { alignItems: 'center', borderRadius: 18, flex: 1, gap: 3, justifyContent: 'center', minHeight: 54, paddingHorizontal: 2 },
+  bottomTabItemActive: { backgroundColor: '#e8f2ff' },
+  bottomTabText: { color: '#71839a', fontSize: 10, fontWeight: '900' },
+  bottomTabTextActive: { color: '#1267e6' },
   header: { alignItems: 'center', flexDirection: 'row', gap: 12, paddingHorizontal: 18, paddingTop: Platform.select({ ios: 8, default: 20 }), paddingBottom: 13 },
   backButton: { alignItems: 'center', borderRadius: 18, height: 40, justifyContent: 'center', width: 40 },
   backButtonLight: { backgroundColor: '#ffffff' },
@@ -2544,8 +2851,8 @@ const styles = StyleSheet.create({
   headerTitleDark: { color: '#0d1d30' },
   headerSubtitle: { color: '#bcd0e8', fontSize: 13, marginTop: 4 },
   headerSubtitleDark: { color: '#60738d' },
-  content: { padding: 18, paddingBottom: 40 },
-  lightContent: { padding: 18, paddingBottom: 34 },
+  content: { padding: 18, paddingBottom: 42 },
+  lightContent: { padding: 18, paddingBottom: 42 },
   demoContent: { paddingBottom: 34 },
   progressPanel: { backgroundColor: 'rgba(255,255,255,0.08)', borderColor: 'rgba(255,255,255,0.11)', borderRadius: 18, borderWidth: 1, padding: 15 },
   progressTrack: { backgroundColor: '#18304f', borderRadius: 99, height: 9, overflow: 'hidden' },
