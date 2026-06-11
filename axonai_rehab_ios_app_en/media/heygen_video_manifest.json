@@ -3,11 +3,17 @@
   "voiceId": "007e1378fc454a9f976db570ba6164a7",
   "collectionGuides": {
     "shoulder-flexion": {
-      "title": "AxonAI Upper Limb Collection - Shoulder Flexion Side View",
-      "videoId": "f1dfed27475e479caf145417f83924e4",
-      "status": "retired",
-      "videoUrl": "https://files2.heygen.ai/aws_pacific/avatar_tmp/1831d1c4971e4436aed5a2502f68455b/f1dfed27475e479caf145417f83924e4.mp4?Expires=1781719399&Signature=fBe9WD-o611oa9SjSGcT64J6F9ebauvp1RHzEt6q4I9DzplItDM-ioskhl9QQx-9lTMg7XzjF2GY9rnxfz6KQ7P72vbhoiF5XpQVuGSoZkYa~P0kMmaIHJ6rvSXiyVP8MbZCqeYOx1nnC4Qv2KNUK0YoA3SLkDkscgImAJJIQ1tg3PdBEwbpGNY0e-cn1wcBNm-jLy4HNU7BOae8YcopWfqCa9Rr87zg58UGiO19vi8pi30IuKhW9XKr3GR6m6wVcq8ZiAwYMewwo8sNnOlYbAGfaAQOnVV87tidPz2QKD1t7JCG9vZaCwzDHgKWXc~ynnBLWgm8HxK8ym86~7eE~A__&Key-Pair-Id=K38HBHX5LX3X2H",
-      "retiredReason": "Retired from app UI: avatar did not look like a clinical rehabilitation therapist and was not acceptable for patient-facing instruction."
+      "title": "AxonAI Clinical Recording Guide - Upper Limb Shoulder Flexion",
+      "videoId": "e646abefe7a245dcb1b903384b609db1",
+      "status": "completed",
+      "avatarId": "1050683dd8d64114a6dbf1b47b1d3334",
+      "voiceId": "007e1378fc454a9f976db570ba6164a7",
+      "intendedUse": "Upper limb package first recording guide: side-view shoulder flexion collection demo by a physical therapist.",
+      "duration": 42.6057,
+      "videoUrl": "https://files2.heygen.ai/aws_pacific/avatar_tmp/1831d1c4971e4436aed5a2502f68455b/e646abefe7a245dcb1b903384b609db1.mp4?Expires=1781775665&Signature=ixSrS1CuChx~sB03eNb0-AWdgb-eaKXfFRWu60uWxm0znsF8EiPwkMe8JYjCO8Gq3In-PaO9KjO69KSuUMp2imajRVMVF3P0sO9f2oXo~pTT-C6GqV9LXWKu~OTaSElxoHQMQwAbzA3UvTuAeMoa2R-wyV5esoyQQH7fzuDycdD0YPue45MQp3lRC6GHRDfufYED9eOvCTdQDOARbZVpcv6BIHWcezS2qLW55N1cta6mve~xutoVV9-7w~OjfkovsMSyD3QTJUENhGjmrC7oiN9lpDo2nMxMMXCJSXKTR8s2wk7RPykqnrQZVk67fJ35FRlJoN33QLMmfZlD2CC4qA__&Key-Pair-Id=K38HBHX5LX3X2H",
+      "captionedVideoUrl": "https://files2.heygen.ai/movio/video/e646abefe7a245dcb1b903384b609db1/86525892518845b99d3e4337a1eb5c63/caption.mp4?Expires=1781775668&Signature=e9f1cqvI1UxRgFv0vq5dqk-dYkpMktxx7o8yHdkssFTMRh-4xEanO6WuaQSgB6k7hfx~ome5Vf4YKPQZuq9xwLh5zDdcBRT-8-8Jo1k4j87Qvxa1CJX2w5c2j8cYdsvf2g8RY7gsu-dOTz8AqFVQ4hJA~UnGdcTh5gKYVD3ciAoFTNlUpGnyfo2jKjFHVwYJCnWPxk1IT4hW1WcuuZtg2mRFXXX8EpPNTtxFV7grY45ORseOUN4ddh18n8VS~kuUrgLBSlhHP54BUakUE8r2-K5A~Zs6ItFMc-ncwVJPGXDWE4Zv7pjJ-5alwFPz41eiBhfkzLiutv0twBmcGmyv7A__&Key-Pair-Id=K38HBHX5LX3X2H",
+      "thumbnailUrl": "https://files2.heygen.ai/aws_pacific/avatar_tmp/1831d1c4971e4436aed5a2502f68455b/e646abefe7a245dcb1b903384b609db1.jpeg?Expires=1781775668&Signature=GhoAczNBsvbyIX2Wnbunz3CORNu25tFnRyaJlWQ9RcEspDFIcOPU~4LWh3Ei2aeAvC4rbgUDTsreS5WfCsFC5RzEJnh8yBxNV4bUz~vjkNuT5Vm9fINCZV4q1lXA5LKdIndCZGmkWO27jAzjZWEa3DlgJZv78eTHOxaeUIctrs-4nrrFPfbgMqkgsXWuBXJAnsvTDFpcA6vEdhOKtdZJ58CWTnoqUma52p3wi~PxcHDi76eLLoFRK8SnuPGCI5HZa4sVkNOciqG9RvjH1ojJnJtor5ZOowJlTzVtVOV5ZC9Lgp19yi7ge4iY1wpVNjD8EwaPRck-7pecJq8uKcbPwQ__&Key-Pair-Id=K38HBHX5LX3X2H",
+      "videoPageUrl": "https://app.heygen.com/videos/e646abefe7a245dcb1b903384b609db1"
     },
     "shoulder-abduction": {
       "title": "AxonAI Upper Limb Collection - Shoulder Abduction Front View",

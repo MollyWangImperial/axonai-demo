@@ -225,6 +225,7 @@ const upperActions: CollectionAction[] = [
     cameraView: 'Side view',
     viewInstruction: 'Record from the side of the affected arm so the shoulder, elbow, wrist, and trunk are visible.',
     guideScript: 'Sit tall in a chair. Turn your body sideways to the camera. Start with the arm relaxed, slowly lift it forward as high as comfortable, pause, then lower with control.',
+    demoVideoUrl: 'https://files2.heygen.ai/movio/video/e646abefe7a245dcb1b903384b609db1/86525892518845b99d3e4337a1eb5c63/caption.mp4?Expires=1781775668&Signature=e9f1cqvI1UxRgFv0vq5dqk-dYkpMktxx7o8yHdkssFTMRh-4xEanO6WuaQSgB6k7hfx~ome5Vf4YKPQZuq9xwLh5zDdcBRT-8-8Jo1k4j87Qvxa1CJX2w5c2j8cYdsvf2g8RY7gsu-dOTz8AqFVQ4hJA~UnGdcTh5gKYVD3ciAoFTNlUpGnyfo2jKjFHVwYJCnWPxk1IT4hW1WcuuZtg2mRFXXX8EpPNTtxFV7grY45ORseOUN4ddh18n8VS~kuUrgLBSlhHP54BUakUE8r2-K5A~Zs6ItFMc-ncwVJPGXDWE4Zv7pjJ-5alwFPz41eiBhfkzLiutv0twBmcGmyv7A__&Key-Pair-Id=K38HBHX5LX3X2H',
   },
   {
     id: 'shoulder-abduction',
