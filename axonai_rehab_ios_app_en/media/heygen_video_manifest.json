@@ -5,7 +5,7 @@
     "shoulder-flexion": {
       "title": "AxonAI Clinical Recording Guide - Upper Limb Shoulder Flexion",
       "videoId": "e646abefe7a245dcb1b903384b609db1",
-      "status": "completed",
+      "status": "retired",
       "avatarId": "1050683dd8d64114a6dbf1b47b1d3334",
       "voiceId": "007e1378fc454a9f976db570ba6164a7",
       "intendedUse": "Upper limb package first recording guide: side-view shoulder flexion collection demo by a physical therapist.",
@@ -13,7 +13,8 @@
       "videoUrl": "https://files2.heygen.ai/aws_pacific/avatar_tmp/1831d1c4971e4436aed5a2502f68455b/e646abefe7a245dcb1b903384b609db1.mp4?Expires=1781775665&Signature=ixSrS1CuChx~sB03eNb0-AWdgb-eaKXfFRWu60uWxm0znsF8EiPwkMe8JYjCO8Gq3In-PaO9KjO69KSuUMp2imajRVMVF3P0sO9f2oXo~pTT-C6GqV9LXWKu~OTaSElxoHQMQwAbzA3UvTuAeMoa2R-wyV5esoyQQH7fzuDycdD0YPue45MQp3lRC6GHRDfufYED9eOvCTdQDOARbZVpcv6BIHWcezS2qLW55N1cta6mve~xutoVV9-7w~OjfkovsMSyD3QTJUENhGjmrC7oiN9lpDo2nMxMMXCJSXKTR8s2wk7RPykqnrQZVk67fJ35FRlJoN33QLMmfZlD2CC4qA__&Key-Pair-Id=K38HBHX5LX3X2H",
       "captionedVideoUrl": "https://files2.heygen.ai/movio/video/e646abefe7a245dcb1b903384b609db1/86525892518845b99d3e4337a1eb5c63/caption.mp4?Expires=1781775668&Signature=e9f1cqvI1UxRgFv0vq5dqk-dYkpMktxx7o8yHdkssFTMRh-4xEanO6WuaQSgB6k7hfx~ome5Vf4YKPQZuq9xwLh5zDdcBRT-8-8Jo1k4j87Qvxa1CJX2w5c2j8cYdsvf2g8RY7gsu-dOTz8AqFVQ4hJA~UnGdcTh5gKYVD3ciAoFTNlUpGnyfo2jKjFHVwYJCnWPxk1IT4hW1WcuuZtg2mRFXXX8EpPNTtxFV7grY45ORseOUN4ddh18n8VS~kuUrgLBSlhHP54BUakUE8r2-K5A~Zs6ItFMc-ncwVJPGXDWE4Zv7pjJ-5alwFPz41eiBhfkzLiutv0twBmcGmyv7A__&Key-Pair-Id=K38HBHX5LX3X2H",
       "thumbnailUrl": "https://files2.heygen.ai/aws_pacific/avatar_tmp/1831d1c4971e4436aed5a2502f68455b/e646abefe7a245dcb1b903384b609db1.jpeg?Expires=1781775668&Signature=GhoAczNBsvbyIX2Wnbunz3CORNu25tFnRyaJlWQ9RcEspDFIcOPU~4LWh3Ei2aeAvC4rbgUDTsreS5WfCsFC5RzEJnh8yBxNV4bUz~vjkNuT5Vm9fINCZV4q1lXA5LKdIndCZGmkWO27jAzjZWEa3DlgJZv78eTHOxaeUIctrs-4nrrFPfbgMqkgsXWuBXJAnsvTDFpcA6vEdhOKtdZJ58CWTnoqUma52p3wi~PxcHDi76eLLoFRK8SnuPGCI5HZa4sVkNOciqG9RvjH1ojJnJtor5ZOowJlTzVtVOV5ZC9Lgp19yi7ge4iY1wpVNjD8EwaPRck-7pecJq8uKcbPwQ__&Key-Pair-Id=K38HBHX5LX3X2H",
-      "videoPageUrl": "https://app.heygen.com/videos/e646abefe7a245dcb1b903384b609db1"
+      "videoPageUrl": "https://app.heygen.com/videos/e646abefe7a245dcb1b903384b609db1",
+      "retiredReason": "Replaced by shorter action-first therapist demonstration focused on visible movement performance."
     },
     "shoulder-abduction": {
       "title": "AxonAI Upper Limb Collection - Shoulder Abduction Front View",
@@ -62,6 +63,21 @@
       "videoId": "673d2d81b6714b7eb76bc8d6d6239a25",
       "status": "failed",
       "failureReason": "AVATAR_IV_VIDEO_GENERATION_DURATION_LIMIT_REACHED: HeyGen Avatar IV monthly limit reached."
+    },
+    "shoulder-flexion-action-demo": {
+      "title": "AxonAI Clinical Action Demo - Shoulder Flexion 15s",
+      "videoId": "8d5a7614c8aa4642bc1c8627df579f25",
+      "status": "completed",
+      "activeInApp": true,
+      "avatarId": "1050683dd8d64114a6dbf1b47b1d3334",
+      "voiceId": "007e1378fc454a9f976db570ba6164a7",
+      "duration": 14.9943,
+      "targetDurationSeconds": 15,
+      "intendedUse": "Action-first upper-limb shoulder flexion recording guide with therapist demonstration and close-up focus on shoulder, elbow, wrist, and hand.",
+      "videoUrl": "https://files2.heygen.ai/aws_pacific/avatar_tmp/1831d1c4971e4436aed5a2502f68455b/8d5a7614c8aa4642bc1c8627df579f25.mp4?Expires=1781777419&Signature=JbKFhp9HxXVRoyll~ozl~m7X6DubqlfgVv37Wuw8iaAnRA~l~pELLbZRzWLAiRSZTm9I2HZk4FRVXDt5Lxz0XciNxsnojJA4ktelcmfUXuW1RCtIzx75RmwWqYiNUd~7kk3NFP~FKyVv6VbCIVR7B5oFWEHVZNDZ4QPubk2F2sHGX5-j-N-PPJRRWqW1SDEBrLR8GBDocjdxYzi9MZwV9zQEzkM3CzZRrFUVWcChYZCM1Nqgip5whc3WJPK1hxO2eFRo8O870k1U~qnfr9rN9FeivuXq77jk-IuIwVj-wV78FwVbM-tmD14zzaJaUlkEgBfS20W-jVDSdNted1SdkA__&Key-Pair-Id=K38HBHX5LX3X2H",
+      "captionedVideoUrl": "https://files2.heygen.ai/movio/video/8d5a7614c8aa4642bc1c8627df579f25/cbfc2a85da764dfbbb8ab0c2a29ee75e/caption.mp4?Expires=1781777428&Signature=To4A6BTGZFsKISSCT2aa2VEIUP8sPsSfvFsbQK67CiujYQCQSjNSHT1IDG98--GqcuE-mO8WihwZxLWKHHmcrUSARgUaqV2nJaOZmvJs6Jo~~Q2SZt433RZUd9xE9r8N4SUFqGGw2BsZfcxaca8VIEC8tAMk9HFMwoPyzFluN0batf62n-O0uDAI-2RRMehm2Y~phzQlLrvw0tu0-eZdznSVdyFn08OoEL0kQN1B034HcmmQoH4RiL6i3Yo5Ihmy81~dgj95PFt0~7cdSqMOJm9~rbZuQS5oF5ErS~S2gxxUidHSj1ZmgFj1NuJLiqpX5TbYr7M9qvmz4ipzHdmkEw__&Key-Pair-Id=K38HBHX5LX3X2H",
+      "thumbnailUrl": "https://files2.heygen.ai/aws_pacific/avatar_tmp/1831d1c4971e4436aed5a2502f68455b/8d5a7614c8aa4642bc1c8627df579f25.jpeg?Expires=1781777571&Signature=K7g0NbDDanY1-x-tihvu33m9Ap1XS2bC9p60PScMzTcsT7lU15A9-k5uAM~n7zTST8p2FmuF92iDP4YOR4mTlHbeLXlavs9mQYb-PnmIiJ4mKkzDMjk7x~xeL4gYZ8WFt7ISIAx0kmwI7-KCiAHpE~kUrX2z5R9foy5yweDfAL0XfJnOaP8sN7baEfGf0AgrGhzKUpwS2QlFRxzRPojf5~-qAdRdSHEBewIhtAnhMcAHRgMNWTxoQc3SDbCjBKBNS66k-VElqS6wbVgM5VmrEWlVdnh9P3684bPOeQpVTAkLVVnhamdJGoMu9-WqWySgvIHJBEsnl3ij5rIINWY8zw__&Key-Pair-Id=K38HBHX5LX3X2H",
+      "videoPageUrl": "https://app.heygen.com/videos/8d5a7614c8aa4642bc1c8627df579f25"
     }
   },
   "exerciseDemos": {

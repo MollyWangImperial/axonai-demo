@@ -225,7 +225,7 @@ const upperActions: CollectionAction[] = [
     cameraView: 'Side view',
     viewInstruction: 'Record from the side of the affected arm so the shoulder, elbow, wrist, and trunk are visible.',
     guideScript: 'Sit tall in a chair. Turn your body sideways to the camera. Start with the arm relaxed, slowly lift it forward as high as comfortable, pause, then lower with control.',
-    demoVideoUrl: 'https://files2.heygen.ai/movio/video/e646abefe7a245dcb1b903384b609db1/86525892518845b99d3e4337a1eb5c63/caption.mp4?Expires=1781775668&Signature=e9f1cqvI1UxRgFv0vq5dqk-dYkpMktxx7o8yHdkssFTMRh-4xEanO6WuaQSgB6k7hfx~ome5Vf4YKPQZuq9xwLh5zDdcBRT-8-8Jo1k4j87Qvxa1CJX2w5c2j8cYdsvf2g8RY7gsu-dOTz8AqFVQ4hJA~UnGdcTh5gKYVD3ciAoFTNlUpGnyfo2jKjFHVwYJCnWPxk1IT4hW1WcuuZtg2mRFXXX8EpPNTtxFV7grY45ORseOUN4ddh18n8VS~kuUrgLBSlhHP54BUakUE8r2-K5A~Zs6ItFMc-ncwVJPGXDWE4Zv7pjJ-5alwFPz41eiBhfkzLiutv0twBmcGmyv7A__&Key-Pair-Id=K38HBHX5LX3X2H',
+    demoVideoUrl: 'https://files2.heygen.ai/movio/video/8d5a7614c8aa4642bc1c8627df579f25/cbfc2a85da764dfbbb8ab0c2a29ee75e/caption.mp4?Expires=1781777428&Signature=To4A6BTGZFsKISSCT2aa2VEIUP8sPsSfvFsbQK67CiujYQCQSjNSHT1IDG98--GqcuE-mO8WihwZxLWKHHmcrUSARgUaqV2nJaOZmvJs6Jo~~Q2SZt433RZUd9xE9r8N4SUFqGGw2BsZfcxaca8VIEC8tAMk9HFMwoPyzFluN0batf62n-O0uDAI-2RRMehm2Y~phzQlLrvw0tu0-eZdznSVdyFn08OoEL0kQN1B034HcmmQoH4RiL6i3Yo5Ihmy81~dgj95PFt0~7cdSqMOJm9~rbZuQS5oF5ErS~S2gxxUidHSj1ZmgFj1NuJLiqpX5TbYr7M9qvmz4ipzHdmkEw__&Key-Pair-Id=K38HBHX5LX3X2H',
   },
   {
     id: 'shoulder-abduction',
