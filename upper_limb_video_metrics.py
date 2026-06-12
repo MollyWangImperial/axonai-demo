@@ -61,7 +61,7 @@ def _common_quality_metrics(quality: dict[str, Any], frame_count: int | None = N
     }
 
 
-def _extract_pose(video_path: Path, side: str, sample_hz: float = 6.0):
+def _extract_pose(video_path: Path, side: str, sample_hz: float = 4.0):
     frames = _extract_pose_frames(
         video_path=video_path,
         sample_hz=sample_hz,

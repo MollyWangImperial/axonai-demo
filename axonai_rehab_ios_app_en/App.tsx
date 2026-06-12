@@ -1004,6 +1004,7 @@ export default function App() {
   const [qualityPassed, setQualityPassed] = useState<Record<string, boolean>>({});
   const [qualityResults, setQualityResults] = useState<Record<string, VideoQualityResult>>({});
   const [qualityCheckingActionId, setQualityCheckingActionId] = useState<string | null>(null);
+  const [qualityCheckingActions, setQualityCheckingActions] = useState<Record<string, boolean>>({});
   const [frameCheckResults, setFrameCheckResults] = useState<Record<string, FrameCheckResult>>({});
   const [frameCheckingActionId, setFrameCheckingActionId] = useState<string | null>(null);
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
@@ -1299,6 +1300,7 @@ export default function App() {
 
   const runQualityCheck = async (action: CollectionAction, actionIndex: number, uri: string) => {
     setQualityCheckingActionId(action.id);
+    setQualityCheckingActions((prev) => ({ ...prev, [action.id]: true }));
     setQualityPassed((prev) => ({ ...prev, [action.id]: false }));
     setQualityResults((prev) => {
       const next = { ...prev };
@@ -1310,17 +1312,9 @@ export default function App() {
       setQualityResults((prev) => ({ ...prev, [action.id]: result }));
       if (result.passed) {
         setQualityPassed((prev) => ({ ...prev, [action.id]: true }));
-        setTimeout(() => {
-          if (actionIndex < activeUpperActions.length - 1) {
-            setCurrentActionIndex(actionIndex + 1);
-          } else {
-            Alert.alert('Collection Complete', 'All upper-limb movements passed quality check. You can generate your rehab plan.');
-          }
-        }, 650);
         return;
       }
       setQualityPassed((prev) => ({ ...prev, [action.id]: false }));
-      Alert.alert('Please Retake This Video', `${result.patientMessage}\n\n${result.tips.join('\n')}`);
     } catch (error) {
       reportInternalError('Video quality check failed', error);
       const fallback: VideoQualityResult = {
@@ -1334,9 +1328,9 @@ export default function App() {
       };
       setQualityResults((prev) => ({ ...prev, [action.id]: fallback }));
       setQualityPassed((prev) => ({ ...prev, [action.id]: false }));
-      Alert.alert('Quality Check Failed', fallback.tips.join('\n'));
     } finally {
       setQualityCheckingActionId(null);
+      setQualityCheckingActions((prev) => ({ ...prev, [action.id]: false }));
     }
   };
 
@@ -1380,17 +1374,19 @@ export default function App() {
     const action = currentAction;
     const actionIndex = currentActionIndex;
     try {
-      const frameResult = await runFrameCheck(action);
-      if (!frameResult.passed) {
+      const frameResult = frameCheckResults[action.id];
+      if (frameResult && !frameResult.passed) {
         return;
       }
-      await new Promise((resolve) => setTimeout(resolve, 650));
       setRecording(true);
-      const video = await cameraRef.current.recordAsync({ maxDuration: 8 });
+      const video = await cameraRef.current.recordAsync();
       if (video?.uri) {
         setRecordedVideos((prev) => ({ ...prev, [action.id]: video.uri }));
         setRecording(false);
-        await runQualityCheck(action, actionIndex, video.uri);
+        runQualityCheck(action, actionIndex, video.uri);
+        if (actionIndex < activeUpperActions.length - 1) {
+          setTimeout(() => setCurrentActionIndex(actionIndex + 1), 350);
+        }
       }
     } catch {
       Alert.alert('Recording Failed', 'Please reopen the camera and record again.');
@@ -1423,6 +1419,16 @@ export default function App() {
       return next;
     });
   };
+
+  useEffect(() => {
+    if (screen !== 'collect' || !isCameraOpen || isRecording || qualityCheckingActions[currentAction.id] || frameCheckResults[currentAction.id] || frameCheckingActionId === currentAction.id) {
+      return undefined;
+    }
+    const timer = setTimeout(() => {
+      runFrameCheck(currentAction);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [screen, isCameraOpen, isRecording, currentAction.id, frameCheckResults, frameCheckingActionId, qualityCheckingActions]);
 
   const generatePlan = async () => {
     if (!canGeneratePlan) {
@@ -1599,6 +1605,7 @@ export default function App() {
             qualityPassed={qualityPassed}
             qualityResults={qualityResults}
             qualityCheckingActionId={qualityCheckingActionId}
+            qualityCheckingActions={qualityCheckingActions}
             frameCheckResults={frameCheckResults}
             frameCheckingActionId={frameCheckingActionId}
             isCameraOpen={isCameraOpen}
@@ -1610,6 +1617,7 @@ export default function App() {
             onStartRecording={startRecording}
             onStopRecording={stopRecording}
             onRetryAction={retryAction}
+            onRecheckPosition={() => runFrameCheck(currentAction)}
             onSelectAction={setCurrentActionIndex}
             onGeneratePlan={generatePlan}
             onOpenGuide={(action) => {
@@ -2449,6 +2457,7 @@ function CollectScreen({
   qualityPassed,
   qualityResults,
   qualityCheckingActionId,
+  qualityCheckingActions,
   frameCheckResults,
   frameCheckingActionId,
   isCameraOpen,
@@ -2460,6 +2469,7 @@ function CollectScreen({
   onStartRecording,
   onStopRecording,
   onRetryAction,
+  onRecheckPosition,
   onSelectAction,
   onGeneratePlan,
   onOpenGuide,
@@ -2471,6 +2481,7 @@ function CollectScreen({
   qualityPassed: Record<string, boolean>;
   qualityResults: Record<string, VideoQualityResult>;
   qualityCheckingActionId: string | null;
+  qualityCheckingActions: Record<string, boolean>;
   frameCheckResults: Record<string, FrameCheckResult>;
   frameCheckingActionId: string | null;
   isCameraOpen: boolean;
@@ -2482,12 +2493,13 @@ function CollectScreen({
   onStartRecording: () => void;
   onStopRecording: () => void;
   onRetryAction: () => void;
+  onRecheckPosition: () => void;
   onSelectAction: (index: number) => void;
   onGeneratePlan: () => void;
   onOpenGuide: (action: CollectionAction) => void;
 }) {
   const currentQuality = qualityResults[currentAction.id];
-  const isCheckingQuality = qualityCheckingActionId === currentAction.id;
+  const isCheckingQuality = Boolean(qualityCheckingActions[currentAction.id] || qualityCheckingActionId === currentAction.id);
   const qualityPassedCurrent = qualityPassed[currentAction.id];
   const currentFrameCheck = frameCheckResults[currentAction.id];
   const isCheckingFrame = frameCheckingActionId === currentAction.id;
@@ -2529,13 +2541,15 @@ function CollectScreen({
           {activeUpperActions.map((action, index) => {
             const selected = index === currentActionIndex;
             const done = qualityPassed[action.id];
+            const checking = qualityCheckingActions[action.id];
+            const failed = qualityResults[action.id] && !qualityResults[action.id].passed && !checking;
             return (
               <Pressable
                 key={action.id}
                 style={({ pressed }) => [styles.stepPill, selected && styles.stepPillActive, pressed && styles.tapFeedback]}
                 onPress={() => onSelectAction(index)}
               >
-                <Text style={[styles.stepNumber, done && styles.stepDone]}>{done ? 'ok' : index + 1}</Text>
+                <Text style={[styles.stepNumber, done && styles.stepDone, failed && styles.stepFailed]}>{done ? 'ok' : checking ? '...' : failed ? '!' : index + 1}</Text>
                 <Text style={[styles.stepTitle, selected && styles.stepTitleActive]} numberOfLines={1}>
                   {action.title}
                 </Text>
@@ -2591,6 +2605,7 @@ function CollectScreen({
           {!isCameraOpen && <PrimaryButton label="Open Camera" icon="camera" onPress={onOpenCamera} />}
           {isCameraOpen && !isRecording && !isCheckingQuality && !isCheckingFrame && <PrimaryButton label="Start Recording" icon="radio-button-on" onPress={onStartRecording} />}
           {isRecording && <DangerButton label="Stop and Save" icon="stop-circle" onPress={onStopRecording} />}
+          {currentFrameCheck && !currentFrameCheck.passed && !isCheckingFrame && <SecondaryButton label="Recheck Position" icon="scan" onPress={onRecheckPosition} />}
           <SecondaryButton label="Retake" icon="refresh" onPress={onRetryAction} />
         </View>
 
@@ -3614,6 +3629,7 @@ const styles = StyleSheet.create({
   stepPillActive: { backgroundColor: 'rgba(0,224,210,0.18)', borderColor: '#05e1d2', borderWidth: 1 },
   stepNumber: { color: '#d7e5f7', fontSize: 12, fontWeight: '900', textAlign: 'center', width: 28 },
   stepDone: { color: '#05e1d2' },
+  stepFailed: { color: '#ffb020' },
   stepTitle: { color: '#c5d5ea', flex: 1, fontSize: 14, fontWeight: '700' },
   stepTitleActive: { color: '#ffffff' },
   currentActionCard: { backgroundColor: '#111e31', borderColor: '#22364f', borderRadius: 22, borderWidth: 1, marginTop: 16, padding: 18 },

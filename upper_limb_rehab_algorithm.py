@@ -257,7 +257,7 @@ def inspect_video(path: str | None) -> VideoQuality:
     brightness_values: list[float] = []
     blur_values: list[float] = []
     sample_count = 0
-    step = max(frame_count // 8, 1)
+    step = max(frame_count // 6, 1)
 
     for frame_idx in range(0, frame_count, step):
         cap.set(cv2.CAP_PROP_POS_FRAMES, frame_idx)
@@ -268,7 +268,7 @@ def inspect_video(path: str | None) -> VideoQuality:
         brightness_values.append(float(gray.mean()))
         blur_values.append(float(cv2.Laplacian(gray, cv2.CV_64F).var()))
         sample_count += 1
-        if sample_count >= 8:
+        if sample_count >= 6:
             break
 
     cap.release()
