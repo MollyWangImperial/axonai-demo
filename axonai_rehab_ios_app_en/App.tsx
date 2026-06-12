@@ -33,6 +33,9 @@ type Screen =
   | 'therapistOnboarding'
   | 'therapistDashboard'
   | 'home'
+  | 'strokeEducation'
+  | 'peerSupport'
+  | 'feedback'
   | 'assessment'
   | 'patientTraining'
   | 'patientCare'
@@ -192,6 +195,17 @@ type VideoQualityResult = {
   tips: string[];
 };
 
+type FrameCheckResult = {
+  actionId: string;
+  passed: boolean;
+  status: 'ready' | 'adjust' | string;
+  score: number;
+  patientMessage: string;
+  tips: string[];
+  visibleParts?: string[];
+  missingParts?: string[];
+};
+
 type MatchedPerson = {
   name: string;
   title: string;
@@ -301,6 +315,8 @@ const upperActions: CollectionAction[] = [
   },
 ];
 
+const activeUpperActions = upperActions.slice(0, 3);
+
 const demoProblems: Problem[] = [
   {
     title: 'Limited Active Elevation',
@@ -336,7 +352,7 @@ const exercises: Exercise[] = [
     dose: '3 sets x 12 reps',
     dayPattern: [1, 2, 3, 4, 5, 6],
     imageTone: '#dff7ff',
-    coverImage: require('./assets/exercise-covers/table-slide.png'),
+    coverImage: require('./assets/exercise-covers/table-slide-generated.png'),
     steps: [
       'Sit with the forearm placed on a towel.',
       'Keep the body upright and slowly slide the affected hand forward.',
@@ -351,7 +367,7 @@ const exercises: Exercise[] = [
     dose: '3 sets x 10 reps',
     dayPattern: [1, 2, 4, 5, 7],
     imageTone: '#eaf2ff',
-    coverImage: require('./assets/exercise-covers/scapula-setting.png'),
+    coverImage: require('./assets/exercise-covers/scapula-setting-generated.png'),
     steps: [
       'Sit with both shoulders relaxed.',
       'Gently draw the shoulder blade back and down without shrugging.',
@@ -366,7 +382,7 @@ const exercises: Exercise[] = [
     dose: '3 sets x 8 reps',
     dayPattern: [1, 3, 5, 6],
     imageTone: '#fff4db',
-    coverImage: require('./assets/exercise-covers/elbow-reach.png'),
+    coverImage: require('./assets/exercise-covers/elbow-reach-generated.png'),
     steps: ['Place a cup on the table.', 'Slowly reach forward with the affected hand.', 'Touch the target, then return steadily.'],
     cautions: ['Do not place the target too far away.', 'Do not lunge forward suddenly.', 'Keep sitting stable.'],
   },
@@ -377,7 +393,7 @@ const exercises: Exercise[] = [
     dose: '3 sets x 12 reps',
     dayPattern: [2, 3, 4, 6, 7],
     imageTone: '#ffe9df',
-    coverImage: require('./assets/exercise-covers/wrist-open.png'),
+    coverImage: require('./assets/exercise-covers/wrist-open-generated.png'),
     steps: ['Place the forearm on the table with the palm facing down.', 'Gently lift the wrist upward.', 'Open the fingers and hold for 2 seconds.'],
     cautions: ['Do not hold your breath.', 'Do not forcefully pull the fingers with the other hand.', 'Reduce reps if finger spasticity is obvious.'],
   },
@@ -418,6 +434,51 @@ const supabase = supabaseUrl && supabaseAnonKey
       },
     })
   : null;
+
+class PatientSafeApiError extends Error {
+  status?: number;
+  internalDetail?: string;
+
+  constructor(message: string, status?: number, internalDetail?: string) {
+    super(message);
+    this.name = 'PatientSafeApiError';
+    this.status = status;
+    this.internalDetail = internalDetail;
+  }
+}
+
+function getBackendDetail(body: unknown, fallback: string) {
+  if (body && typeof body === 'object' && 'detail' in body) {
+    const detail = (body as { detail?: unknown }).detail;
+    if (typeof detail === 'string') return detail;
+    try {
+      return JSON.stringify(detail);
+    } catch {
+      return fallback;
+    }
+  }
+  return fallback;
+}
+
+function reportInternalError(context: string, error: unknown) {
+  console.warn(`[AxonAI] ${context}`, error);
+}
+
+function showFriendlyError(title: string, message: string, context: string, error: unknown) {
+  reportInternalError(context, error);
+  Alert.alert(title, message);
+}
+
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number, timeoutValue: T): Promise<T> {
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<T>((resolve) => {
+    timeoutId = setTimeout(() => resolve(timeoutValue), timeoutMs);
+  });
+  return Promise.race([promise, timeout]).finally(() => {
+    if (timeoutId) clearTimeout(timeoutId);
+  });
+}
+
 const actionIdToApiId: Record<string, string> = {
   'shoulder-flexion': 'shoulder_flexion',
   'shoulder-abduction': 'shoulder_abduction',
@@ -437,14 +498,14 @@ async function postJson<T>(path: string, payload: unknown): Promise<T> {
     body: JSON.stringify(payload),
   });
   if (!response.ok) {
-    let message = `HTTP ${response.status}`;
+    let internalDetail = `HTTP ${response.status}`;
     try {
       const body = await response.json();
-      message = body.detail ?? message;
+      internalDetail = getBackendDetail(body, internalDetail);
     } catch {
       // Keep the HTTP status when the backend does not return JSON.
     }
-    throw new Error(message);
+    throw new PatientSafeApiError('Request failed. Please try again.', response.status, internalDetail);
   }
   return (await response.json()) as T;
 }
@@ -558,7 +619,16 @@ async function loginRehabAccount(
     if (!userId) {
       throw new Error('Supabase login did not return a user id.');
     }
-    const profile = await readSupabaseProfile(role, userId);
+    let profile: PatientProfile | TherapistProfile | null | undefined;
+    try {
+      profile = await withTimeout<PatientProfile | TherapistProfile | null | undefined>(
+        readSupabaseProfile(role, userId),
+        1200,
+        undefined,
+      );
+    } catch (profileError) {
+      reportInternalError('Supabase profile read after login failed', profileError);
+    }
     return { userId, role, identifier, profile };
   }
   return postJson<AccountSession & { profile?: PatientProfile | TherapistProfile | null }>('/api/rehab/login', {
@@ -631,10 +701,28 @@ async function saveCareMatch(
   });
 }
 
+async function saveFeedbackSuggestion(
+  patientUserId: string | null,
+  authorRole: string,
+  category: string,
+  message: string,
+  contactPermission: boolean,
+  appContext: Record<string, unknown>,
+): Promise<{ feedbackId: string; status: string; createdAt: string }> {
+  return postJson<{ feedbackId: string; status: string; createdAt: string }>('/api/rehab/feedback', {
+    patientUserId,
+    authorRole,
+    category,
+    message,
+    contactPermission,
+    appContext,
+  });
+}
+
 async function requestAvailableTherapists(): Promise<Array<{ userId: string; identifier: string; profile: TherapistProfile }>> {
   const response = await fetch(`${apiBaseUrl}/api/rehab/therapists`);
   if (!response.ok) {
-    throw new Error(`HTTP ${response.status}`);
+    throw new PatientSafeApiError('Therapist search failed. Please try again.', response.status, `HTTP ${response.status}`);
   }
   const body = await response.json();
   return (body.therapists ?? []) as Array<{ userId: string; identifier: string; profile: TherapistProfile }>;
@@ -703,13 +791,13 @@ function createFallbackAnalysis(): UpperLimbAnalysisResult {
       severity: index === 0 ? 'moderate' : 'mild',
       patient_summary: problem.summary,
       daily_life_impact: index === 0 ? ['reaching overhead', 'washing face or hair'] : index === 1 ? ['reaching forward', 'controlled arm use'] : ['holding cups', 'releasing objects'],
-      evidence: ['Fallback result shown because backend analysis was unavailable.'],
+      evidence: ['Demo result shown because the full analysis was not completed.'],
     })),
     opensimDecision: {
       needed: false,
-      priority: 'backend_unavailable_fallback',
-      reasons: ['Backend analysis was unavailable; showing safe demo fallback only.'],
-      recommended_workflow: ['Start backend API to receive real algorithm output.'],
+      priority: 'analysis_not_completed',
+      reasons: ['Full analysis was not completed; showing a safe demo result only.'],
+      recommended_workflow: ['Please try again when your connection is stable.'],
     },
     weeklyExercisePlan: exercises.map((exercise) => ({
       exercise_id: exercise.id,
@@ -725,7 +813,7 @@ function createFallbackAnalysis(): UpperLimbAnalysisResult {
       title: 'Your upper-limb training priorities',
       problems: demoProblems.map((problem) => problem.summary),
       trainingFocus: exercises.map((exercise) => exercise.title),
-      reviewNote: 'Backend unavailable; this is a prototype fallback.',
+      reviewNote: 'This is a demo result. Please run the full analysis before using it for training decisions.',
     },
   };
 }
@@ -738,11 +826,18 @@ function iconForProblem(problemId: string): keyof typeof Ionicons.glyphMap {
   return 'analytics';
 }
 
-function toneForExercise(exerciseId: string): { imageTone: string; coverImage: ImageSourcePropType } {
-  if (exerciseId.includes('scapular') || exerciseId.includes('scapula')) return { imageTone: '#eaf2ff', coverImage: require('./assets/exercise-covers/scapula-setting.png') };
-  if (exerciseId.includes('reach') || exerciseId.includes('elbow')) return { imageTone: '#fff4db', coverImage: require('./assets/exercise-covers/elbow-reach.png') };
-  if (exerciseId.includes('wrist') || exerciseId.includes('grasp') || exerciseId.includes('open')) return { imageTone: '#ffe9df', coverImage: require('./assets/exercise-covers/wrist-open.png') };
-  return { imageTone: '#dff7ff', coverImage: require('./assets/exercise-covers/table-slide.png') };
+function imageForProblem(problemId: string): ImageSourcePropType {
+  if (problemId.includes('compensation') || problemId.includes('scapular') || problemId.includes('trunk')) return require('./assets/problem-illustrations/trunk-compensation.png');
+  if (problemId.includes('wrist') || problemId.includes('hand') || problemId.includes('release')) return require('./assets/problem-illustrations/wrist-release.png');
+  return require('./assets/problem-illustrations/limited-elevation.png');
+}
+
+function toneForExercise(exerciseKey: string): { imageTone: string; coverImage: ImageSourcePropType } {
+  const key = exerciseKey.toLowerCase();
+  if (key.includes('scapular') || key.includes('scapula')) return { imageTone: '#eaf2ff', coverImage: require('./assets/exercise-covers/scapula-setting-generated.png') };
+  if (key.includes('wrist') || key.includes('grasp') || key.includes('open') || key.includes('release')) return { imageTone: '#ffe9df', coverImage: require('./assets/exercise-covers/wrist-open-generated.png') };
+  if (key.includes('target') || key.includes('touch') || key.includes('coordination') || key.includes('reach') || key.includes('elbow')) return { imageTone: '#fff4db', coverImage: require('./assets/exercise-covers/elbow-reach-generated.png') };
+  return { imageTone: '#dff7ff', coverImage: require('./assets/exercise-covers/table-slide-generated.png') };
 }
 
 function demoVideoForExercise(exerciseId: string): string | undefined {
@@ -750,7 +845,7 @@ function demoVideoForExercise(exerciseId: string): string | undefined {
 }
 
 function mapApiExercise(item: ApiExercisePlanItem): Exercise {
-  const tone = toneForExercise(item.exercise_id);
+  const tone = toneForExercise(`${item.exercise_id} ${item.name} ${item.improves.join(' ')}`);
   return {
     id: item.exercise_id,
     title: item.name,
@@ -809,7 +904,7 @@ async function requestUpperLimbAnalysis(
     body: formData,
   });
   if (!response.ok) {
-    throw new Error(`HTTP ${response.status}`);
+    throw new PatientSafeApiError('Analysis failed. Please try again.', response.status, `HTTP ${response.status}`);
   }
   return (await response.json()) as UpperLimbAnalysisResult;
 }
@@ -834,16 +929,48 @@ async function requestVideoQualityCheck(
     body: formData,
   });
   if (!response.ok) {
-    let message = `HTTP ${response.status}`;
+    let internalDetail = `HTTP ${response.status}`;
     try {
       const body = await response.json();
-      message = body.detail ?? message;
+      internalDetail = getBackendDetail(body, internalDetail);
     } catch {
       // Keep the HTTP status when the backend does not return JSON.
     }
-    throw new Error(message);
+    throw new PatientSafeApiError('Video quality check failed. Please try again.', response.status, internalDetail);
   }
   return (await response.json()) as VideoQualityResult;
+}
+
+async function requestFrameCheck(
+  actionId: string,
+  uri: string,
+  affectedSide: string,
+): Promise<FrameCheckResult> {
+  const apiActionId = actionIdToApiId[actionId] ?? actionId;
+  const formData = new FormData();
+  formData.append('action_id', apiActionId);
+  formData.append('affected_side', affectedSide === 'Both/Unsure' ? 'auto' : affectedSide.toLowerCase());
+  formData.append('image', {
+    uri,
+    name: `${apiActionId}_frame.jpg`,
+    type: 'image/jpeg',
+  } as any);
+
+  const response = await fetch(`${apiBaseUrl}/api/upper-limb/frame-check`, {
+    method: 'POST',
+    body: formData,
+  });
+  if (!response.ok) {
+    let internalDetail = `HTTP ${response.status}`;
+    try {
+      const body = await response.json();
+      internalDetail = getBackendDetail(body, internalDetail);
+    } catch {
+      // Keep the HTTP status when the backend does not return JSON.
+    }
+    throw new PatientSafeApiError('Position check failed. Please try again.', response.status, internalDetail);
+  }
+  return (await response.json()) as FrameCheckResult;
 }
 
 async function playCompletionDing() {
@@ -877,20 +1004,22 @@ export default function App() {
   const [qualityPassed, setQualityPassed] = useState<Record<string, boolean>>({});
   const [qualityResults, setQualityResults] = useState<Record<string, VideoQualityResult>>({});
   const [qualityCheckingActionId, setQualityCheckingActionId] = useState<string | null>(null);
+  const [frameCheckResults, setFrameCheckResults] = useState<Record<string, FrameCheckResult>>({});
+  const [frameCheckingActionId, setFrameCheckingActionId] = useState<string | null>(null);
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
   const [isCameraOpen, setCameraOpen] = useState(false);
   const [isRecording, setRecording] = useState(false);
   const [selectedDay, setSelectedDay] = useState(1);
   const [selectedExercise, setSelectedExercise] = useState<Exercise>(exercises[0]);
-  const [selectedGuideAction, setSelectedGuideAction] = useState<CollectionAction>(upperActions[0]);
+  const [selectedGuideAction, setSelectedGuideAction] = useState<CollectionAction>(activeUpperActions[0]);
   const [showDemo, setShowDemo] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<UpperLimbAnalysisResult | null>(null);
   const [analysisReady, setAnalysisReady] = useState(false);
   const cameraRef = useRef<CameraView | null>(null);
 
-  const currentAction = upperActions[currentActionIndex];
-  const completedCount = upperActions.filter((action) => qualityPassed[action.id]).length;
-  const canGeneratePlan = completedCount === upperActions.length;
+  const currentAction = activeUpperActions[currentActionIndex];
+  const completedCount = activeUpperActions.filter((action) => qualityPassed[action.id]).length;
+  const canGeneratePlan = completedCount === activeUpperActions.length;
   const analysisExercises = useMemo(
     () => (analysisResult?.weeklyExercisePlan.length ? analysisResult.weeklyExercisePlan.map(mapApiExercise) : exercises),
     [analysisResult],
@@ -945,7 +1074,11 @@ export default function App() {
         if (!mounted || !user?.id || (role !== 'patient' && role !== 'therapist')) {
           return;
         }
-        const profile = await readSupabaseProfile(role, user.id);
+        const profile = await withTimeout<PatientProfile | TherapistProfile | null | undefined>(
+          readSupabaseProfile(role, user.id),
+          1200,
+          undefined,
+        );
         if (!mounted) return;
         setSelectedRole(role);
         setAccountSession({ userId: user.id, role, identifier });
@@ -953,6 +1086,13 @@ export default function App() {
           if (profile) {
             setPatientProfile(profile as PatientProfile);
             setScreen('home');
+          } else if (profile === undefined) {
+            setScreen('home');
+            readSupabaseProfile(role, user.id)
+              .then((freshProfile) => {
+                if (mounted && freshProfile) setPatientProfile(freshProfile as PatientProfile);
+              })
+              .catch((error) => reportInternalError('Background patient profile restore failed', error));
           } else {
             setPatientOnboardingBackScreen('auth');
             setScreen('patientOnboarding');
@@ -960,6 +1100,13 @@ export default function App() {
         } else if (profile) {
           setTherapistProfile(profile as TherapistProfile);
           setScreen('therapistDashboard');
+        } else if (profile === undefined) {
+          setScreen('therapistDashboard');
+          readSupabaseProfile(role, user.id)
+            .then((freshProfile) => {
+              if (mounted && freshProfile) setTherapistProfile(freshProfile as TherapistProfile);
+            })
+            .catch((error) => reportInternalError('Background therapist profile restore failed', error));
         } else {
           setScreen('therapistOnboarding');
         }
@@ -1020,6 +1167,13 @@ export default function App() {
         if (session.profile) {
           setPatientProfile(session.profile as PatientProfile);
           setScreen('home');
+        } else if (session.profile === undefined) {
+          setScreen('home');
+          readSupabaseProfile('patient', session.userId)
+            .then((freshProfile) => {
+              if (freshProfile) setPatientProfile(freshProfile as PatientProfile);
+            })
+            .catch((error) => reportInternalError('Background patient profile load after login failed', error));
         } else {
           setPatientOnboardingBackScreen('auth');
           setScreen('patientOnboarding');
@@ -1029,11 +1183,23 @@ export default function App() {
       if (session.profile) {
         setTherapistProfile(session.profile as TherapistProfile);
         setScreen('therapistDashboard');
+      } else if (session.profile === undefined) {
+        setScreen('therapistDashboard');
+        readSupabaseProfile('therapist', session.userId)
+          .then((freshProfile) => {
+            if (freshProfile) setTherapistProfile(freshProfile as TherapistProfile);
+          })
+          .catch((error) => reportInternalError('Background therapist profile load after login failed', error));
       } else {
         setScreen('therapistOnboarding');
       }
     } catch (error) {
-      Alert.alert('Login Failed', error instanceof Error ? error.message : 'Could not log in. Please check the backend and try again.');
+      showFriendlyError(
+        'Login Failed',
+        'We could not log you in. Please check your email and password, then try again.',
+        'Patient/therapist login failed',
+        error,
+      );
     } finally {
       setAuthBusy(false);
     }
@@ -1052,7 +1218,12 @@ export default function App() {
       }
       setScreen(selectedRole === 'patient' ? 'patientOnboarding' : 'therapistOnboarding');
     } catch (error) {
-      Alert.alert('Account Creation Failed', error instanceof Error ? error.message : 'Could not create this account.');
+      showFriendlyError(
+        'Account Creation Failed',
+        'We could not create this account right now. Please check your details and try again.',
+        'Account creation failed',
+        error,
+      );
     } finally {
       setAuthBusy(false);
     }
@@ -1064,7 +1235,12 @@ export default function App() {
       try {
         await saveRehabProfile('patient', accountSession.userId, profile);
       } catch (error) {
-        Alert.alert('Profile Save Failed', error instanceof Error ? error.message : 'The profile could not be saved to the database.');
+        showFriendlyError(
+          'Profile Save Failed',
+          'We could not save your profile right now. Please check your connection and try again.',
+          'Patient profile save failed',
+          error,
+        );
         return;
       }
     }
@@ -1085,7 +1261,12 @@ export default function App() {
       try {
         await saveRehabProfile('therapist', accountSession.userId, profile);
       } catch (error) {
-        Alert.alert('Profile Save Failed', error instanceof Error ? error.message : 'The therapist profile could not be saved to the database.');
+        showFriendlyError(
+          'Profile Save Failed',
+          'We could not save this profile right now. Please check your connection and try again.',
+          'Therapist profile save failed',
+          error,
+        );
         return;
       }
     }
@@ -1098,7 +1279,7 @@ export default function App() {
 
   const openPackage = (pkg: RehabPackage) => {
     if (!pkg.active) {
-      Alert.alert('Coming Soon', `${pkg.title} will be connected later. This demo currently opens the Upper Limb Package.`);
+      Alert.alert('Coming Soon', `${pkg.title} will be available soon.`);
       return;
     }
     setSelectedPackage(pkg.key);
@@ -1130,7 +1311,7 @@ export default function App() {
       if (result.passed) {
         setQualityPassed((prev) => ({ ...prev, [action.id]: true }));
         setTimeout(() => {
-          if (actionIndex < upperActions.length - 1) {
+          if (actionIndex < activeUpperActions.length - 1) {
             setCurrentActionIndex(actionIndex + 1);
           } else {
             Alert.alert('Collection Complete', 'All upper-limb movements passed quality check. You can generate your rehab plan.');
@@ -1141,13 +1322,14 @@ export default function App() {
       setQualityPassed((prev) => ({ ...prev, [action.id]: false }));
       Alert.alert('Please Retake This Video', `${result.patientMessage}\n\n${result.tips.join('\n')}`);
     } catch (error) {
+      reportInternalError('Video quality check failed', error);
       const fallback: VideoQualityResult = {
         actionId: action.id,
         passed: false,
         status: 'fail',
         score: 0,
         patientMessage: 'The video quality check could not be completed.',
-        issues: [error instanceof Error ? error.message : 'Quality check failed.'],
+        issues: ['Quality check failed.'],
         tips: ['Check your network connection, keep the full upper body in frame, and record again.'],
       };
       setQualityResults((prev) => ({ ...prev, [action.id]: fallback }));
@@ -1158,13 +1340,53 @@ export default function App() {
     }
   };
 
+  const runFrameCheck = async (action: CollectionAction) => {
+    setFrameCheckingActionId(action.id);
+    setFrameCheckResults((prev) => {
+      const next = { ...prev };
+      delete next[action.id];
+      return next;
+    });
+    try {
+      const picture = await cameraRef.current?.takePictureAsync({
+        quality: 0.35,
+        skipProcessing: true,
+      });
+      if (!picture?.uri) {
+        throw new Error('Camera preview snapshot was not available.');
+      }
+      const result = await requestFrameCheck(action.id, picture.uri, patientProfile.affectedSide);
+      setFrameCheckResults((prev) => ({ ...prev, [action.id]: result }));
+      return result;
+    } catch (error) {
+      reportInternalError('Pre-recording frame check failed', error);
+      const fallback: FrameCheckResult = {
+        actionId: action.id,
+        passed: false,
+        status: 'adjust',
+        score: 0,
+        patientMessage: 'Please adjust your position before recording.',
+        tips: ['Move the phone farther away and keep your shoulder, elbow, wrist, and upper body in view.'],
+      };
+      setFrameCheckResults((prev) => ({ ...prev, [action.id]: fallback }));
+      return fallback;
+    } finally {
+      setFrameCheckingActionId(null);
+    }
+  };
+
   const startRecording = async () => {
     if (!cameraRef.current || isRecording) return;
-    setRecording(true);
     const action = currentAction;
     const actionIndex = currentActionIndex;
     try {
-      const video = await cameraRef.current.recordAsync({ maxDuration: 12 });
+      const frameResult = await runFrameCheck(action);
+      if (!frameResult.passed) {
+        return;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 650));
+      setRecording(true);
+      const video = await cameraRef.current.recordAsync({ maxDuration: 8 });
       if (video?.uri) {
         setRecordedVideos((prev) => ({ ...prev, [action.id]: video.uri }));
         setRecording(false);
@@ -1191,6 +1413,11 @@ export default function App() {
     });
     setQualityPassed((prev) => ({ ...prev, [currentAction.id]: false }));
     setQualityResults((prev) => {
+      const next = { ...prev };
+      delete next[currentAction.id];
+      return next;
+    });
+    setFrameCheckResults((prev) => {
       const next = { ...prev };
       delete next[currentAction.id];
       return next;
@@ -1224,19 +1451,18 @@ export default function App() {
           result,
         );
       } catch (saveError) {
-        Alert.alert(
-          'Analysis Saved Locally Only',
-          saveError instanceof Error ? saveError.message : 'The analysis ran, but the database save failed.',
-        );
+        reportInternalError('Analysis save failed after plan generation', saveError);
+        Alert.alert('Analysis Saved on This Device', 'Your plan was generated, but we could not sync it to your account yet.');
       }
       setAnalysisReady(true);
       await playCompletionDing();
-    } catch {
+    } catch (error) {
+      reportInternalError('Upper-limb analysis failed', error);
       setAnalysisReady(false);
       setScreen('collect');
       Alert.alert(
         'Analysis Failed',
-        'The backend could not analyze these videos. Please make sure the AxonAI API is running and your phone can reach EXPO_PUBLIC_AXONAI_API_URL.',
+        'We could not analyze these videos right now. Please check your connection and try again.',
       );
     }
   };
@@ -1251,21 +1477,37 @@ export default function App() {
       setMatchId(saved.matchId);
       setScreen('waiting');
     } catch (error) {
-      Alert.alert('Match Save Failed', error instanceof Error ? error.message : 'The match request could not be saved.');
+      showFriendlyError(
+        'Match Save Failed',
+        'We could not send this match request right now. Please try again.',
+        'Care match save failed',
+        error,
+      );
     }
   };
 
   const startTherapistMatch = async () => {
+    setScreen('match');
+  };
+
+  const completeTherapistSearch = async () => {
     try {
       const therapists = await requestAvailableTherapists();
       if (!therapists.length) {
-        Alert.alert('No Therapist Available', 'There are no verified therapist profiles in the AxonAI database yet.');
+        setScreen('plan');
+        Alert.alert('No therapist found');
         return;
       }
       setTherapistProfile(therapists[0].profile);
-      setScreen('match');
+      setScreen('profile');
     } catch (error) {
-      Alert.alert('Therapist Search Failed', error instanceof Error ? error.message : 'Could not check therapist availability.');
+      setScreen('plan');
+      showFriendlyError(
+        'Therapist Search Failed',
+        'We could not check therapist availability right now. Please try again.',
+        'Therapist search failed',
+        error,
+      );
     }
   };
 
@@ -1307,10 +1549,18 @@ export default function App() {
           <HomeScreen
             patientProfile={patientProfile}
             analysisResult={analysisResult}
-            completedCount={completedCount}
-            onStartAssessment={() => setScreen('assessment')}
-            onOpenPlan={() => setScreen(analysisResult ? 'plan' : 'patientTraining')}
-            onOpenCare={() => setScreen(matchId ? 'waiting' : 'patientCare')}
+            onOpenStrokeEducation={() => setScreen('strokeEducation')}
+            onOpenPeerSupport={() => setScreen('peerSupport')}
+            onOpenFeedback={() => setScreen('feedback')}
+          />
+        )}
+        {screen === 'strokeEducation' && <EducationDetailScreen kind="basics" onBack={() => setScreen('home')} />}
+        {screen === 'peerSupport' && <EducationDetailScreen kind="support" onBack={() => setScreen('home')} />}
+        {screen === 'feedback' && (
+          <FeedbackScreen
+            patientUserId={accountSession?.role === 'patient' ? accountSession.userId : null}
+            analysisResult={analysisResult}
+            onBack={() => setScreen('home')}
           />
         )}
         {screen === 'assessment' && <AssessmentScreen onOpenPackage={openPackage} />}
@@ -1349,6 +1599,8 @@ export default function App() {
             qualityPassed={qualityPassed}
             qualityResults={qualityResults}
             qualityCheckingActionId={qualityCheckingActionId}
+            frameCheckResults={frameCheckResults}
+            frameCheckingActionId={frameCheckingActionId}
             isCameraOpen={isCameraOpen}
             isRecording={isRecording}
             cameraRef={cameraRef}
@@ -1380,7 +1632,7 @@ export default function App() {
             isComplete={analysisReady}
             onBack={() => setScreen('collect')}
             onComplete={() => setScreen('metrics')}
-            lead="Please wait while AxonAI reviews your movement videos. Video upload and pose analysis can take one to two minutes on the cloud server."
+            lead="Please wait while AxonAI reviews your movement videos. This may take a moment."
             statuses={['Checking movement videos', 'Extracting key movement metrics', 'Building your functional summary']}
           />
         )}
@@ -1396,7 +1648,6 @@ export default function App() {
             analysisResult={analysisResult}
             onBack={() => setScreen('collect')}
             onPlan={() => setScreen('planLoading')}
-            onMatch={startTherapistMatch}
             onDemo={(exercise) => {
               setSelectedExercise(exercise);
               setScreen('demo');
@@ -1413,6 +1664,7 @@ export default function App() {
           <PlanScreen
             analysisResult={analysisResult}
             selectedDay={selectedDay}
+            allExercises={analysisExercises}
             dayExercises={dayExercises}
             onSelectDay={setSelectedDay}
             onBack={() => setScreen('problems')}
@@ -1431,7 +1683,7 @@ export default function App() {
             onTogglePlay={() => setShowDemo((value) => !value)}
           />
         )}
-        {screen === 'match' && <MatchScreen onBack={() => setScreen('plan')} onMatched={() => setScreen('profile')} />}
+        {screen === 'match' && <MatchScreen onBack={() => setScreen('plan')} onMatched={completeTherapistSearch} />}
         {screen === 'profile' && <ProfileScreen person={matchedTherapist} onBack={() => setScreen('plan')} onConfirm={confirmTherapistMatch} />}
         {screen === 'waiting' && <WaitingScreen person={matchedTherapist} matchId={matchId} onBack={() => setScreen('profile')} />}
         {showPatientTabs && <PatientBottomTabs activeTab={activePatientTab} onSelect={goToPatientTab} />}
@@ -1558,24 +1810,23 @@ function AuthScreen({
   const credentials = { identifier, password };
   return (
     <View style={styles.lightScreen}>
-      <Header title={`${roleLabel} Account`} subtitle="Login or create a prototype account" onBack={onBack} darkText />
+      <Header title={`${roleLabel} Account`} subtitle="Log in or create an account" onBack={onBack} darkText />
       <ScrollView contentContainerStyle={styles.lightContent} showsVerticalScrollIndicator={false}>
         <View style={styles.authCard}>
           <View style={styles.authIcon}>
             <Ionicons name={role === 'patient' ? 'person-circle' : 'medkit'} size={44} color="#1267e6" />
           </View>
           <Text style={styles.authTitle}>{roleLabel} Login</Text>
-          <Text style={styles.authText}>Create or log in to save your profile, analysis results, and matching requests to the AxonAI database.</Text>
+          <Text style={styles.authText}>Access your AxonAI rehab account.</Text>
           <FormField label="Email or phone" value={identifier} onChangeText={setIdentifier} placeholder="demo@axonai.app" />
           <FormField label="Password" value={password} onChangeText={setPassword} placeholder="At least 4 characters" secureTextEntry />
           <PrimaryLightButton
-            label={busy ? 'Connecting...' : `Login as ${roleLabel}`}
+            label={busy ? 'Logging in...' : `Login as ${roleLabel}`}
             icon="log-in"
             onPress={() => onLogin(credentials)}
             disabled={busy}
             loading={busy}
           />
-          {busy && <Text style={styles.authStatusText}>Connecting to the secure AxonAI backend...</Text>}
         </View>
 
         <Pressable
@@ -1585,9 +1836,9 @@ function AuthScreen({
         >
           <Ionicons name="add-circle" size={24} color="#1267e6" />
           <View style={styles.createAccountCopy}>
-            <Text style={styles.createAccountTitle}>{busy ? 'Creating Account...' : `Create New ${roleLabel} Account`}</Text>
+            <Text style={styles.createAccountTitle}>{`Create New ${roleLabel} Account`}</Text>
             <Text style={styles.createAccountText}>
-              {busy ? 'Please wait. This can take a moment if the cloud service is waking up.' : 'Fill out the basic profile needed for rehab planning and matching.'}
+              Fill out the basic profile needed for rehab planning and matching.
             </Text>
           </View>
           {busy ? <ActivityIndicator color="#1267e6" /> : <Ionicons name="arrow-forward" size={20} color="#1267e6" />}
@@ -1800,17 +2051,15 @@ function InfoRow({ label, value }: { label: string; value: string }) {
 function HomeScreen({
   patientProfile,
   analysisResult,
-  completedCount,
-  onStartAssessment,
-  onOpenPlan,
-  onOpenCare,
+  onOpenStrokeEducation,
+  onOpenPeerSupport,
+  onOpenFeedback,
 }: {
   patientProfile: PatientProfile;
   analysisResult: UpperLimbAnalysisResult | null;
-  completedCount: number;
-  onStartAssessment: () => void;
-  onOpenPlan: () => void;
-  onOpenCare: () => void;
+  onOpenStrokeEducation: () => void;
+  onOpenPeerSupport: () => void;
+  onOpenFeedback: () => void;
 }) {
   const topProblem = analysisResult?.functionalProblems[0]?.title ?? 'No functional problem generated yet';
   return (
@@ -1826,58 +2075,226 @@ function HomeScreen({
           </View>
         </View>
         <Text style={styles.heroTitle}>Welcome back, {patientProfile.fullName || 'Patient'}</Text>
-        <Text style={styles.heroBody}>Today starts with a clear plan: assess movement, follow safe training, and ask for support when needed.</Text>
-      </View>
-
-      <View style={styles.todayPanel}>
-        <View style={styles.todayHeader}>
-          <Text style={styles.todayLabel}>Today</Text>
-          <Text style={styles.todayStatus}>{analysisResult ? 'Plan ready' : 'Assessment needed'}</Text>
-        </View>
-        <Text style={styles.todayTitle}>{analysisResult ? 'Continue your upper-limb training' : 'Start with movement collection'}</Text>
-        <Text style={styles.todayText}>
+        <Text style={styles.heroBody}>
           {analysisResult
-            ? `Main priority: ${topProblem}. Complete today's exercises and review demonstrations before training.`
-            : `Complete the Upper Limb Package first. ${completedCount}/9 recordings have passed video quality checks.`}
+            ? `Current training priority: ${topProblem}.`
+            : 'Learn about safer stroke recovery at home and find support while your assessment modules are available below.'}
         </Text>
-        <PrimaryLightButton
-          label={analysisResult ? 'View Today\'s Training' : 'Start Assessment'}
-          icon={analysisResult ? 'calendar' : 'videocam'}
-          onPress={analysisResult ? onOpenPlan : onStartAssessment}
-        />
-      </View>
-
-      <View style={styles.homeActionGrid}>
-        <Pressable style={tapStyle(styles.homeActionCard)} onPress={onStartAssessment}>
-          <Ionicons name="body" size={24} color="#1267e6" />
-          <Text style={styles.homeActionTitle}>Assessment</Text>
-          <Text style={styles.homeActionText}>Record or refresh movement packages.</Text>
-        </Pressable>
-        <Pressable style={tapStyle(styles.homeActionCard)} onPress={onOpenCare}>
-          <Ionicons name="people" size={24} color="#0b756d" />
-          <Text style={styles.homeActionTitle}>Care Team</Text>
-          <Text style={styles.homeActionText}>Match a therapist and support network.</Text>
-        </Pressable>
       </View>
 
       <Text style={styles.sectionLabel}>Learn and Support</Text>
       <View style={styles.educationList}>
-        <View style={styles.educationCard}>
+        <Pressable style={tapStyle(styles.educationCard)} onPress={onOpenStrokeEducation}>
           <Ionicons name="book" size={23} color="#1267e6" />
           <View style={styles.educationCopy}>
             <Text style={styles.educationTitle}>Stroke recovery basics</Text>
             <Text style={styles.educationText}>Short lessons about safe repetition, fatigue, pain warning signs, and why daily practice matters.</Text>
           </View>
-        </View>
-        <View style={styles.educationCard}>
+          <Ionicons name="chevron-forward" size={20} color="#7f91a7" />
+        </Pressable>
+        <Pressable style={tapStyle(styles.educationCard)} onPress={onOpenPeerSupport}>
           <Ionicons name="chatbubbles" size={23} color="#0b756d" />
           <View style={styles.educationCopy}>
             <Text style={styles.educationTitle}>Family and peer support</Text>
             <Text style={styles.educationText}>A moderated stroke community is planned so families can share routines without unsafe medical advice.</Text>
           </View>
-        </View>
+          <Ionicons name="chevron-forward" size={20} color="#7f91a7" />
+        </Pressable>
+        <Pressable style={tapStyle(styles.educationCard)} onPress={onOpenFeedback}>
+          <Ionicons name="create" size={23} color="#8b5cf6" />
+          <View style={styles.educationCopy}>
+            <Text style={styles.educationTitle}>Share feedback</Text>
+            <Text style={styles.educationText}>Tell us what feels confusing, what should improve, or what your family needs next.</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={20} color="#7f91a7" />
+        </Pressable>
       </View>
     </ScrollView>
+  );
+}
+
+const strokeBasicsLessons = [
+  {
+    title: 'Small daily practice matters',
+    body: 'Short, repeated practice can help the brain relearn movement patterns. Stop before fatigue makes the movement messy.',
+    icon: 'repeat' as keyof typeof Ionicons.glyphMap,
+  },
+  {
+    title: 'Quality is more important than force',
+    body: 'Move slowly enough to keep the trunk steady, avoid shoulder hiking, and control the return phase.',
+    icon: 'checkmark-circle' as keyof typeof Ionicons.glyphMap,
+  },
+  {
+    title: 'Watch for warning signs',
+    body: 'Pause and ask for clinical advice if exercise causes sharp pain, dizziness, unusual shortness of breath, or sudden worsening.',
+    icon: 'warning' as keyof typeof Ionicons.glyphMap,
+  },
+  {
+    title: 'Use the affected arm safely',
+    body: 'Practice meaningful tasks such as reaching, opening the hand, touching a target, or holding light objects within a comfortable range.',
+    icon: 'hand-left' as keyof typeof Ionicons.glyphMap,
+  },
+];
+
+const peerSupportLessons = [
+  {
+    title: 'Build a simple home routine',
+    body: 'Family members can help by preparing a safe chair, good lighting, a clear table, and a calm time of day for practice.',
+    icon: 'home' as keyof typeof Ionicons.glyphMap,
+  },
+  {
+    title: 'Encourage, do not rush',
+    body: 'Support works best when the patient has time to try the movement independently before someone helps.',
+    icon: 'heart-circle' as keyof typeof Ionicons.glyphMap,
+  },
+  {
+    title: 'Share progress carefully',
+    body: 'Peer stories can motivate, but every stroke recovery is different. Use community tips as support, not medical instructions.',
+    icon: 'people' as keyof typeof Ionicons.glyphMap,
+  },
+  {
+    title: 'Know when to ask a clinician',
+    body: 'If movement becomes painful, unsafe, or much harder than usual, contact a therapist or clinician before continuing.',
+    icon: 'medical' as keyof typeof Ionicons.glyphMap,
+  },
+];
+
+function EducationDetailScreen({ kind, onBack }: { kind: 'basics' | 'support'; onBack: () => void }) {
+  const isBasics = kind === 'basics';
+  const lessons = isBasics ? strokeBasicsLessons : peerSupportLessons;
+  return (
+    <View style={styles.lightScreen}>
+      <Header
+        title={isBasics ? 'Stroke Recovery Basics' : 'Family and Peer Support'}
+        subtitle={isBasics ? 'Simple principles for safer daily practice' : 'Support at home without unsafe advice'}
+        onBack={onBack}
+        darkText
+      />
+      <ScrollView contentContainerStyle={styles.lightContent} showsVerticalScrollIndicator={false}>
+        <View style={styles.educationHeroCard}>
+          <View style={[styles.educationHeroIcon, !isBasics && styles.educationHeroIconSupport]}>
+            <Ionicons name={isBasics ? 'book' : 'chatbubbles'} size={30} color="#ffffff" />
+          </View>
+          <Text style={styles.educationHeroTitle}>{isBasics ? 'Recovery is built from repeatable, safe practice.' : 'Support helps when it protects independence.'}</Text>
+          <Text style={styles.educationHeroText}>
+            {isBasics
+              ? 'Use these points before training so each exercise stays controlled and meaningful.'
+              : 'These points help family members and peers encourage recovery without replacing professional care.'}
+          </Text>
+        </View>
+        {lessons.map((lesson) => (
+          <View key={lesson.title} style={styles.lessonCard}>
+            <View style={styles.lessonIcon}>
+              <Ionicons name={lesson.icon} size={22} color="#1267e6" />
+            </View>
+            <View style={styles.lessonCopy}>
+              <Text style={styles.lessonTitle}>{lesson.title}</Text>
+              <Text style={styles.lessonBody}>{lesson.body}</Text>
+            </View>
+          </View>
+        ))}
+        <View style={styles.educationSafetyNote}>
+          <Ionicons name="information-circle" size={20} color="#0b756d" />
+          <Text style={styles.educationSafetyText}>This app supports rehabilitation planning but does not replace your therapist, doctor, or emergency medical care.</Text>
+        </View>
+      </ScrollView>
+    </View>
+  );
+}
+
+function FeedbackScreen({
+  patientUserId,
+  analysisResult,
+  onBack,
+}: {
+  patientUserId: string | null;
+  analysisResult: UpperLimbAnalysisResult | null;
+  onBack: () => void;
+}) {
+  const [authorRole, setAuthorRole] = useState('Patient');
+  const [category, setCategory] = useState('Improvement idea');
+  const [message, setMessage] = useState('');
+  const [contactPermission, setContactPermission] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  const submitFeedback = async () => {
+    const trimmed = message.trim();
+    if (trimmed.length < 8) {
+      Alert.alert('Add a little more detail', 'Please write at least one sentence so the team can understand your suggestion.');
+      return;
+    }
+    setBusy(true);
+    try {
+      await saveFeedbackSuggestion(
+        patientUserId,
+        authorRole.toLowerCase().replace(/\s+/g, '_'),
+        category.toLowerCase().replace(/\s+/g, '_'),
+        trimmed,
+        contactPermission,
+        {
+          sourceScreen: 'home_feedback',
+          appLanguage: 'en',
+          algorithmVersion: analysisResult?.algorithmVersion ?? null,
+          submittedAtClient: new Date().toISOString(),
+        },
+      );
+      setMessage('');
+      setContactPermission(false);
+      Alert.alert('Feedback sent', 'Thank you. Your suggestion has been saved for the AxonAI team.');
+      onBack();
+    } catch (error) {
+      showFriendlyError(
+        'Feedback Not Sent',
+        'We could not send your feedback right now. Please check your connection and try again.',
+        'Feedback submission failed',
+        error,
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <View style={styles.lightScreen}>
+      <Header title="Share Feedback" subtitle="Help improve AxonAI for patients and families" onBack={onBack} darkText />
+      <ScrollView contentContainerStyle={styles.lightContent} showsVerticalScrollIndicator={false}>
+        <View style={styles.feedbackHeroCard}>
+          <View style={styles.feedbackHeroIcon}>
+            <Ionicons name="create" size={30} color="#ffffff" />
+          </View>
+          <Text style={styles.feedbackHeroTitle}>What should we improve?</Text>
+          <Text style={styles.feedbackHeroText}>Patients and family members can report confusing steps, missing support, bugs, or ideas for future versions.</Text>
+        </View>
+
+        <View style={styles.formCard}>
+          <Text style={styles.formLabel}>Who is sending this?</Text>
+          <OptionChips options={['Patient', 'Family member', 'Caregiver']} value={authorRole} onChange={setAuthorRole} />
+
+          <Text style={styles.formLabel}>Feedback type</Text>
+          <OptionChips options={['Improvement idea', 'Confusing step', 'Bug', 'Content request', 'Support need']} value={category} onChange={setCategory} />
+
+          <Text style={styles.formLabel}>Suggestion</Text>
+          <TextInput
+            value={message}
+            onChangeText={setMessage}
+            placeholder="Tell us what happened, what felt confusing, or what would help you recover at home..."
+            placeholderTextColor="#8a9bb0"
+            multiline
+            textAlignVertical="top"
+            style={styles.feedbackInput}
+            maxLength={2000}
+          />
+          <Text style={styles.feedbackCounter}>{message.length}/2000</Text>
+
+          <Pressable style={tapStyle(styles.feedbackConsentRow)} onPress={() => setContactPermission((value) => !value)}>
+            <Ionicons name={contactPermission ? 'checkbox' : 'square-outline'} size={23} color={contactPermission ? '#1267e6' : '#6b7c91'} />
+            <Text style={styles.feedbackConsentText}>The AxonAI team may contact me about this feedback if needed.</Text>
+          </Pressable>
+
+          <PrimaryLightButton label="Send Feedback" icon="send" onPress={submitFeedback} disabled={busy} loading={busy} />
+        </View>
+      </ScrollView>
+    </View>
   );
 }
 
@@ -2032,6 +2449,8 @@ function CollectScreen({
   qualityPassed,
   qualityResults,
   qualityCheckingActionId,
+  frameCheckResults,
+  frameCheckingActionId,
   isCameraOpen,
   isRecording,
   cameraRef,
@@ -2052,6 +2471,8 @@ function CollectScreen({
   qualityPassed: Record<string, boolean>;
   qualityResults: Record<string, VideoQualityResult>;
   qualityCheckingActionId: string | null;
+  frameCheckResults: Record<string, FrameCheckResult>;
+  frameCheckingActionId: string | null;
   isCameraOpen: boolean;
   isRecording: boolean;
   cameraRef: React.MutableRefObject<CameraView | null>;
@@ -2068,20 +2489,44 @@ function CollectScreen({
   const currentQuality = qualityResults[currentAction.id];
   const isCheckingQuality = qualityCheckingActionId === currentAction.id;
   const qualityPassedCurrent = qualityPassed[currentAction.id];
+  const currentFrameCheck = frameCheckResults[currentAction.id];
+  const isCheckingFrame = frameCheckingActionId === currentAction.id;
+  const frameReadyCurrent = currentFrameCheck?.passed;
+  const showCameraOverlay = Boolean(isCheckingFrame || isRecording || frameReadyCurrent || (currentFrameCheck && !currentFrameCheck.passed) || isCheckingQuality || qualityPassedCurrent || currentQuality);
+  const overlayPassed = Boolean(qualityPassedCurrent || (frameReadyCurrent && !isCheckingQuality && !currentQuality));
+  const overlayFailed = Boolean((currentFrameCheck && !currentFrameCheck.passed) || (currentQuality && !qualityPassedCurrent && !isCheckingQuality));
+  const overlayText = isCheckingFrame
+    ? 'Checking your position...'
+    : isRecording
+      ? 'Recording...'
+      : isCheckingQuality
+        ? 'Checking video quality...'
+        : qualityPassedCurrent
+          ? 'Video passed'
+          : frameReadyCurrent
+            ? 'You can start'
+            : currentFrameCheck && !currentFrameCheck.passed
+              ? 'Adjust your position'
+              : 'Please retake';
+  const overlayHint = currentFrameCheck && !currentFrameCheck.passed
+    ? currentFrameCheck.tips[0]
+    : currentQuality && !qualityPassedCurrent
+      ? currentQuality.tips[0] ?? currentQuality.patientMessage
+      : undefined;
 
   return (
     <View style={styles.screen}>
-      <Header title="Upper Limb Collection" subtitle={`${completedCount}/${upperActions.length} movements passed quality check`} onBack={onBack} />
+      <Header title="Upper Limb Collection" subtitle={`${completedCount}/${activeUpperActions.length} movements passed quality check`} onBack={onBack} />
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
         <View style={styles.progressPanel}>
           <View style={styles.progressTrack}>
-            <View style={[styles.progressFill, { width: `${(completedCount / upperActions.length) * 100}%` }]} />
+            <View style={[styles.progressFill, { width: `${(completedCount / activeUpperActions.length) * 100}%` }]} />
           </View>
-          <Text style={styles.progressText}>Complete all recordings before generating a personalized rehab plan.</Text>
+          <Text style={styles.progressText}>Testing mode: complete the first 3 recordings before generating a personalized rehab plan.</Text>
         </View>
 
         <View style={styles.actionStepper}>
-          {upperActions.map((action, index) => {
+          {activeUpperActions.map((action, index) => {
             const selected = index === currentActionIndex;
             const done = qualityPassed[action.id];
             return (
@@ -2100,7 +2545,7 @@ function CollectScreen({
         </View>
 
         <View style={styles.currentActionCard}>
-          <Text style={styles.actionKicker}>Movement {currentActionIndex + 1} / {upperActions.length}</Text>
+          <Text style={styles.actionKicker}>Movement {currentActionIndex + 1} / {activeUpperActions.length}</Text>
           <Text style={styles.currentActionTitle}>{currentAction.title}</Text>
           <Text style={styles.currentActionTarget}>{currentAction.target}</Text>
           <View style={styles.instructionBox}>
@@ -2131,60 +2576,22 @@ function CollectScreen({
             <Ionicons name="scan" size={14} color="#ffffff" />
             <Text style={styles.cameraBadgeText}>{currentAction.cameraView}, about 1.5 m away</Text>
           </View>
-          {(isCheckingQuality || qualityPassedCurrent || currentQuality) && (
-            <View style={[styles.cameraQualityOverlay, qualityPassedCurrent && styles.cameraQualityOverlayPass, currentQuality && !qualityPassedCurrent && !isCheckingQuality && styles.cameraQualityOverlayFail]}>
-              {isCheckingQuality ? <ActivityIndicator color="#ffffff" /> : <Ionicons name={qualityPassedCurrent ? 'checkmark-circle' : 'alert-circle'} size={38} color="#ffffff" />}
-              <Text style={styles.cameraQualityOverlayText}>{isCheckingQuality ? 'Checking video quality...' : qualityPassedCurrent ? 'Video passed' : 'Please retake'}</Text>
+          {showCameraOverlay && (
+            <View style={[styles.cameraQualityOverlay, overlayPassed && styles.cameraQualityOverlayPass, overlayFailed && styles.cameraQualityOverlayFail]}>
+              {isCheckingFrame || isCheckingQuality ? <ActivityIndicator color="#ffffff" /> : <Ionicons name={overlayPassed ? 'checkmark-circle' : overlayFailed ? 'alert-circle' : 'radio-button-on'} size={38} color="#ffffff" />}
+              <Text style={styles.cameraQualityOverlayText}>{overlayText}</Text>
+              {overlayHint && !isCheckingFrame && !isCheckingQuality && (
+                <Text style={styles.cameraQualityOverlayHint}>{overlayHint}</Text>
+              )}
             </View>
           )}
         </View>
 
         <View style={styles.controls}>
           {!isCameraOpen && <PrimaryButton label="Open Camera" icon="camera" onPress={onOpenCamera} />}
-          {isCameraOpen && !isRecording && !isCheckingQuality && <PrimaryButton label="Start Recording" icon="radio-button-on" onPress={onStartRecording} />}
+          {isCameraOpen && !isRecording && !isCheckingQuality && !isCheckingFrame && <PrimaryButton label="Start Recording" icon="radio-button-on" onPress={onStartRecording} />}
           {isRecording && <DangerButton label="Stop and Save" icon="stop-circle" onPress={onStopRecording} />}
           <SecondaryButton label="Retake" icon="refresh" onPress={onRetryAction} />
-        </View>
-
-        <View style={styles.qualityCard}>
-          <View style={styles.qualityCopy}>
-            <View style={styles.qualityTitleRow}>
-              <Ionicons
-                name={isCheckingQuality ? 'sync' : qualityPassedCurrent ? 'checkmark-circle' : currentQuality ? 'warning' : 'videocam'}
-                size={19}
-                color={isCheckingQuality ? '#05e1d2' : qualityPassedCurrent ? '#18c37e' : currentQuality ? '#ffb020' : '#a9bed7'}
-              />
-              <Text style={styles.qualityTitle}>
-                {isCheckingQuality ? 'Checking Video Quality' : qualityPassedCurrent ? 'Video Quality Passed' : currentQuality ? 'Please Retake This Video' : 'Video Quality Check'}
-              </Text>
-            </View>
-            <Text style={styles.qualityText}>
-              {isCheckingQuality
-                ? 'Please wait while AxonAI checks lighting, stability, video length, and whether your arm keypoints are visible.'
-                : qualityPassedCurrent
-                  ? 'Good recording. Moving to the next movement automatically.'
-                  : currentQuality
-                    ? currentQuality.patientMessage
-                    : recordedVideos[currentAction.id]
-                      ? 'Video saved. Waiting for quality check result.'
-                      : 'After you stop recording, AxonAI will automatically check this video before you continue.'}
-            </Text>
-            {currentQuality && !currentQuality.passed && (
-              <View style={styles.qualityTips}>
-                {currentQuality.tips.slice(0, 3).map((tip) => (
-                  <View key={tip} style={styles.qualityTipRow}>
-                    <Ionicons name="arrow-forward-circle" size={15} color="#ffcf66" />
-                    <Text style={styles.qualityTipText}>{tip}</Text>
-                  </View>
-                ))}
-              </View>
-            )}
-          </View>
-          {isCheckingQuality && (
-            <View style={styles.qualityBadge}>
-              <Text style={styles.qualityBadgeText}>Checking</Text>
-            </View>
-          )}
         </View>
 
         <Pressable
@@ -2621,13 +3028,11 @@ function ProblemsScreen({
   analysisResult,
   onBack,
   onPlan,
-  onMatch,
   onDemo,
 }: {
   analysisResult: UpperLimbAnalysisResult | null;
   onBack: () => void;
   onPlan: () => void;
-  onMatch: () => void;
   onDemo: (exercise: Exercise) => void;
 }) {
   const displayProblems = analysisResult?.functionalProblems.length
@@ -2642,7 +3047,7 @@ function ProblemsScreen({
       }));
   return (
     <View style={styles.lightScreen}>
-      <Header title="My Functional Problems" subtitle={analysisResult ? `Algorithm ${analysisResult.algorithmVersion}` : 'Upper Limb Package summary'} onBack={onBack} darkText />
+      <Header title="My Functional Problems" subtitle="Upper Limb Package summary" onBack={onBack} darkText />
       <ScrollView contentContainerStyle={styles.lightContent} showsVerticalScrollIndicator={false}>
         {displayProblems.map((problem, index) => (
           <View key={problem.title} style={styles.problemCard}>
@@ -2650,7 +3055,7 @@ function ProblemsScreen({
               <Text style={styles.problemIndexText}>{index + 1}</Text>
             </View>
             <View style={styles.problemIllustration}>
-              <Ionicons name={iconForProblem(problem.id)} size={44} color="#1267e6" />
+              <Image source={imageForProblem(problem.id)} style={styles.problemImage} resizeMode="cover" />
             </View>
             <View style={styles.problemCopy}>
               <Text style={styles.problemArea}>{problem.severity.toUpperCase()}</Text>
@@ -2661,7 +3066,6 @@ function ProblemsScreen({
         ))}
 
         <PrimaryLightButton label="View Weekly Training Plan" icon="calendar" onPress={onPlan} />
-        <MatchButton onPress={onMatch} />
         <Pressable style={tapStyle(styles.inlineDemoButton)} onPress={() => onDemo(exercises[0])}>
           <Ionicons name="play-circle" size={20} color="#1267e6" />
           <Text style={styles.inlineDemoText}>Preview an Exercise Demo</Text>
@@ -2674,6 +3078,7 @@ function ProblemsScreen({
 function PlanScreen({
   analysisResult,
   selectedDay,
+  allExercises,
   dayExercises,
   onSelectDay,
   onBack,
@@ -2682,37 +3087,52 @@ function PlanScreen({
 }: {
   analysisResult: UpperLimbAnalysisResult | null;
   selectedDay: number;
+  allExercises: Exercise[];
   dayExercises: Exercise[];
   onSelectDay: (day: number) => void;
   onBack: () => void;
   onMatch: () => void;
   onDemo: (exercise: Exercise) => void;
 }) {
+  const selectedDayName = weekDays[selectedDay - 1] ?? 'Today';
   return (
     <View style={styles.lightScreen}>
       <Header title="Personalized Training Plan" subtitle="Complete today's tasks each day" onBack={onBack} darkText />
       <ScrollView contentContainerStyle={styles.lightContent} showsVerticalScrollIndicator={false}>
         <View style={styles.weekPanel}>
           <View>
-            <Text style={styles.weekTitle}>This Week's Progress</Text>
-            <Text style={styles.weekDate}>{analysisResult ? `Generated by ${analysisResult.algorithmVersion}` : 'Week 1 - Demo Training Plan'}</Text>
+            <Text style={styles.weekTitle}>{selectedDay === 1 ? "Today's Plan" : `${selectedDayName}'s Plan`}</Text>
+            <Text style={styles.weekDate}>{selectedDay === 1 ? 'Swipe right to preview future days' : 'Swipe back to return to today'}</Text>
           </View>
-          <Text style={styles.weekCount}>{analysisResult?.weeklyExercisePlan.length ?? 4}/21 items</Text>
+          <Text style={styles.weekCount}>{dayExercises.length} tasks</Text>
         </View>
-        <View style={styles.dayRow}>
+        <ScrollView
+          horizontal
+          pagingEnabled
+          snapToInterval={316}
+          decelerationRate="fast"
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.dayPager}
+          onMomentumScrollEnd={(event) => {
+            const nextDay = Math.min(7, Math.max(1, Math.round(event.nativeEvent.contentOffset.x / 316) + 1));
+            onSelectDay(nextDay);
+          }}
+        >
           {weekDays.map((day, index) => {
             const value = index + 1;
             const selected = selectedDay === value;
             return (
-              <Pressable key={day} style={tapStyle(styles.dayItem)} onPress={() => onSelectDay(value)}>
-                <Text style={styles.dayText}>{day}</Text>
-                <View style={[styles.dayDot, selected && styles.dayDotActive]}>
-                  <Text style={styles.dayDotText}>{selected ? 'Today' : index < 3 ? 'ok' : ''}</Text>
+              <Pressable key={day} style={({ pressed }) => [styles.dayPlanCard, selected && styles.dayPlanCardActive, pressed && styles.tapFeedback]} onPress={() => onSelectDay(value)}>
+                <View>
+                  <Text style={[styles.dayText, selected && styles.dayTextActive]}>{day}</Text>
+                  <Text style={[styles.dayPlanTitle, selected && styles.dayPlanTitleActive]}>{value === 1 ? "Today's tasks" : `Day ${value}`}</Text>
+                  <Text style={[styles.dayPlanHint, selected && styles.dayPlanHintActive]}>{allExercises.filter((exercise) => exercise.dayPattern.includes(value)).length} exercises planned</Text>
                 </View>
+                <Ionicons name={selected ? 'checkmark-circle' : 'ellipse-outline'} size={28} color={selected ? '#ffffff' : '#b4c0ce'} />
               </Pressable>
             );
           })}
-        </View>
+        </ScrollView>
 
         {dayExercises.map((exercise) => (
           <Pressable key={exercise.id} style={tapStyle(styles.exerciseCard)} onPress={() => onDemo(exercise)}>
@@ -2723,10 +3143,6 @@ function PlanScreen({
               <Text style={styles.exerciseTitle}>{exercise.title}</Text>
               <Text style={styles.exerciseImproves}>{exercise.improves}</Text>
               <Text style={styles.exerciseDose}>{exercise.dose}</Text>
-            </View>
-            <View style={styles.exerciseStatus}>
-              <Text style={styles.exerciseStatusText}>Demo</Text>
-              <Ionicons name="chevron-forward" size={17} color="#1267e6" />
             </View>
           </Pressable>
         ))}
@@ -3048,7 +3464,7 @@ function PrimaryLightButton({
   return (
     <Pressable disabled={disabled} style={({ pressed }) => [styles.primaryLightButton, pressed && styles.tapFeedback, disabled && styles.disabledButton]} onPress={onPress}>
       {loading ? <ActivityIndicator color="#ffffff" /> : <Ionicons name={icon} size={20} color="#ffffff" />}
-      <Text style={styles.primaryLightButtonText}>{label}</Text>
+      <Text style={styles.primaryLightButtonText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.72}>{label}</Text>
     </Pressable>
   );
 }
@@ -3102,6 +3518,26 @@ const styles = StyleSheet.create({
   educationCopy: { flex: 1 },
   educationTitle: { color: '#102033', fontSize: 16, fontWeight: '900' },
   educationText: { color: '#60738d', fontSize: 13, lineHeight: 19, marginTop: 4 },
+  educationHeroCard: { backgroundColor: '#ffffff', borderColor: '#e1e8f2', borderRadius: 24, borderWidth: 1, marginBottom: 14, padding: 18, shadowColor: '#143664', shadowOpacity: 0.08, shadowRadius: 12 },
+  educationHeroIcon: { alignItems: 'center', backgroundColor: '#1267e6', borderRadius: 22, height: 56, justifyContent: 'center', marginBottom: 14, width: 56 },
+  educationHeroIconSupport: { backgroundColor: '#0b756d' },
+  educationHeroTitle: { color: '#102033', fontSize: 24, fontWeight: '900', lineHeight: 30 },
+  educationHeroText: { color: '#53677f', fontSize: 14, lineHeight: 22, marginTop: 8 },
+  lessonCard: { alignItems: 'flex-start', backgroundColor: '#ffffff', borderColor: '#e1e8f2', borderRadius: 20, borderWidth: 1, flexDirection: 'row', gap: 12, marginBottom: 12, padding: 15 },
+  lessonIcon: { alignItems: 'center', backgroundColor: '#e8f2ff', borderRadius: 18, height: 42, justifyContent: 'center', width: 42 },
+  lessonCopy: { flex: 1 },
+  lessonTitle: { color: '#102033', fontSize: 17, fontWeight: '900' },
+  lessonBody: { color: '#60738d', fontSize: 14, lineHeight: 21, marginTop: 5 },
+  educationSafetyNote: { alignItems: 'flex-start', backgroundColor: '#e8fbf8', borderColor: '#bdeee7', borderRadius: 18, borderWidth: 1, flexDirection: 'row', gap: 10, marginTop: 4, padding: 14 },
+  educationSafetyText: { color: '#103c39', flex: 1, fontSize: 13, fontWeight: '800', lineHeight: 19 },
+  feedbackHeroCard: { backgroundColor: '#ffffff', borderColor: '#e1e8f2', borderRadius: 24, borderWidth: 1, marginBottom: 14, padding: 18, shadowColor: '#143664', shadowOpacity: 0.08, shadowRadius: 12 },
+  feedbackHeroIcon: { alignItems: 'center', backgroundColor: '#8b5cf6', borderRadius: 22, height: 56, justifyContent: 'center', marginBottom: 14, width: 56 },
+  feedbackHeroTitle: { color: '#102033', fontSize: 24, fontWeight: '900' },
+  feedbackHeroText: { color: '#53677f', fontSize: 14, lineHeight: 22, marginTop: 8 },
+  feedbackInput: { backgroundColor: '#f3f7fc', borderColor: '#d9e3f0', borderRadius: 16, borderWidth: 1, color: '#102033', fontSize: 15, minHeight: 150, padding: 13 },
+  feedbackCounter: { color: '#71839a', fontSize: 12, fontWeight: '800', marginTop: 7, textAlign: 'right' },
+  feedbackConsentRow: { alignItems: 'flex-start', backgroundColor: '#eef3f9', borderColor: '#d9e3f0', borderRadius: 16, borderWidth: 1, flexDirection: 'row', gap: 10, marginTop: 12, padding: 13 },
+  feedbackConsentText: { color: '#31445c', flex: 1, fontSize: 13, fontWeight: '800', lineHeight: 19 },
   tabHeroCard: { alignItems: 'flex-start', backgroundColor: '#ffffff', borderColor: '#e1e8f2', borderRadius: 24, borderWidth: 1, gap: 12, marginBottom: 14, padding: 18, shadowColor: '#143664', shadowOpacity: 0.08, shadowRadius: 12 },
   tabHeroIcon: { alignItems: 'center', backgroundColor: '#1267e6', borderRadius: 22, height: 56, justifyContent: 'center', width: 56 },
   tabHeroIconTeal: { backgroundColor: '#05e1d2' },
@@ -3211,6 +3647,7 @@ const styles = StyleSheet.create({
   cameraQualityOverlayPass: { backgroundColor: 'rgba(24,195,126,0.92)' },
   cameraQualityOverlayFail: { backgroundColor: 'rgba(255,159,10,0.92)' },
   cameraQualityOverlayText: { color: '#ffffff', fontSize: 14, fontWeight: '900', textAlign: 'center' },
+  cameraQualityOverlayHint: { color: '#fff4cc', fontSize: 12, fontWeight: '800', lineHeight: 16, maxWidth: 240, textAlign: 'center' },
   controls: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 16 },
   primaryButton: { alignItems: 'center', backgroundColor: '#05e1d2', borderRadius: 16, flexDirection: 'row', gap: 8, justifyContent: 'center', minHeight: 48, paddingHorizontal: 18 },
   primaryButtonText: { color: '#031629', fontSize: 15, fontWeight: '900' },
@@ -3442,12 +3879,13 @@ const styles = StyleSheet.create({
   },
   weeklyStepNumber: { color: '#05e1d2', fontSize: 13, fontWeight: '900' },
   weeklyStepText: { color: '#e6f1ff', flex: 1, fontSize: 15, fontWeight: '800' },
-  problemCard: { alignItems: 'center', backgroundColor: '#ffffff', borderColor: '#e1e8f2', borderRadius: 18, borderWidth: 1, flexDirection: 'row', gap: 12, marginBottom: 12, padding: 14, shadowColor: '#143664', shadowOpacity: 0.08, shadowRadius: 12 },
+  problemCard: { alignItems: 'center', backgroundColor: '#ffffff', borderColor: '#e1e8f2', borderRadius: 18, borderWidth: 1, flexDirection: 'row', gap: 12, marginBottom: 12, minHeight: 146, padding: 12, shadowColor: '#143664', shadowOpacity: 0.08, shadowRadius: 12 },
   analysisNoticeCard: { alignItems: 'flex-start', backgroundColor: '#e8f2ff', borderColor: '#cfe1f7', borderRadius: 18, borderWidth: 1, flexDirection: 'row', gap: 10, marginBottom: 12, padding: 14 },
   analysisNoticeText: { color: '#26384d', flex: 1, fontSize: 13, fontWeight: '800', lineHeight: 19 },
   problemIndex: { alignItems: 'center', backgroundColor: '#1267e6', borderRadius: 18, height: 36, justifyContent: 'center', width: 36 },
   problemIndexText: { color: '#ffffff', fontSize: 17, fontWeight: '900' },
-  problemIllustration: { alignItems: 'center', borderRadius: 16, height: 96, justifyContent: 'center', overflow: 'hidden', width: 88 },
+  problemIllustration: { backgroundColor: '#edf5ff', borderColor: '#d9e8f7', borderRadius: 18, borderWidth: 1, height: 112, overflow: 'hidden', width: 112 },
+  problemImage: { height: '100%', width: '100%' },
   problemCopy: { flex: 1 },
   problemArea: { color: '#1267e6', fontSize: 12, fontWeight: '900' },
   problemTitle: { color: '#101d2c', fontSize: 18, fontWeight: '900', marginTop: 3 },
@@ -3469,8 +3907,8 @@ const styles = StyleSheet.create({
   tipCopy: { flex: 1 },
   tipTitle: { color: '#1267e6', fontSize: 16, fontWeight: '900' },
   tipText: { color: '#26384d', fontSize: 14, lineHeight: 21, marginTop: 5 },
-  primaryLightButton: { alignItems: 'center', backgroundColor: '#1267e6', borderRadius: 18, flexDirection: 'row', gap: 10, justifyContent: 'center', marginTop: 18, minHeight: 56 },
-  primaryLightButtonText: { color: '#ffffff', fontSize: 17, fontWeight: '900' },
+  primaryLightButton: { alignItems: 'center', alignSelf: 'stretch', backgroundColor: '#1267e6', borderRadius: 18, flexDirection: 'row', gap: 10, justifyContent: 'center', marginTop: 18, minHeight: 56, paddingHorizontal: 18 },
+  primaryLightButtonText: { color: '#ffffff', flexShrink: 1, fontSize: 17, fontWeight: '900', textAlign: 'center' },
   axonMatchButton: { alignItems: 'center', backgroundColor: '#05e1d2', borderRadius: 18, flexDirection: 'row', gap: 11, justifyContent: 'center', marginTop: 14, minHeight: 68, paddingHorizontal: 15, paddingVertical: 12 },
   axonMatchIcon: { alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.38)', borderRadius: 18, height: 42, justifyContent: 'center', width: 42 },
   axonMatchCopy: { flex: 1 },
@@ -3478,25 +3916,28 @@ const styles = StyleSheet.create({
   axonMatchText: { color: '#064144', fontSize: 12, fontWeight: '800', lineHeight: 17, marginTop: 3 },
   inlineDemoButton: { alignItems: 'center', alignSelf: 'center', flexDirection: 'row', gap: 8, marginTop: 16 },
   inlineDemoText: { color: '#1267e6', fontSize: 15, fontWeight: '900' },
-  weekPanel: { alignItems: 'center', backgroundColor: '#ffffff', borderRadius: 18, flexDirection: 'row', justifyContent: 'space-between', padding: 16 },
+  weekPanel: { alignItems: 'center', backgroundColor: '#ffffff', borderColor: '#e7dfd1', borderRadius: 22, borderWidth: 1, flexDirection: 'row', justifyContent: 'space-between', marginBottom: 14, padding: 18 },
   opensimNoticeCard: { alignItems: 'flex-start', backgroundColor: '#e8fbf8', borderColor: '#bdeee7', borderRadius: 16, borderWidth: 1, flexDirection: 'row', gap: 10, marginTop: 12, padding: 13 },
   opensimNoticeText: { color: '#103c39', flex: 1, fontSize: 13, fontWeight: '800', lineHeight: 19 },
-  weekTitle: { color: '#101d2c', fontSize: 17, fontWeight: '900' },
-  weekDate: { color: '#60738d', fontSize: 13, marginTop: 4 },
+  weekTitle: { color: '#101d2c', fontSize: 24, fontWeight: '900' },
+  weekDate: { color: '#60738d', fontSize: 14, fontWeight: '700', marginTop: 4 },
   weekCount: { color: '#1267e6', fontSize: 16, fontWeight: '900' },
-  dayRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 14, marginTop: 16 },
-  dayItem: { alignItems: 'center', gap: 8 },
-  dayText: { color: '#31445c', fontSize: 12, fontWeight: '800' },
-  dayDot: { alignItems: 'center', borderColor: '#cbd8e8', borderRadius: 18, borderWidth: 2, height: 34, justifyContent: 'center', width: 34 },
-  dayDotActive: { backgroundColor: '#1267e6', borderColor: '#1267e6' },
-  dayDotText: { color: '#ffffff', fontSize: 9, fontWeight: '900', textAlign: 'center' },
-  exerciseCard: { alignItems: 'center', backgroundColor: '#ffffff', borderColor: '#e1e8f2', borderRadius: 18, borderWidth: 1, flexDirection: 'row', gap: 13, marginBottom: 11, padding: 12 },
-  exerciseThumb: { backgroundColor: '#eef5ff', borderRadius: 15, height: 76, overflow: 'hidden', width: 82 },
+  dayPager: { gap: 12, marginBottom: 16, paddingRight: 28 },
+  dayPlanCard: { alignItems: 'center', backgroundColor: '#ffffff', borderColor: '#e1e8f2', borderRadius: 20, borderWidth: 1, flexDirection: 'row', justifyContent: 'space-between', minHeight: 92, paddingHorizontal: 18, paddingVertical: 15, width: 304 },
+  dayPlanCardActive: { backgroundColor: '#1267e6', borderColor: '#1267e6' },
+  dayText: { color: '#53677f', fontSize: 13, fontWeight: '900' },
+  dayTextActive: { color: '#dfeeff' },
+  dayPlanTitle: { color: '#101d2c', fontSize: 21, fontWeight: '900', marginTop: 4 },
+  dayPlanTitleActive: { color: '#ffffff' },
+  dayPlanHint: { color: '#60738d', fontSize: 13, fontWeight: '800', marginTop: 4 },
+  dayPlanHintActive: { color: '#dfeeff' },
+  exerciseCard: { alignItems: 'center', backgroundColor: '#fffdf7', borderColor: '#e7dfd1', borderRadius: 24, borderWidth: 1, flexDirection: 'row', gap: 16, marginBottom: 14, minHeight: 156, padding: 14, shadowColor: '#8a7350', shadowOpacity: 0.08, shadowRadius: 12 },
+  exerciseThumb: { backgroundColor: '#eef5ff', borderRadius: 18, height: 116, overflow: 'hidden', width: 132 },
   exerciseCoverImage: { height: '100%', width: '100%' },
   exerciseCopy: { flex: 1 },
-  exerciseTitle: { color: '#101d2c', fontSize: 16, fontWeight: '900' },
-  exerciseImproves: { color: '#596c82', fontSize: 13, lineHeight: 18, marginTop: 5 },
-  exerciseDose: { color: '#101d2c', fontSize: 15, fontWeight: '800', marginTop: 6 },
+  exerciseTitle: { color: '#101d2c', fontSize: 20, fontWeight: '900', lineHeight: 24 },
+  exerciseImproves: { color: '#596c82', fontSize: 15, lineHeight: 21, marginTop: 7 },
+  exerciseDose: { color: '#101d2c', fontSize: 18, fontWeight: '900', lineHeight: 22, marginTop: 10 },
   exerciseStatus: { alignItems: 'center', backgroundColor: '#e8f2ff', borderRadius: 18, flexDirection: 'row', gap: 2, paddingHorizontal: 11, paddingVertical: 8 },
   exerciseStatusText: { color: '#1267e6', fontSize: 13, fontWeight: '900' },
   matchScreen: { backgroundColor: '#071426', flex: 1 },

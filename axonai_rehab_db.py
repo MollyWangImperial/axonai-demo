@@ -24,6 +24,7 @@ DB_PATH = Path(os.getenv("AXONAI_REHAB_DB_PATH", Path(__file__).resolve().parent
 DATABASE_URL = os.getenv("AXONAI_DATABASE_URL") or os.getenv("DATABASE_URL")
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+ALLOW_SUPABASE_LOGIN_LINK = os.getenv("AXONAI_ALLOW_SUPABASE_LOGIN_LINK", "false").strip().lower() in {"1", "true", "yes"}
 
 SCHEMA_STATEMENTS = [
     """
@@ -110,6 +111,20 @@ SCHEMA_STATEMENTS = [
         FOREIGN KEY(analysis_id) REFERENCES upper_limb_analyses(id) ON DELETE SET NULL
     )
     """,
+    """
+    CREATE TABLE IF NOT EXISTS feedback_submissions (
+        id TEXT PRIMARY KEY,
+        patient_user_id TEXT,
+        author_role TEXT NOT NULL,
+        category TEXT NOT NULL,
+        message TEXT NOT NULL,
+        contact_permission INTEGER NOT NULL DEFAULT 0,
+        app_context_json TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'new',
+        created_at TEXT NOT NULL,
+        FOREIGN KEY(patient_user_id) REFERENCES users(id) ON DELETE SET NULL
+    )
+    """,
 ]
 
 POSTGRES_COMPAT_STATEMENTS = [
@@ -136,6 +151,19 @@ POSTGRES_COMPAT_STATEMENTS = [
         created_at TEXT NOT NULL
     )
     """,
+    """
+    CREATE TABLE IF NOT EXISTS public.feedback_submissions (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+        patient_user_id uuid REFERENCES public.patient_profiles(user_id) ON DELETE SET NULL,
+        author_role text NOT NULL,
+        category text NOT NULL,
+        message text NOT NULL,
+        contact_permission boolean NOT NULL DEFAULT false,
+        app_context_json jsonb NOT NULL DEFAULT '{}'::jsonb,
+        status text NOT NULL DEFAULT 'new',
+        created_at timestamptz NOT NULL DEFAULT now()
+    )
+    """,
 ]
 
 REQUIRED_POSTGRES_TABLES = [
@@ -147,6 +175,7 @@ REQUIRED_POSTGRES_TABLES = [
     "exercise_plans",
     "care_matches",
     "clinician_reviews",
+    "feedback_submissions",
 ]
 
 
@@ -409,7 +438,7 @@ def login_user(role: str, identifier: str, password: str) -> dict[str, Any]:
     with connect() as conn:
         row = conn.execute(f"SELECT * FROM users WHERE role = {ph} AND identifier = {ph}", (role, normalized)).fetchone()
     if row is None:
-        if is_postgres() and "@" in normalized:
+        if is_postgres() and "@" in normalized and ALLOW_SUPABASE_LOGIN_LINK:
             user_id = _link_supabase_auth_user(role, normalized, password)
             password_hash, password_salt = hash_password(password)
             timestamp = now_iso()
@@ -836,6 +865,66 @@ def save_match(
             ),
         )
     return {"matchId": match_id, "status": status, "createdAt": timestamp}
+
+
+def save_feedback(
+    patient_user_id: str | None,
+    author_role: str,
+    category: str,
+    message: str,
+    contact_permission: bool = False,
+    app_context: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    init_db()
+    cleaned_message = message.strip()
+    if not cleaned_message:
+        raise ValueError("feedback message is required")
+    if len(cleaned_message) > 2000:
+        raise ValueError("feedback message is too long")
+    feedback_id = str(uuid.uuid4())
+    timestamp = now_iso()
+    context_json = json.dumps(app_context or {}, ensure_ascii=False)
+    ph = placeholder()
+    if is_postgres():
+        with connect() as conn:
+            conn.execute(
+                """
+                INSERT INTO public.feedback_submissions
+                    (id, patient_user_id, author_role, category, message, contact_permission, app_context_json, status, created_at)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, now())
+                """,
+                (
+                    feedback_id,
+                    _uuid_or_none(patient_user_id),
+                    author_role,
+                    category,
+                    cleaned_message,
+                    bool(contact_permission),
+                    context_json,
+                    "new",
+                ),
+            )
+        return {"feedbackId": feedback_id, "status": "new", "createdAt": timestamp}
+    with connect() as conn:
+        conn.execute(
+            f"""
+            INSERT INTO feedback_submissions
+                (id, patient_user_id, author_role, category, message, contact_permission, app_context_json, status, created_at)
+            VALUES ({ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph})
+            """,
+            (
+                feedback_id,
+                patient_user_id or None,
+                author_role,
+                category,
+                cleaned_message,
+                1 if contact_permission else 0,
+                context_json,
+                "new",
+                timestamp,
+            ),
+        )
+    return {"feedbackId": feedback_id, "status": "new", "createdAt": timestamp}
 
 
 def list_therapists() -> list[dict[str, Any]]:

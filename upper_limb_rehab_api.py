@@ -16,6 +16,8 @@ from __future__ import annotations
 from typing import Any
 
 import json
+import shutil
+import uuid
 from pathlib import Path
 
 from fastapi import APIRouter, FastAPI, File, Form, HTTPException, UploadFile
@@ -43,6 +45,164 @@ class UpperLimbAnalyzeRequest(BaseModel):
 
 
 router = APIRouter(prefix="/api/upper-limb", tags=["upper-limb-rehab"])
+
+
+VALID_FRAME_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp"}
+
+
+def _save_frame_upload(upload_file: UploadFile | None, action_id: str) -> Path:
+    if upload_file is None:
+        raise HTTPException(status_code=400, detail="No preview image uploaded.")
+    suffix = Path(upload_file.filename or "").suffix.lower() or ".jpg"
+    if suffix not in VALID_FRAME_EXTENSIONS:
+        raise HTTPException(status_code=400, detail=f"Unsupported preview image extension for {action_id}: {suffix}")
+    frame_dir = Path(__file__).resolve().parent / "axonai_rehab_runtime" / "uploads" / "frame_checks"
+    frame_dir.mkdir(parents=True, exist_ok=True)
+    destination = frame_dir / f"{action_id}_{uuid.uuid4().hex}{suffix}"
+    with destination.open("wb") as buffer:
+        shutil.copyfileobj(upload_file.file, buffer)
+    return destination
+
+
+def _frame_check_tips(missing_parts: list[str], action_id: str) -> list[str]:
+    missing_text = " ".join(missing_parts).lower()
+    tips: list[str] = []
+    if "wrist" in missing_text or "elbow" in missing_text:
+        tips.append("Move the phone farther away so the full affected arm, elbow, and wrist are visible.")
+    if "shoulder" in missing_text:
+        tips.append("Keep the affected shoulder and upper arm inside the camera frame.")
+    if "nose" in missing_text or "face" in missing_text:
+        tips.append("Keep your head and upper body visible for this movement.")
+    if action_id in {"shoulder_flexion", "hand_to_mouth", "forward_reach", "elbow_flex_ext", "wrist_extension"}:
+        tips.append("Use the side view and sit about 1.5 metres from the phone.")
+    else:
+        tips.append("Use the front view and keep both shoulders visible.")
+    return tips[:3]
+
+
+def _check_frame_visibility(path: Path, action_id: str, side: str) -> dict[str, Any]:
+    try:
+        import cv2  # type: ignore
+        import mediapipe as mp  # type: ignore
+    except Exception:
+        return {
+            "actionId": action_id,
+            "passed": True,
+            "status": "ready",
+            "score": 70,
+            "patientMessage": "You can start.",
+            "tips": [],
+            "visibleParts": [],
+            "missingParts": [],
+        }
+
+    image = cv2.imread(str(path))
+    if image is None:
+        return {
+            "actionId": action_id,
+            "passed": False,
+            "status": "adjust",
+            "score": 0,
+            "patientMessage": "Please adjust your position before recording.",
+            "tips": ["Open the camera again and make sure your upper body is clearly visible."],
+            "visibleParts": [],
+            "missingParts": ["body"],
+        }
+
+    height, width = image.shape[:2]
+    if width > 720:
+        scale = 720 / width
+        image = cv2.resize(image, (720, int(height * scale)))
+    rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+
+    pose_landmark = mp.solutions.pose.PoseLandmark
+    side_names = ["left", "right"] if side == "auto" else [side if side in {"left", "right"} else "right"]
+    requirements = {
+        "shoulder_flexion": ["shoulder", "elbow", "wrist", "hip"],
+        "shoulder_abduction": ["shoulder", "elbow", "wrist", "hip"],
+        "hand_to_mouth": ["shoulder", "elbow", "wrist", "nose"],
+        "forward_reach": ["shoulder", "elbow", "wrist", "hip"],
+        "elbow_flex_ext": ["shoulder", "elbow", "wrist"],
+        "forearm_pronation_supination": ["shoulder", "elbow", "wrist"],
+        "wrist_extension": ["elbow", "wrist"],
+        "grasp_release": ["wrist"],
+        "finger_nose_target": ["shoulder", "elbow", "wrist", "nose"],
+    }
+    required = requirements.get(action_id, ["shoulder", "elbow", "wrist"])
+    name_to_enum = {
+        "nose": pose_landmark.NOSE,
+        "left_shoulder": pose_landmark.LEFT_SHOULDER,
+        "left_elbow": pose_landmark.LEFT_ELBOW,
+        "left_wrist": pose_landmark.LEFT_WRIST,
+        "left_hip": pose_landmark.LEFT_HIP,
+        "right_shoulder": pose_landmark.RIGHT_SHOULDER,
+        "right_elbow": pose_landmark.RIGHT_ELBOW,
+        "right_wrist": pose_landmark.RIGHT_WRIST,
+        "right_hip": pose_landmark.RIGHT_HIP,
+    }
+
+    with mp.solutions.pose.Pose(static_image_mode=True, model_complexity=0, min_detection_confidence=0.35) as pose:
+        result = pose.process(rgb)
+
+    if not result.pose_landmarks:
+        return {
+            "actionId": action_id,
+            "passed": False,
+            "status": "adjust",
+            "score": 0,
+            "patientMessage": "Please adjust your position before recording.",
+            "tips": ["Move into the camera view and keep your upper body and affected arm visible."],
+            "visibleParts": [],
+            "missingParts": ["body"],
+        }
+
+    landmarks = result.pose_landmarks.landmark
+
+    def visible(part_name: str, chosen_side: str) -> bool:
+        enum_name = "nose" if part_name == "nose" else f"{chosen_side}_{part_name}"
+        landmark_enum = name_to_enum[enum_name]
+        point = landmarks[landmark_enum.value]
+        in_frame = 0.03 <= point.x <= 0.97 and 0.03 <= point.y <= 0.97
+        return bool(point.visibility >= 0.45 and in_frame)
+
+    best_side = side_names[0]
+    best_score = -1
+    for candidate in side_names:
+        score = sum(1 for part in required if visible(part, candidate))
+        if score > best_score:
+            best_side = candidate
+            best_score = score
+
+    visible_parts: list[str] = []
+    missing_parts: list[str] = []
+    for part in required:
+        is_visible = visible(part, best_side) if part != "nose" else visible("nose", best_side)
+        label = "face" if part == "nose" else f"{best_side} {part}"
+        if is_visible:
+            visible_parts.append(label)
+        else:
+            missing_parts.append(label)
+
+    visibility_score = int(round(100 * len(visible_parts) / max(len(required), 1)))
+    brightness = float(cv2.cvtColor(image, cv2.COLOR_BGR2GRAY).mean())
+    if brightness < 45:
+        missing_parts.append("lighting")
+        visibility_score = min(visibility_score, 65)
+
+    passed = not missing_parts and visibility_score >= 80
+    tips = [] if passed else _frame_check_tips(missing_parts, action_id)
+    if "lighting" in missing_parts:
+        tips.insert(0, "Turn on more light or face a brighter area.")
+    return {
+        "actionId": action_id,
+        "passed": passed,
+        "status": "ready" if passed else "adjust",
+        "score": visibility_score,
+        "patientMessage": "You can start." if passed else "Please adjust your position before recording.",
+        "tips": tips[:3],
+        "visibleParts": visible_parts,
+        "missingParts": missing_parts,
+    }
 
 
 @router.get("/health")
@@ -125,7 +285,7 @@ def _quality_response(action_id: str, path: str, side: str) -> dict[str, Any]:
             shoulder_result = analyze_shoulder_flexion_video(
                 video_path=Path(path),
                 side=side,
-                sample_hz=8,
+                sample_hz=5,
                 min_detection_confidence=0.3,
                 min_tracking_confidence=0.3,
             )
@@ -189,6 +349,21 @@ async def quality_check_upper_limb_video(
         return _quality_response(action_id, saved["path"], affected_side)
     finally:
         cleanup_analysis_file(saved.get("path"))
+
+
+@router.post("/frame-check")
+async def check_upper_limb_frame(
+    action_id: str = Form(...),
+    affected_side: str = Form("auto"),
+    image: UploadFile = File(...),
+) -> dict[str, Any]:
+    if action_id not in ACTION_IDS:
+        raise HTTPException(status_code=400, detail=f"Unknown upper-limb action: {action_id}")
+    path = _save_frame_upload(image, action_id)
+    try:
+        return _check_frame_visibility(path, action_id, affected_side)
+    finally:
+        cleanup_analysis_file(str(path))
 
 
 @router.post("/analyze-videos")
