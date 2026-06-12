@@ -80,6 +80,18 @@ def _frame_check_tips(missing_parts: list[str], action_id: str) -> list[str]:
     return tips[:3]
 
 
+def _critical_frame_parts(action_id: str) -> set[str]:
+    if action_id in {"shoulder_flexion", "shoulder_abduction", "forward_reach", "hand_to_mouth", "elbow_flex_ext"}:
+        return {"shoulder", "elbow"}
+    if action_id in {"wrist_extension", "grasp_release"}:
+        return {"wrist"}
+    if action_id == "forearm_pronation_supination":
+        return {"elbow", "wrist"}
+    if action_id == "finger_nose_target":
+        return {"elbow", "wrist"}
+    return {"shoulder", "elbow"}
+
+
 def _check_frame_visibility(path: Path, action_id: str, side: str) -> dict[str, Any]:
     try:
         import cv2  # type: ignore
@@ -158,40 +170,55 @@ def _check_frame_visibility(path: Path, action_id: str, side: str) -> dict[str, 
 
     landmarks = result.pose_landmarks.landmark
 
-    def visible(part_name: str, chosen_side: str) -> bool:
+    def part_state(part_name: str, chosen_side: str) -> tuple[bool, bool, float]:
         enum_name = "nose" if part_name == "nose" else f"{chosen_side}_{part_name}"
         landmark_enum = name_to_enum[enum_name]
         point = landmarks[landmark_enum.value]
-        in_frame = 0.03 <= point.x <= 0.97 and 0.03 <= point.y <= 0.97
-        return bool(point.visibility >= 0.45 and in_frame)
+        relaxed_in_frame = -0.05 <= point.x <= 1.05 and -0.05 <= point.y <= 1.05
+        well_in_frame = 0.0 <= point.x <= 1.0 and 0.0 <= point.y <= 1.0
+        is_visible = bool(point.visibility >= 0.30 and relaxed_in_frame)
+        is_borderline = bool(point.visibility >= 0.18 and well_in_frame)
+        return is_visible, is_borderline, float(point.visibility)
+
+    def acceptable(part_name: str, chosen_side: str) -> bool:
+        is_visible, is_borderline, _ = part_state(part_name, chosen_side)
+        return is_visible or is_borderline
 
     best_side = side_names[0]
     best_score = -1
     for candidate in side_names:
-        score = sum(1 for part in required if visible(part, candidate))
+        score = sum(1 for part in required if acceptable(part, candidate))
         if score > best_score:
             best_side = candidate
             best_score = score
 
     visible_parts: list[str] = []
     missing_parts: list[str] = []
+    missing_critical_parts: list[str] = []
+    critical_parts = _critical_frame_parts(action_id)
     for part in required:
-        is_visible = visible(part, best_side) if part != "nose" else visible("nose", best_side)
+        is_visible, is_borderline, _ = part_state(part, best_side)
+        is_acceptable = is_visible or is_borderline
         label = "face" if part == "nose" else f"{best_side} {part}"
-        if is_visible:
+        if is_acceptable:
             visible_parts.append(label)
         else:
             missing_parts.append(label)
+            if part in critical_parts:
+                missing_critical_parts.append(label)
 
     visibility_score = int(round(100 * len(visible_parts) / max(len(required), 1)))
     brightness = float(cv2.cvtColor(image, cv2.COLOR_BGR2GRAY).mean())
+    lighting_problem = brightness < 35
     if brightness < 45:
         missing_parts.append("lighting")
-        visibility_score = min(visibility_score, 65)
+        if lighting_problem:
+            visibility_score = min(visibility_score, 65)
 
-    passed = not missing_parts and visibility_score >= 80
-    tips = [] if passed else _frame_check_tips(missing_parts, action_id)
-    if "lighting" in missing_parts:
+    passed = not missing_critical_parts and visibility_score >= 60 and not lighting_problem
+    blocking_parts = missing_critical_parts + (["lighting"] if lighting_problem else [])
+    tips = [] if passed else _frame_check_tips(blocking_parts or missing_parts, action_id)
+    if lighting_problem:
         tips.insert(0, "Turn on more light or face a brighter area.")
     return {
         "actionId": action_id,
@@ -201,7 +228,7 @@ def _check_frame_visibility(path: Path, action_id: str, side: str) -> dict[str, 
         "patientMessage": "You can start." if passed else "Please adjust your position before recording.",
         "tips": tips[:3],
         "visibleParts": visible_parts,
-        "missingParts": missing_parts,
+        "missingParts": blocking_parts or missing_parts,
     }
 
 

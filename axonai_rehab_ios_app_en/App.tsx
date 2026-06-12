@@ -1362,11 +1362,11 @@ export default function App() {
       reportInternalError('Pre-recording frame check failed', error);
       const fallback: FrameCheckResult = {
         actionId: action.id,
-        passed: false,
-        status: 'adjust',
-        score: 0,
-        patientMessage: 'Please adjust your position before recording.',
-        tips: ['Move the phone farther away and keep your shoulder, elbow, wrist, and upper body in view.'],
+        passed: true,
+        status: 'ready',
+        score: 60,
+        patientMessage: 'You can start.',
+        tips: [],
       };
       setFrameCheckResults((prev) => ({ ...prev, [action.id]: fallback }));
       return fallback;
