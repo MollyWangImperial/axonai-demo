@@ -195,17 +195,6 @@ type VideoQualityResult = {
   tips: string[];
 };
 
-type FrameCheckResult = {
-  actionId: string;
-  passed: boolean;
-  status: 'ready' | 'adjust' | string;
-  score: number;
-  patientMessage: string;
-  tips: string[];
-  visibleParts?: string[];
-  missingParts?: string[];
-};
-
 type MatchedPerson = {
   name: string;
   title: string;
@@ -1019,38 +1008,6 @@ async function requestVideoQualityCheck(
   return (await response.json()) as VideoQualityResult;
 }
 
-async function requestFrameCheck(
-  actionId: string,
-  uri: string,
-  affectedSide: string,
-): Promise<FrameCheckResult> {
-  const apiActionId = actionIdToApiId[actionId] ?? actionId;
-  const formData = new FormData();
-  formData.append('action_id', apiActionId);
-  formData.append('affected_side', affectedSide === '双侧/不确定' ? 'auto' : affectedSide.toLowerCase());
-  formData.append('image', {
-    uri,
-    name: `${apiActionId}_frame.jpg`,
-    type: 'image/jpeg',
-  } as any);
-
-  const response = await fetch(`${apiBaseUrl}/api/upper-limb/frame-check`, {
-    method: 'POST',
-    body: formData,
-  });
-  if (!response.ok) {
-    let internalDetail = `HTTP ${response.status}`;
-    try {
-      const body = await response.json();
-      internalDetail = getBackendDetail(body, internalDetail);
-    } catch {
-      // Keep the HTTP status when the backend does not return JSON.
-    }
-    throw new PatientSafeApiError('Position check failed. Please try again.', response.status, internalDetail);
-  }
-  return (await response.json()) as FrameCheckResult;
-}
-
 async function playCompletionDing() {
   try {
     const { sound } = await Audio.Sound.createAsync({
@@ -1083,8 +1040,6 @@ export default function App() {
   const [qualityResults, setQualityResults] = useState<Record<string, VideoQualityResult>>({});
   const [qualityCheckingActionId, setQualityCheckingActionId] = useState<string | null>(null);
   const [qualityCheckingActions, setQualityCheckingActions] = useState<Record<string, boolean>>({});
-  const [frameCheckResults, setFrameCheckResults] = useState<Record<string, FrameCheckResult>>({});
-  const [frameCheckingActionId, setFrameCheckingActionId] = useState<string | null>(null);
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
   const [isCameraOpen, setCameraOpen] = useState(false);
   const [isRecording, setRecording] = useState(false);
@@ -1412,50 +1367,11 @@ export default function App() {
     }
   };
 
-  const runFrameCheck = async (action: CollectionAction) => {
-    setFrameCheckingActionId(action.id);
-    setFrameCheckResults((prev) => {
-      const next = { ...prev };
-      delete next[action.id];
-      return next;
-    });
-    try {
-      const picture = await cameraRef.current?.takePictureAsync({
-        quality: 0.35,
-        skipProcessing: true,
-      });
-      if (!picture?.uri) {
-        throw new Error('Camera preview snapshot was not available.');
-      }
-      const result = await requestFrameCheck(action.id, picture.uri, patientProfile.affectedSide);
-      setFrameCheckResults((prev) => ({ ...prev, [action.id]: result }));
-      return result;
-    } catch (error) {
-      reportInternalError('Pre-recording frame check failed', error);
-      const fallback: FrameCheckResult = {
-        actionId: action.id,
-        passed: true,
-        status: 'ready',
-        score: 60,
-        patientMessage: '可以开始.',
-        tips: [],
-      };
-      setFrameCheckResults((prev) => ({ ...prev, [action.id]: fallback }));
-      return fallback;
-    } finally {
-      setFrameCheckingActionId(null);
-    }
-  };
-
   const startRecording = async () => {
     if (!cameraRef.current || isRecording) return;
     const action = currentAction;
     const actionIndex = currentActionIndex;
     try {
-      const frameResult = frameCheckResults[action.id];
-      if (frameResult && !frameResult.passed) {
-        return;
-      }
       setRecording(true);
       const video = await cameraRef.current.recordAsync();
       if (video?.uri) {
@@ -1491,22 +1407,7 @@ export default function App() {
       delete next[currentAction.id];
       return next;
     });
-    setFrameCheckResults((prev) => {
-      const next = { ...prev };
-      delete next[currentAction.id];
-      return next;
-    });
   };
-
-  useEffect(() => {
-    if (screen !== 'collect' || !isCameraOpen || isRecording || qualityCheckingActions[currentAction.id] || frameCheckResults[currentAction.id] || frameCheckingActionId === currentAction.id) {
-      return undefined;
-    }
-    const timer = setTimeout(() => {
-      runFrameCheck(currentAction);
-    }, 500);
-    return () => clearTimeout(timer);
-  }, [screen, isCameraOpen, isRecording, currentAction.id, frameCheckResults, frameCheckingActionId, qualityCheckingActions]);
 
   const generatePlan = async () => {
     if (!canGeneratePlan) {
@@ -1684,8 +1585,6 @@ export default function App() {
             qualityResults={qualityResults}
             qualityCheckingActionId={qualityCheckingActionId}
             qualityCheckingActions={qualityCheckingActions}
-            frameCheckResults={frameCheckResults}
-            frameCheckingActionId={frameCheckingActionId}
             isCameraOpen={isCameraOpen}
             isRecording={isRecording}
             cameraRef={cameraRef}
@@ -1695,7 +1594,6 @@ export default function App() {
             onStartRecording={startRecording}
             onStopRecording={stopRecording}
             onRetryAction={retryAction}
-            onRecheckPosition={() => runFrameCheck(currentAction)}
             onSelectAction={setCurrentActionIndex}
             onGeneratePlan={generatePlan}
             onOpenGuide={(action) => {
@@ -2538,8 +2436,6 @@ function CollectScreen({
   qualityResults,
   qualityCheckingActionId,
   qualityCheckingActions,
-  frameCheckResults,
-  frameCheckingActionId,
   isCameraOpen,
   isRecording,
   cameraRef,
@@ -2549,7 +2445,6 @@ function CollectScreen({
   onStartRecording,
   onStopRecording,
   onRetryAction,
-  onRecheckPosition,
   onSelectAction,
   onGeneratePlan,
   onOpenGuide,
@@ -2562,8 +2457,6 @@ function CollectScreen({
   qualityResults: Record<string, VideoQualityResult>;
   qualityCheckingActionId: string | null;
   qualityCheckingActions: Record<string, boolean>;
-  frameCheckResults: Record<string, FrameCheckResult>;
-  frameCheckingActionId: string | null;
   isCameraOpen: boolean;
   isRecording: boolean;
   cameraRef: React.MutableRefObject<CameraView | null>;
@@ -2573,7 +2466,6 @@ function CollectScreen({
   onStartRecording: () => void;
   onStopRecording: () => void;
   onRetryAction: () => void;
-  onRecheckPosition: () => void;
   onSelectAction: (index: number) => void;
   onGeneratePlan: () => void;
   onOpenGuide: (action: CollectionAction) => void;
@@ -2581,30 +2473,19 @@ function CollectScreen({
   const currentQuality = qualityResults[currentAction.id];
   const isCheckingQuality = Boolean(qualityCheckingActions[currentAction.id] || qualityCheckingActionId === currentAction.id);
   const qualityPassedCurrent = qualityPassed[currentAction.id];
-  const currentFrameCheck = frameCheckResults[currentAction.id];
-  const isCheckingFrame = frameCheckingActionId === currentAction.id;
-  const frameReadyCurrent = currentFrameCheck?.passed;
-  const showCameraOverlay = Boolean(isCheckingFrame || isRecording || frameReadyCurrent || (currentFrameCheck && !currentFrameCheck.passed) || isCheckingQuality || qualityPassedCurrent || currentQuality);
-  const overlayPassed = Boolean(qualityPassedCurrent || (frameReadyCurrent && !isCheckingQuality && !currentQuality));
-  const overlayFailed = Boolean((currentFrameCheck && !currentFrameCheck.passed) || (currentQuality && !qualityPassedCurrent && !isCheckingQuality));
-  const overlayText = isCheckingFrame
-    ? '正在检查位置...'
-    : isRecording
-      ? '录制中...'
-      : isCheckingQuality
-        ? '正在检查视频质量...'
-        : qualityPassedCurrent
-          ? '视频已通过'
-          : frameReadyCurrent
-            ? '可以开始'
-            : currentFrameCheck && !currentFrameCheck.passed
-              ? '请调整位置'
-              : '请重录';
-  const overlayHint = currentFrameCheck && !currentFrameCheck.passed
-    ? translateVideoTip(currentFrameCheck.tips[0])
-    : currentQuality && !qualityPassedCurrent
-      ? translateVideoTip(currentQuality.tips[0] ?? currentQuality.patientMessage)
-      : undefined;
+  const showCameraOverlay = Boolean(isRecording || isCheckingQuality || qualityPassedCurrent || currentQuality);
+  const overlayPassed = Boolean(qualityPassedCurrent);
+  const overlayFailed = Boolean(currentQuality && !qualityPassedCurrent && !isCheckingQuality);
+  const overlayText = isRecording
+    ? '录制中...'
+    : isCheckingQuality
+      ? '正在检查视频质量...'
+      : qualityPassedCurrent
+        ? '视频已通过'
+        : '请重录';
+  const overlayHint = currentQuality && !qualityPassedCurrent
+    ? translateVideoTip(currentQuality.tips[0] ?? currentQuality.patientMessage)
+    : undefined;
 
   return (
     <View style={styles.screen}>
@@ -2672,9 +2553,9 @@ function CollectScreen({
           </View>
           {showCameraOverlay && (
             <View style={[styles.cameraQualityOverlay, overlayPassed && styles.cameraQualityOverlayPass, overlayFailed && styles.cameraQualityOverlayFail]}>
-              {isCheckingFrame || isCheckingQuality ? <ActivityIndicator color="#ffffff" /> : <Ionicons name={overlayPassed ? 'checkmark-circle' : overlayFailed ? 'alert-circle' : 'radio-button-on'} size={38} color="#ffffff" />}
+              {isCheckingQuality ? <ActivityIndicator color="#ffffff" /> : <Ionicons name={overlayPassed ? 'checkmark-circle' : overlayFailed ? 'alert-circle' : 'radio-button-on'} size={38} color="#ffffff" />}
               <Text style={styles.cameraQualityOverlayText}>{overlayText}</Text>
-              {overlayHint && !isCheckingFrame && !isCheckingQuality && (
+              {overlayHint && !isCheckingQuality && (
                 <Text style={styles.cameraQualityOverlayHint}>{overlayHint}</Text>
               )}
             </View>
@@ -2683,9 +2564,8 @@ function CollectScreen({
 
         <View style={styles.controls}>
           {!isCameraOpen && <PrimaryButton label="打开摄像头" icon="camera" onPress={onOpenCamera} />}
-          {isCameraOpen && !isRecording && !isCheckingQuality && !isCheckingFrame && <PrimaryButton label="开始录制" icon="radio-button-on" onPress={onStartRecording} />}
+          {isCameraOpen && !isRecording && !isCheckingQuality && <PrimaryButton label="开始录制" icon="radio-button-on" onPress={onStartRecording} />}
           {isRecording && <DangerButton label="停止并保存" icon="stop-circle" onPress={onStopRecording} />}
-          {currentFrameCheck && !currentFrameCheck.passed && !isCheckingFrame && <SecondaryButton label="重新检查位置" icon="scan" onPress={onRecheckPosition} />}
           <SecondaryButton label="重录" icon="refresh" onPress={onRetryAction} />
         </View>
 
