@@ -195,6 +195,11 @@ type VideoQualityResult = {
   tips: string[];
 };
 
+type ChatMessage = {
+  role: 'assistant' | 'user';
+  text: string;
+};
+
 type MatchedPerson = {
   name: string;
   title: string;
@@ -708,6 +713,15 @@ async function saveFeedbackSuggestion(
   });
 }
 
+async function requestStrokeAssistant(question: string, patientContext: Record<string, unknown>): Promise<string> {
+  const response = await postJson<{ answer: string; source: string }>('/api/rehab/stroke-assistant', {
+    question,
+    language: 'en',
+    patientContext,
+  });
+  return response.answer;
+}
+
 async function requestAvailableTherapists(): Promise<Array<{ userId: string; identifier: string; profile: TherapistProfile }>> {
   const response = await fetch(`${apiBaseUrl}/api/rehab/therapists`);
   if (!response.ok) {
@@ -964,6 +978,7 @@ export default function App() {
   const [qualityCheckingActions, setQualityCheckingActions] = useState<Record<string, boolean>>({});
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
   const [isCameraOpen, setCameraOpen] = useState(false);
+  const [cameraFacing, setCameraFacing] = useState<'front' | 'back'>('front');
   const [isRecording, setRecording] = useState(false);
   const [selectedDay, setSelectedDay] = useState(1);
   const [selectedExercise, setSelectedExercise] = useState<Exercise>(exercises[0]);
@@ -971,6 +986,7 @@ export default function App() {
   const [showDemo, setShowDemo] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<UpperLimbAnalysisResult | null>(null);
   const [analysisReady, setAnalysisReady] = useState(false);
+  const [matchBackScreen, setMatchBackScreen] = useState<Screen>('patientCare');
   const cameraRef = useRef<CameraView | null>(null);
 
   const currentAction = activeUpperActions[currentActionIndex];
@@ -1393,22 +1409,54 @@ export default function App() {
     }
   };
 
-  const startTherapistMatch = async () => {
-    setScreen('match');
+  const startTherapistMatch = async (source: 'care' | 'plan' = 'care') => {
+    const backScreen: Screen = source === 'plan' ? 'plan' : 'patientCare';
+    const proceed = () => {
+      setMatchBackScreen(backScreen);
+      setScreen('match');
+    };
+    if (source === 'care' && !analysisResult) {
+      Alert.alert(
+        'Proceed without a training plan?',
+        'A training plan helps the therapist understand your functional priorities. You can still request a match now.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Proceed', onPress: proceed },
+        ],
+      );
+      return;
+    }
+    proceed();
+  };
+
+  const toggleCameraFacing = () => {
+    setCameraFacing((value) => (value === 'front' ? 'back' : 'front'));
+  };
+
+  const goBackFromMatchFlow = () => {
+    setScreen(matchBackScreen);
+  };
+
+  const startTherapistMatchFromPlan = async () => {
+    startTherapistMatch('plan');
+  };
+
+  const startTherapistMatchFromCare = async () => {
+    startTherapistMatch('care');
   };
 
   const completeTherapistSearch = async () => {
     try {
       const therapists = await requestAvailableTherapists();
       if (!therapists.length) {
-        setScreen('plan');
+        setScreen(matchBackScreen);
         Alert.alert('No therapist found');
         return;
       }
       setTherapistProfile(therapists[0].profile);
       setScreen('profile');
     } catch (error) {
-      setScreen('plan');
+      setScreen(matchBackScreen);
       showFriendlyError(
         'Therapist Search Failed',
         'We could not check therapist availability right now. Please try again.',
@@ -1458,7 +1506,6 @@ export default function App() {
             analysisResult={analysisResult}
             onOpenStrokeEducation={() => setScreen('strokeEducation')}
             onOpenPeerSupport={() => setScreen('peerSupport')}
-            onOpenFeedback={() => setScreen('feedback')}
           />
         )}
         {screen === 'strokeEducation' && <EducationDetailScreen kind="basics" onBack={() => setScreen('home')} />}
@@ -1467,7 +1514,7 @@ export default function App() {
           <FeedbackScreen
             patientUserId={accountSession?.role === 'patient' ? accountSession.userId : null}
             analysisResult={analysisResult}
-            onBack={() => setScreen('home')}
+            onBack={() => setScreen('patientMe')}
           />
         )}
         {screen === 'assessment' && <AssessmentScreen onOpenPackage={openPackage} />}
@@ -1482,8 +1529,11 @@ export default function App() {
           <PatientCareScreen
             person={matchedTherapist}
             matchId={matchId}
-            onStartMatch={startTherapistMatch}
-            onOpenProfile={() => setScreen('profile')}
+            onStartMatch={startTherapistMatchFromCare}
+            onOpenProfile={() => {
+              setMatchBackScreen('patientCare');
+              setScreen('profile');
+            }}
           />
         )}
         {screen === 'patientMe' && (
@@ -1494,6 +1544,7 @@ export default function App() {
               setPatientOnboardingBackScreen('patientMe');
               setScreen('patientOnboarding');
             }}
+            onOpenFeedback={() => setScreen('feedback')}
             onLogout={logoutPatient}
           />
         )}
@@ -1510,9 +1561,11 @@ export default function App() {
             isCameraOpen={isCameraOpen}
             isRecording={isRecording}
             cameraRef={cameraRef}
+            cameraFacing={cameraFacing}
             canGeneratePlan={canGeneratePlan}
             onBack={() => setScreen('home')}
             onOpenCamera={openCamera}
+            onToggleCamera={toggleCameraFacing}
             onStartRecording={startRecording}
             onStopRecording={stopRecording}
             onRetryAction={retryAction}
@@ -1574,7 +1627,7 @@ export default function App() {
             dayExercises={dayExercises}
             onSelectDay={setSelectedDay}
             onBack={() => setScreen('problems')}
-            onMatch={startTherapistMatch}
+            onMatch={startTherapistMatchFromPlan}
             onDemo={(exercise) => {
               setSelectedExercise(exercise);
               setScreen('demo');
@@ -1589,8 +1642,8 @@ export default function App() {
             onTogglePlay={() => setShowDemo((value) => !value)}
           />
         )}
-        {screen === 'match' && <MatchScreen onBack={() => setScreen('plan')} onMatched={completeTherapistSearch} />}
-        {screen === 'profile' && <ProfileScreen person={matchedTherapist} onBack={() => setScreen('plan')} onConfirm={confirmTherapistMatch} />}
+        {screen === 'match' && <MatchScreen onBack={goBackFromMatchFlow} onMatched={completeTherapistSearch} />}
+        {screen === 'profile' && <ProfileScreen person={matchedTherapist} onBack={goBackFromMatchFlow} onConfirm={confirmTherapistMatch} />}
         {screen === 'waiting' && <WaitingScreen person={matchedTherapist} matchId={matchId} onBack={() => setScreen('profile')} />}
         {showPatientTabs && <PatientBottomTabs activeTab={activePatientTab} onSelect={goToPatientTab} />}
       </SafeAreaView>
@@ -1959,13 +2012,11 @@ function HomeScreen({
   analysisResult,
   onOpenStrokeEducation,
   onOpenPeerSupport,
-  onOpenFeedback,
 }: {
   patientProfile: PatientProfile;
   analysisResult: UpperLimbAnalysisResult | null;
   onOpenStrokeEducation: () => void;
   onOpenPeerSupport: () => void;
-  onOpenFeedback: () => void;
 }) {
   const topProblem = analysisResult?.functionalProblems[0]?.title ?? 'No functional problem generated yet';
   return (
@@ -2003,14 +2054,6 @@ function HomeScreen({
           <View style={styles.educationCopy}>
             <Text style={styles.educationTitle}>Family and peer support</Text>
             <Text style={styles.educationText}>A moderated stroke community is planned so families can share routines without unsafe medical advice.</Text>
-          </View>
-          <Ionicons name="chevron-forward" size={20} color="#7f91a7" />
-        </Pressable>
-        <Pressable style={tapStyle(styles.educationCard)} onPress={onOpenFeedback}>
-          <Ionicons name="create" size={23} color="#8b5cf6" />
-          <View style={styles.educationCopy}>
-            <Text style={styles.educationTitle}>Share feedback</Text>
-            <Text style={styles.educationText}>Tell us what feels confusing, what should improve, or what your family needs next.</Text>
           </View>
           <Ionicons name="chevron-forward" size={20} color="#7f91a7" />
         </Pressable>
@@ -2103,7 +2146,90 @@ function EducationDetailScreen({ kind, onBack }: { kind: 'basics' | 'support'; o
           <Ionicons name="information-circle" size={20} color="#0b756d" />
           <Text style={styles.educationSafetyText}>This app supports rehabilitation planning but does not replace your therapist, doctor, or emergency medical care.</Text>
         </View>
+        {isBasics && <StrokeAssistantCard />}
       </ScrollView>
+    </View>
+  );
+}
+
+function buildStrokeAssistantReply(question: string): string {
+  const q = question.toLowerCase();
+  if (q.includes('pain')) {
+    return 'If you feel sharp pain, new shoulder pain, chest pain, dizziness, or sudden worsening, stop the exercise and contact a clinician. Mild effort is expected, but pain is not the goal.';
+  }
+  if (q.includes('tired') || q.includes('fatigue')) {
+    return 'Fatigue is common after stroke. Shorter, cleaner practice is usually better than pushing through messy movement. Rest, then continue only if the movement stays controlled.';
+  }
+  if (q.includes('hand') || q.includes('finger') || q.includes('grip')) {
+    return 'For hand recovery, practice slow opening, gentle grasp-release, and meaningful tasks with light objects. Avoid forcing the fingers open if there is pain or strong stiffness.';
+  }
+  if (q.includes('how often') || q.includes('daily') || q.includes('exercise')) {
+    return 'Most home programs use frequent, task-specific practice. A safe starting point is short daily blocks with rest, guided by your therapist and adjusted for fatigue, pain, and movement quality.';
+  }
+  return 'I can help explain stroke recovery basics, home practice, fatigue, pain warning signs, and how to use your affected arm safely. For diagnosis, medication, sudden symptoms, or worsening function, please contact your clinician.';
+}
+
+function StrokeAssistantCard() {
+  const [messages, setMessages] = useState<ChatMessage[]>([
+    {
+      role: 'assistant',
+      text: 'Ask me about stroke recovery basics, safe home practice, fatigue, pain warning signs, or how to use the affected arm safely.',
+    },
+  ]);
+  const [question, setQuestion] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  const sendQuestion = async () => {
+    const trimmed = question.trim();
+    if (!trimmed || busy) return;
+    setMessages((prev) => [...prev, { role: 'user', text: trimmed }]);
+    setQuestion('');
+    setBusy(true);
+    try {
+      const answer = await requestStrokeAssistant(trimmed, { screen: 'strokeEducation' });
+      setMessages((prev) => [...prev, { role: 'assistant', text: answer }]);
+    } catch {
+      setMessages((prev) => [...prev, { role: 'assistant', text: buildStrokeAssistantReply(trimmed) }]);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <View style={styles.assistantCard}>
+      <View style={styles.assistantHeader}>
+        <View style={styles.assistantIcon}>
+          <Ionicons name="sparkles" size={22} color="#ffffff" />
+        </View>
+        <View style={styles.assistantHeaderCopy}>
+          <Text style={styles.assistantTitle}>AI Stroke Assistant</Text>
+          <Text style={styles.assistantSubtitle}>General education, not emergency medical care</Text>
+        </View>
+      </View>
+      <View style={styles.assistantMessages}>
+        {messages.slice(-4).map((message, index) => (
+          <View key={`${message.role}-${index}-${message.text}`} style={[styles.assistantBubble, message.role === 'user' && styles.assistantBubbleUser]}>
+            <Text style={[styles.assistantBubbleText, message.role === 'user' && styles.assistantBubbleTextUser]}>{message.text}</Text>
+          </View>
+        ))}
+        {busy && (
+          <View style={styles.assistantBubble}>
+            <ActivityIndicator color="#1267e6" />
+          </View>
+        )}
+      </View>
+      <View style={styles.assistantInputRow}>
+        <TextInput
+          value={question}
+          onChangeText={setQuestion}
+          placeholder="Ask a recovery question..."
+          placeholderTextColor="#7a8fa8"
+          style={styles.assistantInput}
+        />
+        <Pressable style={tapStyle(styles.assistantSendButton)} onPress={sendQuestion}>
+          {busy ? <ActivityIndicator color="#ffffff" /> : <Ionicons name="send" size={18} color="#ffffff" />}
+        </Pressable>
+      </View>
     </View>
   );
 }
@@ -2254,15 +2380,9 @@ function PatientTrainingScreen({
           <Text style={styles.tabHeroText}>
             {hasPlan
               ? 'Your weekly training plan is ready. Open it to see today\'s exercises and demonstrations.'
-              : 'Training appears after movement collection and analysis, so exercises match your functional priorities.'}
+              : 'Start an assessment to build exercises around your functional priorities.'}
           </Text>
           <PrimaryLightButton label={hasPlan ? 'Open Weekly Plan' : 'Start Assessment First'} icon={hasPlan ? 'calendar' : 'videocam'} onPress={hasPlan ? onOpenPlan : onStartAssessment} />
-        </View>
-        <View style={styles.formCard}>
-          <Text style={styles.formSectionTitle}>What will appear here</Text>
-          <InfoRow label="Daily exercises" value="Dose, sets, reps" />
-          <InfoRow label="Demonstrations" value="Video guidance" />
-          <InfoRow label="Feedback" value="Pain, fatigue, completion" />
         </View>
       </ScrollView>
     </View>
@@ -2289,15 +2409,9 @@ function PatientCareScreen({
           </View>
           <Text style={styles.tabHeroTitle}>Care Team</Text>
           <Text style={styles.tabHeroText}>
-            {matchId ? 'Your therapist request has been sent. You can review the matched profile while waiting for a response.' : 'Match a therapist and home-support network after your training plan is generated.'}
+            {matchId ? 'Your therapist request has been sent. You can review the matched profile while waiting for a response.' : 'Request a therapist match when you are ready for guided support.'}
           </Text>
           <PrimaryLightButton label={matchId ? 'View Matched Therapist' : 'Match AXONAI Therapist'} icon={matchId ? 'person-circle' : 'search'} onPress={matchId ? onOpenProfile : onStartMatch} />
-        </View>
-        <View style={styles.formCard}>
-          <Text style={styles.formSectionTitle}>Suggested Match</Text>
-          <InfoRow label="Therapist" value={person.name} />
-          <InfoRow label="Specialty" value={person.tags[0]} />
-          <InfoRow label="Fit" value={person.matchScore} />
         </View>
       </ScrollView>
     </View>
@@ -2308,11 +2422,13 @@ function PatientMeScreen({
   profile,
   account,
   onEditProfile,
+  onOpenFeedback,
   onLogout,
 }: {
   profile: PatientProfile;
   account: AccountSession | null;
   onEditProfile: () => void;
+  onOpenFeedback: () => void;
   onLogout: () => void;
 }) {
   return (
@@ -2338,6 +2454,7 @@ function PatientMeScreen({
         </View>
 
         <PrimaryLightButton label="Edit Patient Profile" icon="create" onPress={onEditProfile} />
+        <PrimaryLightButton label="Share Feedback" icon="chatbox-ellipses" onPress={onOpenFeedback} />
         <Pressable style={tapStyle(styles.logoutButton)} onPress={onLogout}>
           <Ionicons name="log-out" size={18} color="#c62828" />
           <Text style={styles.logoutButtonText}>Log out</Text>
@@ -2359,9 +2476,11 @@ function CollectScreen({
   isCameraOpen,
   isRecording,
   cameraRef,
+  cameraFacing,
   canGeneratePlan,
   onBack,
   onOpenCamera,
+  onToggleCamera,
   onStartRecording,
   onStopRecording,
   onRetryAction,
@@ -2380,9 +2499,11 @@ function CollectScreen({
   isCameraOpen: boolean;
   isRecording: boolean;
   cameraRef: React.MutableRefObject<CameraView | null>;
+  cameraFacing: 'front' | 'back';
   canGeneratePlan: boolean;
   onBack: () => void;
   onOpenCamera: () => void;
+  onToggleCamera: () => void;
   onStartRecording: () => void;
   onStopRecording: () => void;
   onRetryAction: () => void;
@@ -2459,7 +2580,7 @@ function CollectScreen({
 
         <View style={styles.cameraFrame}>
           {isCameraOpen ? (
-            <CameraView ref={cameraRef} style={styles.camera} facing="front" mode="video" />
+            <CameraView ref={cameraRef} style={styles.camera} facing={cameraFacing} mode="video" />
           ) : (
             <View style={styles.cameraEmpty}>
               <Ionicons name="videocam" size={48} color="#8197b4" />
@@ -2469,8 +2590,14 @@ function CollectScreen({
           )}
           <View style={styles.cameraBadge}>
             <Ionicons name="scan" size={14} color="#ffffff" />
-            <Text style={styles.cameraBadgeText}>{currentAction.cameraView}, about 1.5 m away</Text>
+            <Text style={styles.cameraBadgeText}>{currentAction.cameraView}, {cameraFacing === 'front' ? 'front camera' : 'back camera'}</Text>
           </View>
+          {isCameraOpen && !isRecording && (
+            <Pressable style={tapStyle(styles.cameraSwitchButton)} onPress={onToggleCamera}>
+              <Ionicons name="camera-reverse" size={18} color="#ffffff" />
+              <Text style={styles.cameraSwitchText}>{cameraFacing === 'front' ? 'Front' : 'Back'}</Text>
+            </Pressable>
+          )}
           {showCameraOverlay && (
             <View style={[styles.cameraQualityOverlay, overlayPassed && styles.cameraQualityOverlayPass, overlayFailed && styles.cameraQualityOverlayFail]}>
               {isCheckingQuality ? <ActivityIndicator color="#ffffff" /> : <Ionicons name={overlayPassed ? 'checkmark-circle' : overlayFailed ? 'alert-circle' : 'radio-button-on'} size={38} color="#ffffff" />}
@@ -3425,6 +3552,20 @@ const styles = StyleSheet.create({
   lessonBody: { color: '#60738d', fontSize: 14, lineHeight: 21, marginTop: 5 },
   educationSafetyNote: { alignItems: 'flex-start', backgroundColor: '#e8fbf8', borderColor: '#bdeee7', borderRadius: 18, borderWidth: 1, flexDirection: 'row', gap: 10, marginTop: 4, padding: 14 },
   educationSafetyText: { color: '#103c39', flex: 1, fontSize: 13, fontWeight: '800', lineHeight: 19 },
+  assistantCard: { backgroundColor: '#ffffff', borderColor: '#d9e3f0', borderRadius: 22, borderWidth: 1, gap: 13, marginTop: 14, padding: 16, shadowColor: '#143664', shadowOpacity: 0.08, shadowRadius: 12 },
+  assistantHeader: { alignItems: 'center', flexDirection: 'row', gap: 12 },
+  assistantIcon: { alignItems: 'center', backgroundColor: '#1267e6', borderRadius: 18, height: 44, justifyContent: 'center', width: 44 },
+  assistantHeaderCopy: { flex: 1 },
+  assistantTitle: { color: '#102033', fontSize: 18, fontWeight: '900' },
+  assistantSubtitle: { color: '#60738d', fontSize: 12, fontWeight: '800', marginTop: 3 },
+  assistantMessages: { gap: 8 },
+  assistantBubble: { alignSelf: 'flex-start', backgroundColor: '#eef3f9', borderRadius: 16, maxWidth: '92%', paddingHorizontal: 12, paddingVertical: 10 },
+  assistantBubbleUser: { alignSelf: 'flex-end', backgroundColor: '#1267e6' },
+  assistantBubbleText: { color: '#26384d', fontSize: 13, fontWeight: '700', lineHeight: 19 },
+  assistantBubbleTextUser: { color: '#ffffff' },
+  assistantInputRow: { alignItems: 'center', flexDirection: 'row', gap: 9 },
+  assistantInput: { backgroundColor: '#f3f7fc', borderColor: '#d9e3f0', borderRadius: 16, borderWidth: 1, color: '#102033', flex: 1, fontSize: 14, minHeight: 46, paddingHorizontal: 12 },
+  assistantSendButton: { alignItems: 'center', backgroundColor: '#1267e6', borderRadius: 16, height: 46, justifyContent: 'center', width: 48 },
   feedbackHeroCard: { backgroundColor: '#ffffff', borderColor: '#e1e8f2', borderRadius: 24, borderWidth: 1, marginBottom: 14, padding: 18, shadowColor: '#143664', shadowOpacity: 0.08, shadowRadius: 12 },
   feedbackHeroIcon: { alignItems: 'center', backgroundColor: '#8b5cf6', borderRadius: 22, height: 56, justifyContent: 'center', marginBottom: 14, width: 56 },
   feedbackHeroTitle: { color: '#102033', fontSize: 24, fontWeight: '900' },
@@ -3539,6 +3680,8 @@ const styles = StyleSheet.create({
   cameraEmptyText: { color: '#aabbd0', fontSize: 14, lineHeight: 21, marginTop: 8, textAlign: 'center' },
   cameraBadge: { alignItems: 'center', bottom: 12, flexDirection: 'row', gap: 6, left: 13, position: 'absolute' },
   cameraBadgeText: { color: '#ffffff', fontSize: 12, fontWeight: '800' },
+  cameraSwitchButton: { alignItems: 'center', backgroundColor: 'rgba(7,20,38,0.78)', borderColor: 'rgba(255,255,255,0.22)', borderRadius: 16, borderWidth: 1, flexDirection: 'row', gap: 6, paddingHorizontal: 11, paddingVertical: 9, position: 'absolute', right: 12, top: 12 },
+  cameraSwitchText: { color: '#ffffff', fontSize: 12, fontWeight: '900' },
   cameraQualityOverlay: { alignItems: 'center', alignSelf: 'center', backgroundColor: 'rgba(18,103,230,0.9)', borderRadius: 22, gap: 8, justifyContent: 'center', minWidth: 210, paddingHorizontal: 18, paddingVertical: 16, position: 'absolute', top: '38%' },
   cameraQualityOverlayPass: { backgroundColor: 'rgba(24,195,126,0.92)' },
   cameraQualityOverlayFail: { backgroundColor: 'rgba(255,159,10,0.92)' },

@@ -3,6 +3,10 @@
 
 from __future__ import annotations
 
+import json
+import os
+import urllib.error
+import urllib.request
 from typing import Any, Literal
 
 from fastapi import APIRouter, HTTPException
@@ -17,6 +21,7 @@ from axonai_rehab_db import (
     login_user,
     save_analysis,
     save_exercise_plan,
+    save_feedback,
     save_match,
     save_package_analysis,
     save_profile,
@@ -65,6 +70,21 @@ class ExercisePlanPayload(BaseModel):
     status: str = "pending_therapist_review"
 
 
+class FeedbackPayload(BaseModel):
+    patientUserId: str | None = None
+    authorRole: str = "patient"
+    category: str = "suggestion"
+    message: str
+    contactPermission: bool = False
+    appContext: dict[str, Any] = Field(default_factory=dict)
+
+
+class StrokeAssistantPayload(BaseModel):
+    question: str
+    language: Literal["en", "zh"] = "en"
+    patientContext: dict[str, Any] = Field(default_factory=dict)
+
+
 router = APIRouter(prefix="/api/rehab", tags=["rehab-persistence"])
 
 
@@ -75,6 +95,78 @@ def health() -> dict[str, Any]:
         return {"status": "ok", "database": database_status()}
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Database health check failed: {exc}") from exc
+
+
+def _stroke_assistant_fallback(question: str, language: str) -> str:
+    q = question.lower()
+    if language == "zh":
+        if "痛" in question or "pain" in q:
+            return "如果出现尖锐疼痛、新发肩痛、胸痛、头晕或功能突然变差，请立即停止训练并联系医生或康复师。"
+        if "累" in question or "疲劳" in question or "fatigue" in q:
+            return "卒中后疲劳很常见。建议优先保证动作质量，短时间、多休息，比硬撑到动作变形更安全。"
+        return "我可以解释卒中康复基础、居家训练、疲劳、疼痛警示和如何安全使用患侧上肢。涉及诊断、用药、突然加重或急症时，请联系医生或急救服务。"
+    if "pain" in q:
+        return "If you feel sharp pain, new shoulder pain, chest pain, dizziness, or sudden worsening, stop the exercise and contact a clinician."
+    if "tired" in q or "fatigue" in q:
+        return "Fatigue is common after stroke. Shorter, cleaner practice is usually safer than pushing through messy movement."
+    return "I can explain stroke recovery basics, safe home practice, fatigue, pain warning signs, and affected-arm use. For diagnosis, medication, sudden symptoms, or worsening function, please contact your clinician."
+
+
+@router.post("/stroke-assistant")
+def stroke_assistant(payload: StrokeAssistantPayload) -> dict[str, Any]:
+    question = payload.question.strip()
+    if not question:
+        raise HTTPException(status_code=400, detail="Question is required.")
+
+    api_key = os.getenv("OPENAI_API_KEY")
+    if not api_key:
+        return {
+            "answer": _stroke_assistant_fallback(question, payload.language),
+            "source": "fallback",
+        }
+
+    system_prompt = (
+        "You are AxonAI's stroke recovery education assistant. Provide concise, safe, patient-facing "
+        "education about stroke rehabilitation, fatigue, pain warning signs, home exercise safety, and "
+        "affected-limb use. Do not diagnose, prescribe medication, or replace a clinician. Tell the user "
+        "to seek urgent medical care for sudden worsening, chest pain, severe dizziness, or emergency symptoms. "
+        "Answer in Chinese when language is zh, otherwise answer in English."
+    )
+    body = {
+        "model": os.getenv("OPENAI_STROKE_ASSISTANT_MODEL", "gpt-4.1-mini"),
+        "input": [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": question},
+        ],
+        "max_output_tokens": 220,
+    }
+    request = urllib.request.Request(
+        "https://api.openai.com/v1/responses",
+        data=json.dumps(body).encode("utf-8"),
+        headers={
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+        },
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=12) as response:
+            data = json.loads(response.read().decode("utf-8"))
+        text = data.get("output_text")
+        if not text:
+            chunks: list[str] = []
+            for item in data.get("output", []):
+                for content in item.get("content", []):
+                    if content.get("type") == "output_text":
+                        chunks.append(content.get("text", ""))
+            text = "\n".join(chunk for chunk in chunks if chunk).strip()
+        return {"answer": text or _stroke_assistant_fallback(question, payload.language), "source": "llm"}
+    except (urllib.error.URLError, TimeoutError, ValueError, KeyError) as exc:
+        return {
+            "answer": _stroke_assistant_fallback(question, payload.language),
+            "source": "fallback",
+            "detail": str(exc),
+        }
 
 
 @router.post("/accounts")
@@ -136,3 +228,18 @@ def create_exercise_plan(payload: ExercisePlanPayload) -> dict[str, Any]:
 @router.post("/matches")
 def create_match(payload: MatchPayload) -> dict[str, Any]:
     return save_match(payload.patientUserId, payload.therapistUserId, payload.analysisId, payload.matchedPerson, payload.status)
+
+
+@router.post("/feedback")
+def create_feedback(payload: FeedbackPayload) -> dict[str, Any]:
+    try:
+        return save_feedback(
+            payload.patientUserId,
+            payload.authorRole,
+            payload.category,
+            payload.message,
+            payload.contactPermission,
+            payload.appContext,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc

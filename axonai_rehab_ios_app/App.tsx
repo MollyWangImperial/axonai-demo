@@ -195,6 +195,11 @@ type VideoQualityResult = {
   tips: string[];
 };
 
+type ChatMessage = {
+  role: 'assistant' | 'user';
+  text: string;
+};
+
 type MatchedPerson = {
   name: string;
   title: string;
@@ -709,6 +714,15 @@ async function saveFeedbackSuggestion(
   });
 }
 
+async function requestStrokeAssistant(question: string, patientContext: Record<string, unknown>): Promise<string> {
+  const response = await postJson<{ answer: string; source: string }>('/api/rehab/stroke-assistant', {
+    question,
+    language: 'zh',
+    patientContext,
+  });
+  return response.answer;
+}
+
 async function requestAvailableTherapists(): Promise<Array<{ userId: string; identifier: string; profile: TherapistProfile }>> {
   const response = await fetch(`${apiBaseUrl}/api/rehab/therapists`);
   if (!response.ok) {
@@ -1042,6 +1056,7 @@ export default function App() {
   const [qualityCheckingActions, setQualityCheckingActions] = useState<Record<string, boolean>>({});
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
   const [isCameraOpen, setCameraOpen] = useState(false);
+  const [cameraFacing, setCameraFacing] = useState<'front' | 'back'>('front');
   const [isRecording, setRecording] = useState(false);
   const [selectedDay, setSelectedDay] = useState(1);
   const [selectedExercise, setSelectedExercise] = useState<Exercise>(exercises[0]);
@@ -1049,6 +1064,7 @@ export default function App() {
   const [showDemo, setShowDemo] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<UpperLimbAnalysisResult | null>(null);
   const [analysisReady, setAnalysisReady] = useState(false);
+  const [matchBackScreen, setMatchBackScreen] = useState<Screen>('patientCare');
   const cameraRef = useRef<CameraView | null>(null);
 
   const currentAction = activeUpperActions[currentActionIndex];
@@ -1471,26 +1487,58 @@ export default function App() {
     }
   };
 
-  const startTherapistMatch = async () => {
-    setScreen('match');
+  const startTherapistMatch = async (source: 'care' | 'plan' = 'care') => {
+    const backScreen: Screen = source === 'plan' ? 'plan' : 'patientCare';
+    const proceed = () => {
+      setMatchBackScreen(backScreen);
+      setScreen('match');
+    };
+    if (source === 'care' && !analysisResult) {
+      Alert.alert(
+        '没有训练计划也继续匹配吗？',
+        '训练计划可以帮助康复师了解你的功能问题。你也可以先继续匹配康复师。',
+        [
+          { text: '取消', style: 'cancel' },
+          { text: '继续匹配', onPress: proceed },
+        ],
+      );
+      return;
+    }
+    proceed();
+  };
+
+  const toggleCameraFacing = () => {
+    setCameraFacing((value) => (value === 'front' ? 'back' : 'front'));
+  };
+
+  const goBackFromMatchFlow = () => {
+    setScreen(matchBackScreen);
+  };
+
+  const startTherapistMatchFromPlan = async () => {
+    startTherapistMatch('plan');
+  };
+
+  const startTherapistMatchFromCare = async () => {
+    startTherapistMatch('care');
   };
 
   const completeTherapistSearch = async () => {
     try {
       const therapists = await requestAvailableTherapists();
       if (!therapists.length) {
-        setScreen('plan');
+        setScreen(matchBackScreen);
         Alert.alert('未找到康复师');
         return;
       }
       setTherapistProfile(therapists[0].profile);
       setScreen('profile');
     } catch (error) {
-      setScreen('plan');
+      setScreen(matchBackScreen);
       showFriendlyError(
-        '康复师 Search Failed',
-          '暂时无法查询康复师，请稍后重试。',
-        '康复师 search failed',
+        '康复师查询失败',
+        '暂时无法查询康复师，请稍后重试。',
+        '康复师查询失败',
         error,
       );
     }
@@ -1536,7 +1584,6 @@ export default function App() {
             analysisResult={analysisResult}
             onOpenStrokeEducation={() => setScreen('strokeEducation')}
             onOpenPeerSupport={() => setScreen('peerSupport')}
-            onOpenFeedback={() => setScreen('feedback')}
           />
         )}
         {screen === 'strokeEducation' && <EducationDetailScreen kind="basics" onBack={() => setScreen('home')} />}
@@ -1545,7 +1592,7 @@ export default function App() {
           <FeedbackScreen
             patientUserId={accountSession?.role === 'patient' ? accountSession.userId : null}
             analysisResult={analysisResult}
-            onBack={() => setScreen('home')}
+            onBack={() => setScreen('patient我的')}
           />
         )}
         {screen === 'assessment' && <AssessmentScreen onOpenPackage={openPackage} />}
@@ -1560,8 +1607,11 @@ export default function App() {
           <PatientCareScreen
             person={matchedTherapist}
             matchId={matchId}
-            onStartMatch={startTherapistMatch}
-            onOpenProfile={() => setScreen('profile')}
+            onStartMatch={startTherapistMatchFromCare}
+            onOpenProfile={() => {
+              setMatchBackScreen('patientCare');
+              setScreen('profile');
+            }}
           />
         )}
         {screen === 'patient我的' && (
@@ -1572,6 +1622,7 @@ export default function App() {
               setPatientOnboardingBackScreen('patient我的');
               setScreen('patientOnboarding');
             }}
+            onOpenFeedback={() => setScreen('feedback')}
             onLogout={logoutPatient}
           />
         )}
@@ -1588,9 +1639,11 @@ export default function App() {
             isCameraOpen={isCameraOpen}
             isRecording={isRecording}
             cameraRef={cameraRef}
+            cameraFacing={cameraFacing}
             canGeneratePlan={canGeneratePlan}
             onBack={() => setScreen('home')}
             onOpenCamera={openCamera}
+            onToggleCamera={toggleCameraFacing}
             onStartRecording={startRecording}
             onStopRecording={stopRecording}
             onRetryAction={retryAction}
@@ -1652,7 +1705,7 @@ export default function App() {
             dayExercises={dayExercises}
             onSelectDay={setSelectedDay}
             onBack={() => setScreen('problems')}
-            onMatch={startTherapistMatch}
+            onMatch={startTherapistMatchFromPlan}
             onDemo={(exercise) => {
               setSelectedExercise(exercise);
               setScreen('demo');
@@ -1667,8 +1720,8 @@ export default function App() {
             onTogglePlay={() => setShowDemo((value) => !value)}
           />
         )}
-        {screen === 'match' && <MatchScreen onBack={() => setScreen('plan')} onMatched={completeTherapistSearch} />}
-        {screen === 'profile' && <ProfileScreen person={matchedTherapist} onBack={() => setScreen('plan')} onConfirm={confirmTherapistMatch} />}
+        {screen === 'match' && <MatchScreen onBack={goBackFromMatchFlow} onMatched={completeTherapistSearch} />}
+        {screen === 'profile' && <ProfileScreen person={matchedTherapist} onBack={goBackFromMatchFlow} onConfirm={confirmTherapistMatch} />}
         {screen === 'waiting' && <WaitingScreen person={matchedTherapist} matchId={matchId} onBack={() => setScreen('profile')} />}
         {showPatientTabs && <PatientBottomTabs activeTab={activePatientTab} onSelect={goToPatientTab} />}
       </SafeAreaView>
@@ -2037,13 +2090,11 @@ function HomeScreen({
   analysisResult,
   onOpenStrokeEducation,
   onOpenPeerSupport,
-  onOpenFeedback,
 }: {
   patientProfile: PatientProfile;
   analysisResult: UpperLimbAnalysisResult | null;
   onOpenStrokeEducation: () => void;
   onOpenPeerSupport: () => void;
-  onOpenFeedback: () => void;
 }) {
   const topProblem = analysisResult?.functionalProblems[0]
     ? translateProblemTitle(analysisResult.functionalProblems[0].id, analysisResult.functionalProblems[0].title)
@@ -2083,14 +2134,6 @@ function HomeScreen({
           <View style={styles.educationCopy}>
             <Text style={styles.educationTitle}>家属与同伴支持</Text>
             <Text style={styles.educationText}>我们计划建立有管理的卒中社区，让家属分享日常经验，同时避免不安全建议。</Text>
-          </View>
-          <Ionicons name="chevron-forward" size={20} color="#7f91a7" />
-        </Pressable>
-        <Pressable style={tapStyle(styles.educationCard)} onPress={onOpenFeedback}>
-          <Ionicons name="create" size={23} color="#8b5cf6" />
-          <View style={styles.educationCopy}>
-            <Text style={styles.educationTitle}>提交反馈</Text>
-            <Text style={styles.educationText}>告诉我们哪里不清楚、哪里需要改进，或你的家庭还需要什么支持。</Text>
           </View>
           <Ionicons name="chevron-forward" size={20} color="#7f91a7" />
         </Pressable>
@@ -2183,7 +2226,90 @@ function EducationDetailScreen({ kind, onBack }: { kind: 'basics' | 'support'; o
           <Ionicons name="information-circle" size={20} color="#0b756d" />
           <Text style={styles.educationSafetyText}>本应用用于辅助康复计划制定，不能替代康复师、医生或紧急医疗服务。</Text>
         </View>
+        {isBasics && <StrokeAssistantCard />}
       </ScrollView>
+    </View>
+  );
+}
+
+function buildStrokeAssistantReply(question: string): string {
+  const q = question.toLowerCase();
+  if (q.includes('痛') || q.includes('pain')) {
+    return '如果出现尖锐疼痛、新发肩痛、胸痛、头晕或功能突然变差，请立即停止训练并联系医生或康复师。轻微用力感可以有，但训练目标不是忍痛。';
+  }
+  if (q.includes('累') || q.includes('疲劳') || q.includes('fatigue')) {
+    return '卒中后疲劳很常见。建议优先保证动作质量，短时间、多休息，比硬撑到动作变形更安全。休息后如果动作仍能控制，再继续。';
+  }
+  if (q.includes('手') || q.includes('手指') || q.includes('抓')) {
+    return '手功能训练可从慢慢张手、轻柔抓握-释放、拿轻物开始。若手指僵硬明显或疼痛，不要强行掰开，应咨询康复师。';
+  }
+  if (q.includes('多久') || q.includes('每天') || q.includes('训练')) {
+    return '多数居家康复强调高质量、任务相关、可重复的练习。可以从较短的每日训练开始，根据疲劳、疼痛和动作质量调整，最好让康复师确认剂量。';
+  }
+  return '我可以解释卒中康复基础、居家训练、疲劳、疼痛警示和如何安全使用患侧上肢。涉及诊断、用药、突然加重或急症时，请联系医生或急救服务。';
+}
+
+function StrokeAssistantCard() {
+  const [messages, setMessages] = useState<ChatMessage[]>([
+    {
+      role: 'assistant',
+      text: '你可以问我卒中康复基础、居家训练、疲劳、疼痛警示，或如何安全使用患侧上肢。',
+    },
+  ]);
+  const [question, setQuestion] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  const sendQuestion = async () => {
+    const trimmed = question.trim();
+    if (!trimmed || busy) return;
+    setMessages((prev) => [...prev, { role: 'user', text: trimmed }]);
+    setQuestion('');
+    setBusy(true);
+    try {
+      const answer = await requestStrokeAssistant(trimmed, { screen: 'strokeEducation' });
+      setMessages((prev) => [...prev, { role: 'assistant', text: answer }]);
+    } catch {
+      setMessages((prev) => [...prev, { role: 'assistant', text: buildStrokeAssistantReply(trimmed) }]);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <View style={styles.assistantCard}>
+      <View style={styles.assistantHeader}>
+        <View style={styles.assistantIcon}>
+          <Ionicons name="sparkles" size={22} color="#ffffff" />
+        </View>
+        <View style={styles.assistantHeaderCopy}>
+          <Text style={styles.assistantTitle}>AI 卒中康复助手</Text>
+          <Text style={styles.assistantSubtitle}>提供基础教育，不替代医生或急救</Text>
+        </View>
+      </View>
+      <View style={styles.assistantMessages}>
+        {messages.slice(-4).map((message, index) => (
+          <View key={`${message.role}-${index}-${message.text}`} style={[styles.assistantBubble, message.role === 'user' && styles.assistantBubbleUser]}>
+            <Text style={[styles.assistantBubbleText, message.role === 'user' && styles.assistantBubbleTextUser]}>{message.text}</Text>
+          </View>
+        ))}
+        {busy && (
+          <View style={styles.assistantBubble}>
+            <ActivityIndicator color="#1267e6" />
+          </View>
+        )}
+      </View>
+      <View style={styles.assistantInputRow}>
+        <TextInput
+          value={question}
+          onChangeText={setQuestion}
+          placeholder="输入你的康复问题..."
+          placeholderTextColor="#7a8fa8"
+          style={styles.assistantInput}
+        />
+        <Pressable style={tapStyle(styles.assistantSendButton)} onPress={sendQuestion}>
+          {busy ? <ActivityIndicator color="#ffffff" /> : <Ionicons name="send" size={18} color="#ffffff" />}
+        </Pressable>
+      </View>
     </View>
   );
 }
@@ -2334,15 +2460,9 @@ function PatientTrainingScreen({
           <Text style={styles.tabHeroText}>
             {hasPlan
               ? '你的每周训练计划已准备好。打开后可查看今日训练和动作示范。'
-              : '完成动作采集和分析后，这里会显示与你功能问题匹配的训练计划。'}
+              : '开始评估后，系统会根据你的功能问题生成训练计划。'}
           </Text>
           <PrimaryLightButton label={hasPlan ? '打开每周计划' : '先开始评估'} icon={hasPlan ? 'calendar' : 'videocam'} onPress={hasPlan ? onOpenPlan : onStartAssessment} />
-        </View>
-        <View style={styles.formCard}>
-          <Text style={styles.formSectionTitle}>这里会显示</Text>
-          <InfoRow label="每日训练" value="剂量、组数、次数" />
-          <InfoRow label="动作示范" value="视频指导" />
-          <InfoRow label="训练反馈" value="疼痛、疲劳、完成情况" />
         </View>
       </ScrollView>
     </View>
@@ -2369,15 +2489,9 @@ function PatientCareScreen({
           </View>
           <Text style={styles.tabHeroTitle}>照护团队</Text>
           <Text style={styles.tabHeroText}>
-            {matchId ? '你的康复师请求已发送。等待回应时可以查看匹配资料。' : '生成训练计划后，为你匹配康复师和居家支持网络。'}
+            {matchId ? '你的康复师请求已发送。等待回应时可以查看匹配资料。' : '当你准备好获得专业支持时，可以请求匹配康复师。'}
           </Text>
           <PrimaryLightButton label={matchId ? '查看匹配康复师' : '匹配 AXONAI 康复师'} icon={matchId ? 'person-circle' : 'search'} onPress={matchId ? onOpenProfile : onStartMatch} />
-        </View>
-        <View style={styles.formCard}>
-          <Text style={styles.formSectionTitle}>推荐匹配</Text>
-          <InfoRow label="康复师" value={person.name} />
-          <InfoRow label="专长" value={person.tags[0]} />
-          <InfoRow label="匹配度" value={person.matchScore} />
         </View>
       </ScrollView>
     </View>
@@ -2388,11 +2502,13 @@ function PatientMeScreen({
   profile,
   account,
   onEditProfile,
+  onOpenFeedback,
   onLogout,
 }: {
   profile: PatientProfile;
   account: AccountSession | null;
   onEditProfile: () => void;
+  onOpenFeedback: () => void;
   onLogout: () => void;
 }) {
   return (
@@ -2418,6 +2534,7 @@ function PatientMeScreen({
         </View>
 
         <PrimaryLightButton label="编辑患者资料" icon="create" onPress={onEditProfile} />
+        <PrimaryLightButton label="提交反馈" icon="chatbox-ellipses" onPress={onOpenFeedback} />
         <Pressable style={tapStyle(styles.logoutButton)} onPress={onLogout}>
           <Ionicons name="log-out" size={18} color="#c62828" />
           <Text style={styles.logoutButtonText}>Log out</Text>
@@ -2439,9 +2556,11 @@ function CollectScreen({
   isCameraOpen,
   isRecording,
   cameraRef,
+  cameraFacing,
   canGeneratePlan,
   onBack,
   onOpenCamera,
+  onToggleCamera,
   onStartRecording,
   onStopRecording,
   onRetryAction,
@@ -2460,9 +2579,11 @@ function CollectScreen({
   isCameraOpen: boolean;
   isRecording: boolean;
   cameraRef: React.MutableRefObject<CameraView | null>;
+  cameraFacing: 'front' | 'back';
   canGeneratePlan: boolean;
   onBack: () => void;
   onOpenCamera: () => void;
+  onToggleCamera: () => void;
   onStartRecording: () => void;
   onStopRecording: () => void;
   onRetryAction: () => void;
@@ -2539,7 +2660,7 @@ function CollectScreen({
 
         <View style={styles.cameraFrame}>
           {isCameraOpen ? (
-            <CameraView ref={cameraRef} style={styles.camera} facing="front" mode="video" />
+            <CameraView ref={cameraRef} style={styles.camera} facing={cameraFacing} mode="video" />
           ) : (
             <View style={styles.cameraEmpty}>
               <Ionicons name="videocam" size={48} color="#8197b4" />
@@ -2549,8 +2670,14 @@ function CollectScreen({
           )}
           <View style={styles.cameraBadge}>
             <Ionicons name="scan" size={14} color="#ffffff" />
-            <Text style={styles.cameraBadgeText}>{currentAction.cameraView}，距离约1.5米</Text>
+            <Text style={styles.cameraBadgeText}>{currentAction.cameraView}，{cameraFacing === 'front' ? '前置摄像头' : '后置摄像头'}</Text>
           </View>
+          {isCameraOpen && !isRecording && (
+            <Pressable style={tapStyle(styles.cameraSwitchButton)} onPress={onToggleCamera}>
+              <Ionicons name="camera-reverse" size={18} color="#ffffff" />
+              <Text style={styles.cameraSwitchText}>{cameraFacing === 'front' ? '前置' : '后置'}</Text>
+            </Pressable>
+          )}
           {showCameraOverlay && (
             <View style={[styles.cameraQualityOverlay, overlayPassed && styles.cameraQualityOverlayPass, overlayFailed && styles.cameraQualityOverlayFail]}>
               {isCheckingQuality ? <ActivityIndicator color="#ffffff" /> : <Ionicons name={overlayPassed ? 'checkmark-circle' : overlayFailed ? 'alert-circle' : 'radio-button-on'} size={38} color="#ffffff" />}
@@ -3505,6 +3632,20 @@ const styles = StyleSheet.create({
   lessonBody: { color: '#60738d', fontSize: 14, lineHeight: 21, marginTop: 5 },
   educationSafetyNote: { alignItems: 'flex-start', backgroundColor: '#e8fbf8', borderColor: '#bdeee7', borderRadius: 18, borderWidth: 1, flexDirection: 'row', gap: 10, marginTop: 4, padding: 14 },
   educationSafetyText: { color: '#103c39', flex: 1, fontSize: 13, fontWeight: '800', lineHeight: 19 },
+  assistantCard: { backgroundColor: '#ffffff', borderColor: '#d9e3f0', borderRadius: 22, borderWidth: 1, gap: 13, marginTop: 14, padding: 16, shadowColor: '#143664', shadowOpacity: 0.08, shadowRadius: 12 },
+  assistantHeader: { alignItems: 'center', flexDirection: 'row', gap: 12 },
+  assistantIcon: { alignItems: 'center', backgroundColor: '#1267e6', borderRadius: 18, height: 44, justifyContent: 'center', width: 44 },
+  assistantHeaderCopy: { flex: 1 },
+  assistantTitle: { color: '#102033', fontSize: 18, fontWeight: '900' },
+  assistantSubtitle: { color: '#60738d', fontSize: 12, fontWeight: '800', marginTop: 3 },
+  assistantMessages: { gap: 8 },
+  assistantBubble: { alignSelf: 'flex-start', backgroundColor: '#eef3f9', borderRadius: 16, maxWidth: '92%', paddingHorizontal: 12, paddingVertical: 10 },
+  assistantBubbleUser: { alignSelf: 'flex-end', backgroundColor: '#1267e6' },
+  assistantBubbleText: { color: '#26384d', fontSize: 13, fontWeight: '700', lineHeight: 19 },
+  assistantBubbleTextUser: { color: '#ffffff' },
+  assistantInputRow: { alignItems: 'center', flexDirection: 'row', gap: 9 },
+  assistantInput: { backgroundColor: '#f3f7fc', borderColor: '#d9e3f0', borderRadius: 16, borderWidth: 1, color: '#102033', flex: 1, fontSize: 14, minHeight: 46, paddingHorizontal: 12 },
+  assistantSendButton: { alignItems: 'center', backgroundColor: '#1267e6', borderRadius: 16, height: 46, justifyContent: 'center', width: 48 },
   feedbackHeroCard: { backgroundColor: '#ffffff', borderColor: '#e1e8f2', borderRadius: 24, borderWidth: 1, marginBottom: 14, padding: 18, shadowColor: '#143664', shadowOpacity: 0.08, shadowRadius: 12 },
   feedbackHeroIcon: { alignItems: 'center', backgroundColor: '#8b5cf6', borderRadius: 22, height: 56, justifyContent: 'center', marginBottom: 14, width: 56 },
   feedbackHeroTitle: { color: '#102033', fontSize: 24, fontWeight: '900' },
@@ -3619,6 +3760,8 @@ const styles = StyleSheet.create({
   cameraEmptyText: { color: '#aabbd0', fontSize: 14, lineHeight: 21, marginTop: 8, textAlign: 'center' },
   cameraBadge: { alignItems: 'center', bottom: 12, flexDirection: 'row', gap: 6, left: 13, position: 'absolute' },
   cameraBadgeText: { color: '#ffffff', fontSize: 12, fontWeight: '800' },
+  cameraSwitchButton: { alignItems: 'center', backgroundColor: 'rgba(7,20,38,0.78)', borderColor: 'rgba(255,255,255,0.22)', borderRadius: 16, borderWidth: 1, flexDirection: 'row', gap: 6, paddingHorizontal: 11, paddingVertical: 9, position: 'absolute', right: 12, top: 12 },
+  cameraSwitchText: { color: '#ffffff', fontSize: 12, fontWeight: '900' },
   cameraQualityOverlay: { alignItems: 'center', alignSelf: 'center', backgroundColor: 'rgba(18,103,230,0.9)', borderRadius: 22, gap: 8, justifyContent: 'center', minWidth: 210, paddingHorizontal: 18, paddingVertical: 16, position: 'absolute', top: '38%' },
   cameraQualityOverlayPass: { backgroundColor: 'rgba(24,195,126,0.92)' },
   cameraQualityOverlayFail: { backgroundColor: 'rgba(255,159,10,0.92)' },
