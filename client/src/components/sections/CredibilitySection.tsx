@@ -9,33 +9,23 @@ import FadeIn from "@/components/FadeIn";
 
 const teamMembers = [
   {
-    name: "Fatima Al-ani",
+    name: "Molly Wang",
     role: "Co-founder & CEO",
-    bg: "Google DeepMind",
-    bgShort: "DeepMind",
-    expertise: "Neurorehabilitation · Computer Vision",
+    bg: "Imperial College London",
+    bgShort: "Imperial",
+    expertise: "Clinical Operations · NHS Partnerships",
     color: "#00D4AA",
-    initials: "FA",
+    initials: "MW",
   },
   {
     name: "Jevon Charles",
-    role: "Co-Founder & CTO",
+    role: "Co-founder & CTO",
     bg: "Google DeepMind",
     bgShort: "DeepMind",
     expertise: "Software Engineering",
     color: "#8B5CF6",
     initials: "JC",
   },
-  {
-    name: "Molly Wang",
-    role: "Co-founder & COO",
-    bg: "Imperial College London",
-    bgShort: "Imperial",
-    expertise: "Clinical Operations · NHS Partnerships",
-    color: "#00A8FF",
-    initials: "MW",
-  },
-
 ];
 
 const partners = [
@@ -108,7 +98,7 @@ export default function CredibilitySection() {
 
 
         {/* Team cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 mb-20">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 mb-20 max-w-2xl mx-auto">
           {teamMembers.map((member, i) => (
             <FadeIn key={i} delay={i * 100}>
               <div

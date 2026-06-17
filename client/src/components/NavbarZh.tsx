@@ -93,12 +93,14 @@ export default function Navbar() {
               <span style={{ fontSize: "10px" }}>🌐</span>
               EN
             </a>
-            <button
-              onClick={() => scrollTo("cta")}
+            <a
+              href="https://docs.google.com/forms/d/e/1FAIpQLScjsGeSgaLVdgi1JqqsvB-q_jnw2Ny7ucdP3WjGT_R3lEx_Cw/viewform"
+              target="_blank"
+              rel="noopener noreferrer"
               className="text-sm font-medium px-4 py-2 rounded-lg transition-all duration-200 btn-outline-teal"
             >
               预约演示
-            </button>
+            </a>
             <button
               onClick={() => scrollTo("cta")}
               className="text-sm font-semibold px-4 py-2 rounded-lg btn-primary-teal"

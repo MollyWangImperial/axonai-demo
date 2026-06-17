@@ -118,13 +118,15 @@ export default function HeroSection() {
           >
             Start Your Assessment
           </button>
-          <button
-            onClick={() => scrollTo("demo")}
+          <a
+            href="https://docs.google.com/forms/d/e/1FAIpQLScjsGeSgaLVdgi1JqqsvB-q_jnw2Ny7ucdP3WjGT_R3lEx_Cw/viewform"
+            target="_blank"
+            rel="noopener noreferrer"
             className="px-8 py-4 rounded-xl text-base font-medium btn-outline-teal"
             style={{ minWidth: "160px" }}
           >
             Book a Demo →
-          </button>
+          </a>
         </div>
 
         {/* Floating metric badges */}

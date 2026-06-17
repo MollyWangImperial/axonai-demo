@@ -82,12 +82,14 @@ export default function NavbarEn() {
             >
               中文
             </button>
-            <button
-              onClick={() => scrollTo("cta-en")}
+            <a
+              href="https://docs.google.com/forms/d/e/1FAIpQLScjsGeSgaLVdgi1JqqsvB-q_jnw2Ny7ucdP3WjGT_R3lEx_Cw/viewform"
+              target="_blank"
+              rel="noopener noreferrer"
               className="text-sm font-medium px-4 py-2 rounded-lg transition-all duration-200 btn-outline-teal"
             >
               Book Demo
-            </button>
+            </a>
             <button
               onClick={() => scrollTo("cta-en")}
               className="text-sm font-semibold px-4 py-2 rounded-lg btn-primary-teal"
